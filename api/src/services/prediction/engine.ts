@@ -118,9 +118,12 @@ export class PredictionEngine {
         xgAdjustment
       );
 
-      // 12. Salva xG nel database
-      if (xgData) {
+      // 12. Salva xG nel database (solo se NON è un ID temporaneo per analisi manuali)
+      const isTemporaryFixture = input.fixtureId >= 1000000000;
+      if (xgData && !isTemporaryFixture) {
         await this.saveExpectedGoals(input.fixtureId, xgData);
+      } else if (isTemporaryFixture) {
+        logger.debug({ fixtureId: input.fixtureId }, 'Skipping xG save for temporary fixture (manual analysis)');
       }
 
       // 13. Costruisci risposta
@@ -137,7 +140,9 @@ export class PredictionEngine {
         poissonResult.lambdaHome,
         poissonResult.lambdaAway,
         poissonResult.homeAdvantage,
-        xgData
+        xgData,
+        homeHistory,
+        awayHistory
       );
 
     } catch (error) {
@@ -390,9 +395,17 @@ export class PredictionEngine {
     lambdaHome: number,
     lambdaAway: number,
     homeAdvantage: number,
-    xgData: ExpectedGoalsData | null
+    xgData: ExpectedGoalsData | null,
+    homeHistory: MatchHistoryData[],
+    awayHistory: MatchHistoryData[]
   ): PredictionResponse {
     const { empiric, poisson, final } = blendedResult;
+    
+    // Calcola xG/xGA medio dalla storia delle partite
+    const homeXGAvg = this.calculateAvgXG(homeHistory, true);
+    const homeXGAAvg = this.calculateAvgXG(homeHistory, false);
+    const awayXGAvg = this.calculateAvgXG(awayHistory, true);
+    const awayXGAAvg = this.calculateAvgXG(awayHistory, false);
 
     return {
       id: 0, // Sarà impostato dal database
@@ -483,6 +496,18 @@ export class PredictionEngine {
         homeAdvantage,
       },
       
+      // Team xG/xGA stats from historical matches
+      teamStats: {
+        home: {
+          xg: homeXGAvg,
+          xga: homeXGAAvg,
+        },
+        away: {
+          xg: awayXGAvg,
+          xga: awayXGAAvg,
+        },
+      },
+      
       // xG data (optional)
       ...(xgData && {
         xgModel: {
@@ -520,6 +545,12 @@ export class PredictionEngine {
 
     const ndValue = { prob: 0.33 };
     const ndMarket = { under: 0.5, over: 0.5 };
+    
+    // Calcola xG/xGA anche per ND (se ci sono almeno alcune partite)
+    const homeXGAvg = this.calculateAvgXG(homeHistory, true);
+    const homeXGAAvg = this.calculateAvgXG(homeHistory, false);
+    const awayXGAvg = this.calculateAvgXG(awayHistory, true);
+    const awayXGAAvg = this.calculateAvgXG(awayHistory, false);
 
     return {
       id: 0,
@@ -563,6 +594,17 @@ export class PredictionEngine {
         homeAdvantage: 0,
       },
       
+      teamStats: {
+        home: {
+          xg: homeXGAvg,
+          xga: homeXGAAvg,
+        },
+        away: {
+          xg: awayXGAvg,
+          xga: awayXGAAvg,
+        },
+      },
+      
       dataQuality: 'INSUFFICIENT',
       hasInjuries: false,
       hasLineup: false,
@@ -570,6 +612,25 @@ export class PredictionEngine {
       calculatedAt: new Date(),
       lastUpdate: new Date(),
     };
+  }
+  
+  /**
+   * Calcola xG/xGA medio dalla storia delle partite
+   * Per ora usa i goal reali come proxy degli xG (in futuro potremmo recuperare xG reali dall'API)
+   */
+  private calculateAvgXG(history: MatchHistoryData[], forGoals: boolean): number {
+    if (history.length === 0) return 0;
+    
+    const totalXG = history.reduce((sum, match) => {
+      // Se forGoals=true, calcola xG (goal fatti)
+      // Se forGoals=false, calcola xGA (goal subiti)
+      const goals = forGoals 
+        ? (match.isHome ? match.homeGoals : match.awayGoals)
+        : (match.isHome ? match.awayGoals : match.homeGoals);
+      return sum + goals;
+    }, 0);
+    
+    return parseFloat((totalXG / history.length).toFixed(2));
   }
 }
 

@@ -1,12 +1,11 @@
 /**
- * Enhanced Predictions Table Component
- * Displays match predictions with detailed statistics for betting decisions
+ * Clean Predictions Table Component
+ * Simple and professional design for match predictions
  */
 
 'use client';
 
-import { MatchPrediction, ValueBet } from '@/types';
-import StrengthBadge from './StrengthBadge';
+import { MatchPrediction } from '@/types';
 
 interface PredictionsTableProps {
   predictions: MatchPrediction[];
@@ -14,68 +13,51 @@ interface PredictionsTableProps {
 
 export default function PredictionsTable({ predictions }: PredictionsTableProps) {
   
-  const getValueBetColor = (value: number) => {
-    if (value >= 5) return 'text-green-600 bg-green-50 border-green-200';
-    if (value >= 3) return 'text-blue-600 bg-blue-50 border-blue-200';
-    if (value >= 1) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-    return 'text-gray-600 bg-gray-50 border-gray-200';
-  };
-
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 80) return 'text-green-600 bg-green-100';
-    if (confidence >= 60) return 'text-blue-600 bg-blue-100';
-    if (confidence >= 40) return 'text-yellow-600 bg-yellow-100';
-    return 'text-red-600 bg-red-100';
-  };
-
-  const formatPercentage = (value: number) => `${value.toFixed(1)}%`;
-  const formatGoals = (value: number) => value.toFixed(2);
-
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full">
+    <div className="w-full bg-white rounded-lg shadow-lg overflow-hidden">
+      <table className="w-full table-auto border-collapse">
         <thead>
           <tr className="bg-gradient-to-r from-gray-50 to-gray-100">
-            <th className="px-8 py-4 text-left text-xs font-black text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">
+            <th className="px-4 py-4 text-left text-xs font-black text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">
               <div className="flex items-center space-x-2">
                 <span>⚽</span>
                 <span>Match</span>
               </div>
             </th>
-            <th className="px-6 py-4 text-left text-xs font-black text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">
-              <div className="flex items-center space-x-2">
+            <th className="px-3 py-4 text-center text-xs font-black text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">
+              <div className="flex items-center justify-center space-x-1">
                 <span>🎯</span>
-                <span>Expected Goals</span>
+                <span>xG</span>
               </div>
             </th>
-            <th className="px-6 py-4 text-left text-xs font-black text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">
-              <div className="flex items-center space-x-2">
+            <th className="px-3 py-4 text-left text-xs font-black text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">
+              <div className="flex items-center space-x-1">
                 <span>📊</span>
-                <span>Probabilità 1X2</span>
+                <span>1X2</span>
               </div>
             </th>
-            <th className="px-6 py-4 text-left text-xs font-black text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">
-              <div className="flex items-center space-x-2">
+            <th className="px-3 py-4 text-left text-xs font-black text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">
+              <div className="flex items-center space-x-1">
                 <span>🔢</span>
-                <span>Over/Under</span>
+                <span>Over/Under + BTTS</span>
               </div>
             </th>
-            <th className="px-6 py-4 text-left text-xs font-black text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">
-              <div className="flex items-center space-x-2">
+            <th className="px-3 py-4 text-center text-xs font-black text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">
+              <div className="flex items-center justify-center space-x-1">
                 <span>🔥</span>
                 <span>Confidence</span>
               </div>
             </th>
-            <th className="px-6 py-4 text-left text-xs font-black text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">
-              <div className="flex items-center space-x-2">
+            <th className="px-3 py-4 text-left text-xs font-black text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">
+              <div className="flex items-center space-x-1">
                 <span>💎</span>
-                <span>Value Betting</span>
+                <span>Value Bet</span>
               </div>
             </th>
-            <th className="px-6 py-4 text-left text-xs font-black text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">
-              <div className="flex items-center space-x-2">
+            <th className="px-3 py-4 text-center text-xs font-black text-gray-700 uppercase tracking-wider border-b-2 border-gray-200">
+              <div className="flex items-center justify-center space-x-1">
                 <span>🎖️</span>
-                <span>Raccomandazione</span>
+                <span>Consiglio</span>
               </div>
             </th>
           </tr>
@@ -88,25 +70,25 @@ export default function PredictionsTable({ predictions }: PredictionsTableProps)
             return (
               <tr key={prediction.id} className="border-b border-gray-100 hover:bg-gradient-to-r hover:from-emerald-50/50 hover:to-blue-50/50 transition-all duration-300">
                 {/* Match */}
-                <td className="px-8 py-6">
-                  <div className="flex flex-col space-y-2">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-3 h-3 bg-gradient-to-r from-emerald-500 to-blue-600 rounded-full"></div>
+                <td className="px-4 py-4">
+                  <div className="flex flex-col space-y-1">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-gradient-to-r from-emerald-500 to-blue-600 rounded-full"></div>
                       <div className="text-sm font-bold text-gray-900">
                         {prediction.homeTeam}
                       </div>
                     </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full"></div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full"></div>
                       <div className="text-sm font-bold text-gray-700">
                         {prediction.awayTeam}
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2 mt-2 pt-2 border-t border-gray-100">
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                        📅 {new Date(prediction.date).toLocaleDateString('it-IT')}
+                    <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-gray-100">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                        📅 {new Date(prediction.date).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })}
                       </span>
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
                         🏆 {prediction.league}
                       </span>
                     </div>
@@ -114,38 +96,34 @@ export default function PredictionsTable({ predictions }: PredictionsTableProps)
                 </td>
 
                 {/* Expected Goals */}
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-3 py-4 text-center">
                   <div className="text-center">
-                    <div className="text-lg font-bold text-gray-900 mb-1">
+                    <div className="text-base font-bold text-gray-900 mb-1">
                       {formatGoals(prediction.predictions.homeGoals)} - {formatGoals(prediction.predictions.awayGoals)}
                     </div>
                     <div className="text-xs text-gray-500">
-                      Total: {formatGoals(totalGoals)}
-                    </div>
-                    <div className="flex justify-between text-xs text-gray-400 mt-1">
-                      <span>🏠 {formatGoals(prediction.predictions.homeGoals)}</span>
-                      <span>✈️ {formatGoals(prediction.predictions.awayGoals)}</span>
+                      Tot: {formatGoals(totalGoals)}
                     </div>
                   </div>
                 </td>
 
                 {/* Probabilità 1X2 */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="space-y-1">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">🏠 Vittoria Casa:</span>
+                <td className="px-3 py-4">
+                  <div className="space-y-1 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">🏠 Casa:</span>
                       <span className="font-semibold text-green-600">
                         {formatPercentage(prediction.predictions.prob1)}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">🤝 Pareggio:</span>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">🤝 X:</span>
                       <span className="font-semibold text-blue-600">
                         {formatPercentage(prediction.predictions.probX)}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">✈️ Vittoria Trasferta:</span>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">✈️ Trasf:</span>
                       <span className="font-semibold text-red-600">
                         {formatPercentage(prediction.predictions.prob2)}
                       </span>
@@ -154,47 +132,142 @@ export default function PredictionsTable({ predictions }: PredictionsTableProps)
                 </td>
 
                 {/* Over/Under */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-center">
-                    <div className="text-sm font-semibold text-gray-900 mb-2">
-                      O/U 2.5
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Over 2.5:</span>
-                        <span className={`font-semibold ${totalGoals > 2.5 ? 'text-green-600' : 'text-gray-500'}`}>
-                          {totalGoals > 2.5 ? formatPercentage(65) : formatPercentage(35)}
-                        </span>
+                <td className="px-6 py-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Over/Under 0.5 */}
+                    {prediction.overUnder?.over05 !== undefined && (
+                      <div className="text-xs bg-gray-50 rounded-lg p-2">
+                        <div className="font-bold text-gray-700 mb-1 text-center">O/U 0.5</div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">O:</span>
+                          <span className="font-semibold text-green-600">
+                            {formatPercentage(prediction.overUnder.over05)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">U:</span>
+                          <span className="font-semibold text-red-600">
+                            {formatPercentage(prediction.overUnder.under05 || 0)}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Under 2.5:</span>
-                        <span className={`font-semibold ${totalGoals <= 2.5 ? 'text-green-600' : 'text-gray-500'}`}>
-                          {totalGoals <= 2.5 ? formatPercentage(65) : formatPercentage(35)}
-                        </span>
+                    )}
+                    
+                    {/* Over/Under 1.5 */}
+                    {prediction.overUnder?.over15 !== undefined && (
+                      <div className="text-xs bg-blue-50 rounded-lg p-2">
+                        <div className="font-bold text-gray-700 mb-1 text-center">O/U 1.5</div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">O:</span>
+                          <span className="font-semibold text-green-600">
+                            {formatPercentage(prediction.overUnder.over15)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">U:</span>
+                          <span className="font-semibold text-red-600">
+                            {formatPercentage(prediction.overUnder.under15 || 0)}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-xs text-gray-400 mt-2">
-                      BTTS: {totalGoals > 1.8 && prediction.predictions.homeGoals > 0.7 && prediction.predictions.awayGoals > 0.7 ? '62%' : '38%'}
-                    </div>
+                    )}
+                    
+                    {/* Over/Under 2.5 */}
+                    {prediction.overUnder?.over25 !== undefined && (
+                      <div className="text-xs bg-emerald-50 rounded-lg p-2">
+                        <div className="font-bold text-gray-700 mb-1 text-center">O/U 2.5</div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">O:</span>
+                          <span className="font-semibold text-green-600">
+                            {formatPercentage(prediction.overUnder.over25)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">U:</span>
+                          <span className="font-semibold text-red-600">
+                            {formatPercentage(prediction.overUnder.under25 || 0)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Over/Under 3.5 */}
+                    {prediction.overUnder?.over35 !== undefined && (
+                      <div className="text-xs bg-amber-50 rounded-lg p-2">
+                        <div className="font-bold text-gray-700 mb-1 text-center">O/U 3.5</div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">O:</span>
+                          <span className="font-semibold text-green-600">
+                            {formatPercentage(prediction.overUnder.over35)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">U:</span>
+                          <span className="font-semibold text-red-600">
+                            {formatPercentage(prediction.overUnder.under35 || 0)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Over/Under 4.5 */}
+                    {prediction.overUnder?.over45 !== undefined && (
+                      <div className="text-xs bg-orange-50 rounded-lg p-2">
+                        <div className="font-bold text-gray-700 mb-1 text-center">O/U 4.5</div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">O:</span>
+                          <span className="font-semibold text-green-600">
+                            {formatPercentage(prediction.overUnder.over45)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">U:</span>
+                          <span className="font-semibold text-red-600">
+                            {formatPercentage(prediction.overUnder.under45 || 0)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* BTTS */}
+                    {prediction.btts && (
+                      <div className="text-xs bg-purple-50 rounded-lg p-2 col-span-2">
+                        <div className="font-bold text-gray-700 mb-1 text-center">BTTS</div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Yes:</span>
+                            <span className="font-semibold text-purple-600">
+                              {formatPercentage(prediction.btts.yes)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">No:</span>
+                            <span className="font-semibold text-gray-600">
+                              {formatPercentage(prediction.btts.no)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </td>
 
                 {/* Confidence */}
-                <td className="px-6 py-4 whitespace-nowrap text-center">
-                  <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getConfidenceColor(prediction.confidence)}`}>
+                <td className="px-3 py-4 text-center">
+                  <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold ${getConfidenceColor(prediction.confidence)}`}>
                     {formatPercentage(prediction.confidence)}
                   </div>
-                  <div className="mt-2">
+                  <div className="mt-1">
                     <StrengthBadge strength={prediction.strength as any} />
                   </div>
                 </td>
 
                 {/* Value Betting */}
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-3 py-4">
                   {prediction.valueBets && prediction.valueBets.length > 0 ? (
-                    <div className="space-y-2">
+                    <div className="space-y-1">
                       {prediction.valueBets.map((vb: ValueBet, idx: number) => (
-                        <div key={idx} className={`text-xs p-2 rounded border ${vb.recommend ? getValueBetColor(vb.value) : 'text-gray-400 bg-gray-50'}`}>
+                        <div key={idx} className={`text-xs p-1.5 rounded border ${vb.recommend ? getValueBetColor(vb.value) : 'text-gray-400 bg-gray-50'}`}>
                           <div className="font-semibold">
                             {vb.market}: {vb.selection}
                           </div>
@@ -218,10 +291,10 @@ export default function PredictionsTable({ predictions }: PredictionsTableProps)
                 </td>
 
                 {/* Raccomandazione */}
-                <td className="px-6 py-4 whitespace-nowrap text-center">
+                <td className="px-3 py-4 text-center">
                   {bestValueBet ? (
-                    <div className="space-y-2">
-                      <div className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
+                    <div className="space-y-1">
+                      <div className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-bold">
                         🎯 GIOCA
                       </div>
                       <div className="text-xs text-gray-600">
@@ -233,11 +306,11 @@ export default function PredictionsTable({ predictions }: PredictionsTableProps)
                     </div>
                   ) : (
                     <div className="space-y-1">
-                      <div className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm">
+                      <div className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-bold">
                         ⏸️ SKIP
                       </div>
                       <div className="text-xs text-gray-500">
-                        Nessun valore
+                        No value
                       </div>
                     </div>
                   )}
@@ -262,6 +335,6 @@ export default function PredictionsTable({ predictions }: PredictionsTableProps)
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

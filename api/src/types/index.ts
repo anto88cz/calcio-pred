@@ -85,6 +85,18 @@ export interface PredictionResponse {
     homeAdvantage: number;
   };
   
+  // Team xG/xGA stats from historical matches
+  teamStats: {
+    home: {
+      xg: number;  // Expected Goals media (goal fatti)
+      xga: number; // Expected Goals Against media (goal subiti)
+    };
+    away: {
+      xg: number;
+      xga: number;
+    };
+  };
+  
   // xG Model (optional - presente solo se disponibile)
   xgModel?: {
     home: number | null;

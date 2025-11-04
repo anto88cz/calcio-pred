@@ -19,8 +19,7 @@ class APIFootballClient {
     this.client = axios.create({
       baseURL: config.APIFOOTBALL_BASE,
       headers: {
-        'x-rapidapi-key': config.APIFOOTBALL_KEY,
-        'x-rapidapi-host': 'v3.football.api-sports.io',
+        'x-apisports-key': config.APIFOOTBALL_KEY,
       },
       timeout: 30000,
     });
@@ -183,11 +182,22 @@ class APIFootballClient {
         const response = await this.client.get(endpoint, { params });
 
         // Verifica response API-FOOTBALL
-        if (!response.data || response.data.errors) {
+        if (!response.data) {
+          throw new Error('API-FOOTBALL: no data in response');
+        }
+        
+        if (response.data.errors && Object.keys(response.data.errors).length > 0) {
           throw new Error(`API-FOOTBALL error: ${JSON.stringify(response.data.errors)}`);
         }
 
         const data = response.data.response as T;
+        
+        logger.debug({ 
+          endpoint, 
+          params,
+          dataLength: Array.isArray(data) ? data.length : 'not-array',
+          results: response.data.results 
+        }, 'API-FOOTBALL data received');
 
         // Salva in cache
         if (cache) {

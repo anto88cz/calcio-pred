@@ -9,6 +9,8 @@ import { config, schedulerConfig } from './config';
 import logger from './utils/logger';
 import fixturesRouter from './routes/fixtures.routes';
 import predictionsRouter from './routes/predictions.routes';
+import jobsRouter from './routes/jobs.routes';
+import teamsRouter from './routes/teams.routes';
 import { startScheduler } from './jobs/scheduler';
 
 // Inizializza Express
@@ -49,6 +51,8 @@ app.get('/health', (_req, res) => {
 // API routes
 app.use('/api/fixtures', fixturesRouter);
 app.use('/api/predictions', predictionsRouter);
+app.use('/api/jobs', jobsRouter);
+app.use('/api/teams', teamsRouter);
 
 // 404 handler
 app.use((_req, res) => {

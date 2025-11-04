@@ -96,6 +96,24 @@ export interface MatchPrediction {
     probX: number;
     prob2: number;
   };
+  // Over/Under markets
+  overUnder?: {
+    over05?: number;
+    under05?: number;
+    over15?: number;
+    under15?: number;
+    over25?: number;
+    under25?: number;
+    over35?: number;
+    under35?: number;
+    over45?: number;
+    under45?: number;
+  };
+  // BTTS (Both Teams To Score)
+  btts?: {
+    yes: number;
+    no: number;
+  };
   confidence: number;
   strength: string;
   valueBets?: ValueBet[];

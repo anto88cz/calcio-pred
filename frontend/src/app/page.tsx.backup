@@ -1,10 +1,9 @@
 ﻿'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import ProfessionalPredictionCard from '@/components/ProfessionalPredictionCard';
+import PredictionsTable from '@/components/EnhancedPredictionsTable';
 import { useState, useEffect } from 'react';
 import type { MatchPrediction } from '@/types';
-import { ENV } from '@/config/env';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,13 +24,6 @@ interface TodayMatch {
   status: string;
 }
 
-interface ExtendedMatchPrediction extends MatchPrediction {
-  teamStats?: {
-    home: { xg: number; xga: number };
-    away: { xg: number; xga: number };
-  };
-}
-
 export default function Home() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -43,7 +35,7 @@ export default function Home() {
 function MainApp() {
   const [todayMatches, setTodayMatches] = useState<TodayMatch[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
-  const [prediction, setPrediction] = useState<ExtendedMatchPrediction | null>(null);
+  const [prediction, setPrediction] = useState<MatchPrediction | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -58,7 +50,7 @@ function MainApp() {
     setError(null);
     
     try {
-      const response = await fetch(`${ENV.API_URL}/api/fixtures/today`);
+      const response = await fetch('http://localhost:3001/api/fixtures/today');
       const data = await response.json();
       
       if (data.success) {
@@ -81,7 +73,7 @@ function MainApp() {
       setError(null);
       setPrediction(null);
 
-      const response = await fetch(`${ENV.API_URL}/api/predictions/calculate-by-name`, {
+      const response = await fetch('http://localhost:3001/api/predictions/calculate-by-name', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -93,43 +85,23 @@ function MainApp() {
       if (response.ok) {
         const data = await response.json();
         
-        // Log per debug
-        console.log('🔍 Dati ricevuti dal backend:', data);
-        
-        const mappedPrediction: ExtendedMatchPrediction = {
+        const mappedPrediction: MatchPrediction = {
           id: Date.now().toString(),
           homeTeam,
           awayTeam,
           league: competition,
           date: new Date().toLocaleString('it-IT'),
           predictions: {
-            homeGoals: data.poissonParams?.lambdaHome || 1.5,
-            awayGoals: data.poissonParams?.lambdaAway || 1.2,
-            totalGoals: (data.poissonParams?.lambdaHome || 1.5) + (data.poissonParams?.lambdaAway || 1.2),
-            prob1: (data.market1X2?.final?.prob1 || 0.5) * 100,
-            probX: (data.market1X2?.final?.probX || 0.25) * 100,
-            prob2: (data.market1X2?.final?.prob2 || 0.25) * 100,
-          },
-          overUnder: {
-            over05: (data.marketUnderOver?.['0.5']?.final?.over || 0.5) * 100,
-            under05: (data.marketUnderOver?.['0.5']?.final?.under || 0.5) * 100,
-            over15: (data.marketUnderOver?.['1.5']?.final?.over || 0.5) * 100,
-            under15: (data.marketUnderOver?.['1.5']?.final?.under || 0.5) * 100,
-            over25: (data.marketUnderOver?.['2.5']?.final?.over || 0.5) * 100,
-            under25: (data.marketUnderOver?.['2.5']?.final?.under || 0.5) * 100,
-            over35: (data.marketUnderOver?.['3.5']?.final?.over || 0.5) * 100,
-            under35: (data.marketUnderOver?.['3.5']?.final?.under || 0.5) * 100,
-            over45: (data.marketUnderOver?.['4.5']?.final?.over || 0.5) * 100,
-            under45: (data.marketUnderOver?.['4.5']?.final?.under || 0.5) * 100,
-          },
-          btts: {
-            yes: (data.marketBTTS?.final?.yes || 0.5) * 100,
-            no: (data.marketBTTS?.final?.no || 0.5) * 100,
+            homeGoals: data.lambdaHome || 1.5,
+            awayGoals: data.lambdaAway || 1.2,
+            totalGoals: (data.lambdaHome || 1.5) + (data.lambdaAway || 1.2),
+            prob1: (data.prob1Final || 0.5) * 100,
+            probX: (data.probXFinal || 0.25) * 100,
+            prob2: (data.prob2Final || 0.25) * 100,
           },
           confidence: (data.confidence || 0.7) * 100,
-          strength: data.market1X2?.strength || 'MEDIO',
+          strength: data.strength1X2 || 'MEDIO',
           valueBets: [],
-          teamStats: data.teamStats,
         };
         
         setPrediction(mappedPrediction);
@@ -286,76 +258,39 @@ function MainApp() {
                   <p className="text-gray-500 mt-2">Prova a ricaricare o torna domani</p>
                 </div>
               ) : (
-                <div className="space-y-8">
-                  {Object.entries(groupedMatches).map(([competition, matches]) => {
-                    const firstMatch = matches[0];
-                    const competitionColor = getCompetitionColor(firstMatch.competitionCode);
-                    const competitionEmoji = getCompetitionEmoji(firstMatch.competitionCode);
-                    
-                    return (
-                      <div key={competition} className="space-y-4">
-                        {/* Competition Header */}
-                        <div className={`bg-gradient-to-r ${competitionColor} rounded-2xl p-4 shadow-lg`}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <span className="text-3xl">{competitionEmoji}</span>
-                              <h3 className="text-2xl font-black text-white">{competition}</h3>
-                            </div>
-                            <span className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-xl text-white font-bold">
-                              {matches.length} {matches.length === 1 ? 'partita' : 'partite'}
-                            </span>
-                          </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {todayMatches.map((match) => (
+                    <div
+                      key={match.id}
+                      className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-2xl">{getCompetitionEmoji(match.competitionCode)}</span>
+                        <span className="text-sm font-bold text-blue-400">{match.time}</span>
+                      </div>
+                      
+                      <div className="text-lg font-bold text-gray-400 mb-3">
+                        {match.competition}
+                      </div>
+                      
+                      <div className="space-y-2 mb-6">
+                        <div className="text-xl font-black text-white">
+                           {match.homeTeam}
                         </div>
-
-                        {/* Matches Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {matches.map((match) => (
-                            <div
-                              key={match.id}
-                              className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:bg-white/10 hover:scale-[1.02] transition-all duration-200 shadow-xl"
-                            >
-                              {/* Time Badge */}
-                              <div className="flex justify-end mb-3">
-                                <span className={`bg-gradient-to-r ${competitionColor} px-3 py-1 rounded-lg text-xs font-bold text-white shadow-md`}>
-                                  ⏰ {match.time}
-                                </span>
-                              </div>
-                              
-                              {/* Teams */}
-                              <div className="space-y-3 mb-5">
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                                  <div className="text-lg font-black text-white flex-1">
-                                    {match.homeTeam}
-                                  </div>
-                                </div>
-                                
-                                <div className="flex items-center justify-center">
-                                  <span className="text-gray-500 font-bold text-sm">VS</span>
-                                </div>
-                                
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-2 h-2 bg-red-400 rounded-full"></div>
-                                  <div className="text-lg font-black text-white flex-1">
-                                    {match.awayTeam}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Analyze Button */}
-                              <button
-                                onClick={() => analyzeMatch(match.homeTeam, match.awayTeam, match.competition)}
-                                disabled={analyzing}
-                                className={`w-full py-3 bg-gradient-to-r ${competitionColor} rounded-xl font-bold text-white hover:scale-105 hover:shadow-2xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed`}
-                              >
-                                {analyzing ? '⚙️ Analisi...' : '🔍 Analizza'}
-                              </button>
-                            </div>
-                          ))}
+                        <div className="text-xl font-black text-white">
+                           {match.awayTeam}
                         </div>
                       </div>
-                    );
-                  })}
+
+                      <button
+                        onClick={() => analyzeMatch(match.homeTeam, match.awayTeam, match.competition)}
+                        disabled={analyzing}
+                        className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl font-bold text-white hover:scale-105 transition-all disabled:opacity-50"
+                      >
+                        {analyzing ? ' Analisi...' : ' Analizza'}
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -405,74 +340,7 @@ function MainApp() {
                 </div>
               </div>
               
-              {/* Team Stats - xG/xGA */}
-              {prediction.teamStats && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-                  {/* Home Team Stats */}
-                  <div className="bg-gradient-to-br from-blue-600/20 to-blue-800/20 backdrop-blur-sm border border-blue-500/30 rounded-2xl p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-xl font-black text-white">{prediction.homeTeam}</h3>
-                      <span className="text-xs bg-blue-500/20 px-3 py-1 rounded-lg text-blue-300 font-bold">HOME</span>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-300 font-semibold">⚽ xG (Goal attesi)</span>
-                        <span className="text-2xl font-black text-white">{prediction.teamStats.home.xg.toFixed(2)}</span>
-                      </div>
-                      <div className="h-px bg-blue-500/20"></div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-300 font-semibold">🛡️ xGA (Goal subiti)</span>
-                        <span className="text-2xl font-black text-white">{prediction.teamStats.home.xga.toFixed(2)}</span>
-                      </div>
-                      <div className="h-px bg-blue-500/20"></div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-300 font-semibold">📊 Differenza</span>
-                        <span className={`text-xl font-black ${
-                          (prediction.teamStats.home.xg - prediction.teamStats.home.xga) > 0 
-                            ? 'text-green-400' 
-                            : 'text-red-400'
-                        }`}>
-                          {(prediction.teamStats.home.xg - prediction.teamStats.home.xga) > 0 ? '+' : ''}
-                          {(prediction.teamStats.home.xg - prediction.teamStats.home.xga).toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Away Team Stats */}
-                  <div className="bg-gradient-to-br from-red-600/20 to-red-800/20 backdrop-blur-sm border border-red-500/30 rounded-2xl p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-xl font-black text-white">{prediction.awayTeam}</h3>
-                      <span className="text-xs bg-red-500/20 px-3 py-1 rounded-lg text-red-300 font-bold">AWAY</span>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-300 font-semibold">⚽ xG (Goal attesi)</span>
-                        <span className="text-2xl font-black text-white">{prediction.teamStats.away.xg.toFixed(2)}</span>
-                      </div>
-                      <div className="h-px bg-red-500/20"></div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-300 font-semibold">🛡️ xGA (Goal subiti)</span>
-                        <span className="text-2xl font-black text-white">{prediction.teamStats.away.xga.toFixed(2)}</span>
-                      </div>
-                      <div className="h-px bg-red-500/20"></div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-300 font-semibold">📊 Differenza</span>
-                        <span className={`text-xl font-black ${
-                          (prediction.teamStats.away.xg - prediction.teamStats.away.xga) > 0 
-                            ? 'text-green-400' 
-                            : 'text-red-400'
-                        }`}>
-                          {(prediction.teamStats.away.xg - prediction.teamStats.away.xga) > 0 ? '+' : ''}
-                          {(prediction.teamStats.away.xg - prediction.teamStats.away.xga).toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              <ProfessionalPredictionCard predictions={[prediction]} />
+              <PredictionsTable predictions={[prediction]} />
             </div>
           </div>
         )}

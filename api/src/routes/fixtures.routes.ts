@@ -1,11 +1,13 @@
 /**
  * Routes per Fixtures
  * GET /api/fixtures - Lista fixtures con filtri
+ * GET /api/fixtures/today - Partite di oggi (football-data.org)
  */
 
 import { Router } from 'express';
 import { z } from 'zod';
 import { fixturesService } from '../services/api-football';
+import { footballDataClient } from '../services/football-data/client';
 import { prisma } from '../lib/prisma';
 import { redis } from '../lib/redis';
 import logger from '../utils/logger';
@@ -187,6 +189,231 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     
   } catch (error) {
     return next(error);
+  }
+});
+
+/**
+ * GET /api/fixtures/today
+ * Partite di oggi da API-FOOTBALL
+ */
+router.get('/today', async (_req: Request, res: Response) => {
+  try {
+    logger.info('Fetching today fixtures from API-FOOTBALL');
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    // IDs delle competizioni che ci interessano
+    const allowedLeagues = [
+      39,  // Premier League
+      135, // Serie A
+      140, // La Liga
+      78,  // Bundesliga
+      61,  // Ligue 1
+      2,   // Champions League
+      3,   // Europa League
+    ];
+    
+    // Usa API-FOOTBALL (più affidabile e completo)
+    const fixtures = await fixturesService.getFixturesByDate(today);
+    
+    // Filtra solo le competizioni che ci interessano
+    const filteredFixtures = fixtures.filter((fixture: any) => 
+      allowedLeagues.includes(fixture.league?.id)
+    );
+    
+    logger.info({ 
+      total: fixtures.length, 
+      filtered: filteredFixtures.length 
+    }, 'Fixtures filtered by league');
+    
+    // Salva automaticamente le squadre nel database se non esistono
+    const teamsToSave = new Set<string>();
+    for (const fixture of filteredFixtures) {
+      if (fixture.teams?.home?.id && fixture.teams?.home?.name) {
+        teamsToSave.add(JSON.stringify({
+          apiId: fixture.teams.home.id,
+          name: fixture.teams.home.name,
+          country: fixture.league?.country || 'Unknown',
+          logo: fixture.teams.home.logo,
+        }));
+      }
+      if (fixture.teams?.away?.id && fixture.teams?.away?.name) {
+        teamsToSave.add(JSON.stringify({
+          apiId: fixture.teams.away.id,
+          name: fixture.teams.away.name,
+          country: fixture.league?.country || 'Unknown',
+          logo: fixture.teams.away.logo,
+        }));
+      }
+    }
+    
+    // Upsert teams in background (non-blocking)
+    if (teamsToSave.size > 0) {
+      Promise.all(
+        Array.from(teamsToSave).map(async (teamStr) => {
+          const team = JSON.parse(teamStr);
+          try {
+            await prisma.team.upsert({
+              where: { apiId: team.apiId },
+              update: {},
+              create: team,
+            });
+          } catch (err) {
+            logger.warn({ team: team.name, error: err }, 'Failed to save team');
+          }
+        })
+      ).then(() => {
+        logger.info({ count: teamsToSave.size }, 'Teams saved to database');
+      }).catch((err) => {
+        logger.error({ error: err }, 'Error saving teams');
+      });
+    }
+    
+    // Formatta per il frontend
+    const formatted = filteredFixtures.map((fixture: any) => ({
+      id: fixture.fixture.id,
+      homeTeam: fixture.teams.home.name,
+      awayTeam: fixture.teams.away.name,
+      competition: fixture.league.name,
+      competitionCode: fixture.league.id.toString(),
+      date: fixture.fixture.date,
+      time: new Date(fixture.fixture.date).toLocaleTimeString('it-IT', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      }),
+      status: fixture.fixture.status.short,
+      logo: fixture.league.logo,
+    }));
+
+    logger.info({ count: formatted.length }, 'Today fixtures fetched successfully');
+    
+    return res.json({
+      success: true,
+      count: formatted.length,
+      matches: formatted,
+      date: today,
+    });
+    
+  } catch (error) {
+    logger.error({ error }, 'Error fetching today fixtures');
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * GET /api/fixtures/by-date?date=YYYY-MM-DD
+ * Partite per una data specifica
+ */
+router.get('/by-date', async (req: Request, res: Response) => {
+  try {
+    const { date } = req.query;
+    
+    if (!date || typeof date !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Date parameter required (format: YYYY-MM-DD)',
+      });
+    }
+
+    logger.info({ date }, 'Fetching fixtures by date');
+    
+    // IDs delle competizioni che ci interessano
+    const allowedLeagues = [
+      39,  // Premier League
+      135, // Serie A
+      140, // La Liga
+      78,  // Bundesliga
+      61,  // Ligue 1
+      2,   // Champions League
+      3,   // Europa League
+    ];
+    
+    const fixtures = await fixturesService.getFixturesByDate(date);
+    
+    // Filtra solo le competizioni che ci interessano
+    const filteredFixtures = fixtures.filter((fixture: any) => 
+      allowedLeagues.includes(fixture.league?.id)
+    );
+    
+    logger.info({ 
+      total: fixtures.length, 
+      filtered: filteredFixtures.length 
+    }, 'Fixtures filtered by league');
+    
+    // Salva automaticamente le squadre nel database se non esistono
+    const teamsToSave = new Set<string>();
+    for (const fixture of filteredFixtures) {
+      if (fixture.teams?.home?.id && fixture.teams?.home?.name) {
+        teamsToSave.add(JSON.stringify({
+          apiId: fixture.teams.home.id,
+          name: fixture.teams.home.name,
+          country: fixture.league?.country || 'Unknown',
+          logo: fixture.teams.home.logo,
+        }));
+      }
+      if (fixture.teams?.away?.id && fixture.teams?.away?.name) {
+        teamsToSave.add(JSON.stringify({
+          apiId: fixture.teams.away.id,
+          name: fixture.teams.away.name,
+          country: fixture.league?.country || 'Unknown',
+          logo: fixture.teams.away.logo,
+        }));
+      }
+    }
+    
+    // Upsert teams in background (non-blocking)
+    if (teamsToSave.size > 0) {
+      Promise.all(
+        Array.from(teamsToSave).map(async (teamStr) => {
+          const team = JSON.parse(teamStr);
+          try {
+            await prisma.team.upsert({
+              where: { apiId: team.apiId },
+              update: {},
+              create: team,
+            });
+          } catch (err) {
+            logger.warn({ team: team.name, error: err }, 'Failed to save team');
+          }
+        })
+      ).then(() => {
+        logger.info({ count: teamsToSave.size }, 'Teams saved to database');
+      }).catch((err) => {
+        logger.error({ error: err }, 'Error saving teams');
+      });
+    }
+    
+    const formatted = filteredFixtures.map((fixture: any) => ({
+      id: fixture.fixture.id,
+      homeTeam: fixture.teams.home.name,
+      awayTeam: fixture.teams.away.name,
+      competition: fixture.league.name,
+      competitionCode: fixture.league.id.toString(),
+      date: fixture.fixture.date,
+      time: new Date(fixture.fixture.date).toLocaleTimeString('it-IT', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      }),
+      status: fixture.fixture.status.short,
+      logo: fixture.league.logo,
+    }));
+
+    return res.json({
+      success: true,
+      count: formatted.length,
+      matches: formatted,
+      date,
+    });
+    
+  } catch (error) {
+    logger.error({ error }, 'Error fetching fixtures by date');
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 });
 

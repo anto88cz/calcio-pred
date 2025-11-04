@@ -4,8 +4,9 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Fixture, Prediction, PredictionsFilters } from '@/types';
+import { ENV } from '@/config/env';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = ENV.API_URL;
 
 // ============================================
 // FETCH FUNCTIONS

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calcio-Pred - UI Preview</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .animation-delay-300 { animation-delay: 300ms; }
+        .animation-delay-600 { animation-delay: 600ms; }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
+    <div class="absolute inset-0 overflow-hidden">
+        <div class="absolute -inset-10 opacity-50">
+            <div class="absolute top-1/4 left-1/4 w-72 h-72 bg-blue-500/20 rounded-full blur-3xl animate-pulse"></div>
+            <div class="absolute top-3/4 right-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse animation-delay-300"></div>
+            <div class="absolute bottom-1/4 left-1/2 w-80 h-80 bg-emerald-500/20 rounded-full blur-3xl animate-pulse animation-delay-600"></div>
+        </div>
+    </div>
+
+    <div class="relative z-10 max-w-7xl mx-auto px-6 py-12">
+        <h1 class="text-6xl font-black text-center mb-12">
+            <span class="bg-gradient-to-r from-blue-400 via-purple-400 to-emerald-400 bg-clip-text text-transparent">
+                🎨 NEW UI LAYOUT
+            </span>
+        </h1>
+
+        <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-10">
+            <h2 class="text-4xl font-black text-white mb-8">⚽ Partite di Oggi</h2>
+
+            <!-- Layout Raggruppato -->
+            <div class="space-y-8">
+                
+                <!-- Champions League -->
+                <div class="space-y-4">
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-4 shadow-lg">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <span class="text-3xl">🏆</span>
+                                <h3 class="text-2xl font-black text-white">UEFA Champions League</h3>
+                            </div>
+                            <span class="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-xl text-white font-bold">
+                                3 partite
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- Match Card 1 -->
+                        <div class="bg-white/5 border border-white/10 rounded-2xl p-5 hover:bg-white/10 hover:scale-[1.02] transition-all duration-200 shadow-xl">
+                            <div class="flex justify-end mb-3">
+                                <span class="bg-gradient-to-r from-blue-600 to-indigo-600 px-3 py-1 rounded-lg text-xs font-bold text-white shadow-md">
+                                    ⏰ 21:00
+                                </span>
+                            </div>
+                            <div class="space-y-3 mb-5">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-2 h-2 bg-blue-400 rounded-full"></div>
+                                    <div class="text-lg font-black text-white flex-1">Real Madrid</div>
+                                </div>
+                                <div class="flex items-center justify-center">
+                                    <span class="text-gray-500 font-bold text-sm">VS</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-2 h-2 bg-red-400 rounded-full"></div>
+                                    <div class="text-lg font-black text-white flex-1">Liverpool</div>
+                                </div>
+                            </div>
+                            <button class="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl font-bold text-white hover:scale-105 hover:shadow-2xl transition-all duration-200">
+                                🔍 Analizza
+                            </button>
+                        </div>
+
+                        <!-- Match Card 2 -->
+                        <div class="bg-white/5 border border-white/10 rounded-2xl p-5 hover:bg-white/10 hover:scale-[1.02] transition-all duration-200 shadow-xl">
+                            <div class="flex justify-end mb-3">
+                                <span class="bg-gradient-to-r from-blue-600 to-indigo-600 px-3 py-1 rounded-lg text-xs font-bold text-white shadow-md">
+                                    ⏰ 21:00
+                                </span>
+                            </div>
+                            <div class="space-y-3 mb-5">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-2 h-2 bg-blue-400 rounded-full"></div>
+                                    <div class="text-lg font-black text-white flex-1">Bayern Munich</div>
+                                </div>
+                                <div class="flex items-center justify-center">
+                                    <span class="text-gray-500 font-bold text-sm">VS</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-2 h-2 bg-red-400 rounded-full"></div>
+                                    <div class="text-lg font-black text-white flex-1">Paris Saint Germain</div>
+                                </div>
+                            </div>
+                            <button class="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl font-bold text-white hover:scale-105 hover:shadow-2xl transition-all duration-200">
+                                🔍 Analizza
+                            </button>
+                        </div>
+
+                        <!-- Match Card 3 -->
+                        <div class="bg-white/5 border border-white/10 rounded-2xl p-5 hover:bg-white/10 hover:scale-[1.02] transition-all duration-200 shadow-xl">
+                            <div class="flex justify-end mb-3">
+                                <span class="bg-gradient-to-r from-blue-600 to-indigo-600 px-3 py-1 rounded-lg text-xs font-bold text-white shadow-md">
+                                    ⏰ 21:00
+                                </span>
+                            </div>
+                            <div class="space-y-3 mb-5">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-2 h-2 bg-blue-400 rounded-full"></div>
+                                    <div class="text-lg font-black text-white flex-1">Manchester City</div>
+                                </div>
+                                <div class="flex items-center justify-center">
+                                    <span class="text-gray-500 font-bold text-sm">VS</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-2 h-2 bg-red-400 rounded-full"></div>
+                                    <div class="text-lg font-black text-white flex-1">Inter</div>
+                                </div>
+                            </div>
+                            <button class="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl font-bold text-white hover:scale-105 hover:shadow-2xl transition-all duration-200">
+                                🔍 Analizza
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Premier League -->
+                <div class="space-y-4">
+                    <div class="bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-4 shadow-lg">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <span class="text-3xl">🏴󠁧󠁢󠁥󠁮󠁧󠁿</span>
+                                <h3 class="text-2xl font-black text-white">Premier League</h3>
+                            </div>
+                            <span class="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-xl text-white font-bold">
+                                2 partite
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="bg-white/5 border border-white/10 rounded-2xl p-5 hover:bg-white/10 hover:scale-[1.02] transition-all duration-200 shadow-xl">
+                            <div class="flex justify-end mb-3">
+                                <span class="bg-gradient-to-r from-purple-600 to-pink-600 px-3 py-1 rounded-lg text-xs font-bold text-white shadow-md">
+                                    ⏰ 16:00
+                                </span>
+                            </div>
+                            <div class="space-y-3 mb-5">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-2 h-2 bg-blue-400 rounded-full"></div>
+                                    <div class="text-lg font-black text-white flex-1">Arsenal</div>
+                                </div>
+                                <div class="flex items-center justify-center">
+                                    <span class="text-gray-500 font-bold text-sm">VS</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-2 h-2 bg-red-400 rounded-full"></div>
+                                    <div class="text-lg font-black text-white flex-1">Chelsea</div>
+                                </div>
+                            </div>
+                            <button class="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl font-bold text-white hover:scale-105 hover:shadow-2xl transition-all duration-200">
+                                🔍 Analizza
+                            </button>
+                        </div>
+
+                        <div class="bg-white/5 border border-white/10 rounded-2xl p-5 hover:bg-white/10 hover:scale-[1.02] transition-all duration-200 shadow-xl">
+                            <div class="flex justify-end mb-3">
+                                <span class="bg-gradient-to-r from-purple-600 to-pink-600 px-3 py-1 rounded-lg text-xs font-bold text-white shadow-md">
+                                    ⏰ 18:30
+                                </span>
+                            </div>
+                            <div class="space-y-3 mb-5">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-2 h-2 bg-blue-400 rounded-full"></div>
+                                    <div class="text-lg font-black text-white flex-1">Manchester United</div>
+                                </div>
+                                <div class="flex items-center justify-center">
+                                    <span class="text-gray-500 font-bold text-sm">VS</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-2 h-2 bg-red-400 rounded-full"></div>
+                                    <div class="text-lg font-black text-white flex-1">Tottenham</div>
+                                </div>
+                            </div>
+                            <button class="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl font-bold text-white hover:scale-105 hover:shadow-2xl transition-all duration-200">
+                                🔍 Analizza
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Serie A -->
+                <div class="space-y-4">
+                    <div class="bg-gradient-to-r from-sky-600 to-blue-600 rounded-2xl p-4 shadow-lg">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <span class="text-3xl">🇮🇹</span>
+                                <h3 class="text-2xl font-black text-white">Serie A</h3>
+                            </div>
+                            <span class="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-xl text-white font-bold">
+                                1 partita
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="bg-white/5 border border-white/10 rounded-2xl p-5 hover:bg-white/10 hover:scale-[1.02] transition-all duration-200 shadow-xl">
+                            <div class="flex justify-end mb-3">
+                                <span class="bg-gradient-to-r from-sky-600 to-blue-600 px-3 py-1 rounded-lg text-xs font-bold text-white shadow-md">
+                                    ⏰ 20:45
+                                </span>
+                            </div>
+                            <div class="space-y-3 mb-5">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-2 h-2 bg-blue-400 rounded-full"></div>
+                                    <div class="text-lg font-black text-white flex-1">Juventus</div>
+                                </div>
+                                <div class="flex items-center justify-center">
+                                    <span class="text-gray-500 font-bold text-sm">VS</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-2 h-2 bg-red-400 rounded-full"></div>
+                                    <div class="text-lg font-black text-white flex-1">Milan</div>
+                                </div>
+                            </div>
+                            <button class="w-full py-3 bg-gradient-to-r from-sky-600 to-blue-600 rounded-xl font-bold text-white hover:scale-105 hover:shadow-2xl transition-all duration-200">
+                                🔍 Analizza
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Feature Highlights -->
+        <div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                <div class="text-4xl mb-4">🎨</div>
+                <h3 class="text-xl font-black text-white mb-2">Color Coding</h3>
+                <p class="text-gray-300">Ogni competizione ha il suo gradiente unico per riconoscimento immediato</p>
+            </div>
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                <div class="text-4xl mb-4">📊</div>
+                <h3 class="text-xl font-black text-white mb-2">Organizzazione</h3>
+                <p class="text-gray-300">Partite raggruppate per competizione con contatore partite</p>
+            </div>
+            <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                <div class="text-4xl mb-4">✨</div>
+                <h3 class="text-xl font-black text-white mb-2">Animazioni</h3>
+                <p class="text-gray-300">Hover effects fluidi e transizioni professionali</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -542,4 +542,88 @@ router.post('/calculate', async (req: Request, res: Response, next: NextFunction
   }
 });
 
+/**
+ * POST /api/predictions/calculate-by-name
+ * Calcola predizione inserendo manualmente i nomi delle squadre
+ */
+router.post('/calculate-by-name', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const schema = z.object({
+      homeTeamName: z.string().min(1),
+      awayTeamName: z.string().min(1),
+      leagueId: z.number().int().positive().optional().default(39), // Default Premier League
+      season: z.number().int().positive().optional().default(2024),
+    });
+    
+    const input = schema.parse(req.body);
+    
+    logger.info({ homeTeam: input.homeTeamName, awayTeam: input.awayTeamName }, 'Manual prediction request');
+    
+    // Cerca le squadre nel database per nome (case-insensitive)
+    const homeTeam = await prisma.team.findFirst({
+      where: {
+        name: {
+          contains: input.homeTeamName,
+          mode: 'insensitive',
+        },
+      },
+    });
+    
+    const awayTeam = await prisma.team.findFirst({
+      where: {
+        name: {
+          contains: input.awayTeamName,
+          mode: 'insensitive',
+        },
+      },
+    });
+    
+    if (!homeTeam) {
+      logger.warn({ searchName: input.homeTeamName }, 'Home team not found');
+      return res.status(404).json({ 
+        error: `Squadra casa "${input.homeTeamName}" non trovata nel database`,
+        suggestion: 'Prova con: Liverpool, Real Madrid, Barcelona, Bayern Munich, Inter, Manchester City, etc.',
+      });
+    }
+    
+    if (!awayTeam) {
+      logger.warn({ searchName: input.awayTeamName }, 'Away team not found');
+      return res.status(404).json({ 
+        error: `Squadra trasferta "${input.awayTeamName}" non trovata nel database`,
+        suggestion: 'Prova con: Liverpool, Real Madrid, Barcelona, Bayern Munich, Inter, Manchester City, etc.',
+      });
+    }
+    
+    // Calcola predizione usando i team ID trovati
+    // Usa un ID temporaneo valido (max INT4: 2147483647)
+    // Range: 1000000000 - 2147483647 (circa 1.1 miliardo di ID possibili)
+    const tempFixtureId = Math.floor(Math.random() * 1147483647) + 1000000000;
+    
+    const predictionResult = await predictionEngine.calculatePrediction({
+      fixtureId: tempFixtureId,
+      homeTeamId: homeTeam.apiId,
+      awayTeamId: awayTeam.apiId,
+      season: input.season,
+      leagueId: input.leagueId,
+    });
+    
+    logger.info({ 
+      homeTeam: homeTeam.name, 
+      awayTeam: awayTeam.name,
+      confidence: predictionResult.confidence,
+    }, 'Manual prediction calculated');
+    
+    return res.json({
+      success: true,
+      homeTeam: homeTeam.name,
+      awayTeam: awayTeam.name,
+      ...predictionResult,
+    });
+    
+  } catch (error) {
+    logger.error({ error }, 'Error in manual prediction');
+    return next(error);
+  }
+});
+
 export default router;

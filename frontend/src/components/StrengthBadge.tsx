@@ -15,7 +15,30 @@ export default function StrengthBadge({
   showIcon = true,
   size = 'md' 
 }: StrengthBadgeProps) {
-  const badge = STRENGTH_BADGES[strength];
+  // Mapping backend -> frontend
+  const mapStrength = (backendStrength: string): PredictionStrength => {
+    const mapping: Record<string, PredictionStrength> = {
+      'GIOCALA': 'GIOCALA',
+      'STRONG': 'FORTE',
+      'MEDIUM': 'MEDIO',
+      'NEUTRAL': 'NEUTRALE',
+      'ND': 'ND',
+    };
+    return mapping[backendStrength] || 'MEDIO';
+  };
+  
+  const mappedStrength = mapStrength(strength);
+  const badge = STRENGTH_BADGES[mappedStrength];
+  
+  // Fallback se badge è undefined
+  if (!badge) {
+    console.warn('Invalid strength value:', strength);
+    return (
+      <span className="text-xs px-2 py-1 bg-gray-500 text-white rounded">
+        {strength || 'N/A'}
+      </span>
+    );
+  }
   
   const sizeClasses = {
     sm: 'text-xs px-2 py-1',
@@ -43,17 +66,17 @@ export default function StrengthBadge({
   return (
     <div className="relative group">
       <div className={`absolute -inset-0.5 bg-gradient-to-r ${
-        strength === 'GIOCALA' ? 'from-emerald-500 to-emerald-600' :
-        strength === 'FORTE' ? 'from-green-500 to-green-600' :
-        strength === 'MEDIO' ? 'from-yellow-500 to-yellow-600' :
-        strength === 'NEUTRALE' ? 'from-gray-400 to-gray-500' :
+        mappedStrength === 'GIOCALA' ? 'from-emerald-500 to-emerald-600' :
+        mappedStrength === 'FORTE' ? 'from-green-500 to-green-600' :
+        mappedStrength === 'MEDIO' ? 'from-yellow-500 to-yellow-600' :
+        mappedStrength === 'NEUTRALE' ? 'from-gray-400 to-gray-500' :
         'from-red-500 to-red-600'
       } rounded-xl blur opacity-20 group-hover:opacity-40 transition duration-300`}></div>
       
       <span
         className={`
           relative inline-flex items-center gap-2 rounded-xl border-2 font-bold transition-all duration-300
-          ${badge.color} ${badge.bgColor} ${badge.borderColor} ${sizeClasses[size]} ${getGlowEffect(strength)}
+          ${badge.color} ${badge.bgColor} ${badge.borderColor} ${sizeClasses[size]} ${getGlowEffect(mappedStrength)}
           hover:scale-105 transform
         `}
       >
