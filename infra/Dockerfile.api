@@ -1,0 +1,64 @@
+# Stage 1: Builder
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Copia package files
+COPY package*.json ./
+COPY tsconfig.json ./
+
+# Installa tutte le dipendenze (incluse devDependencies per build)
+RUN npm ci
+
+# Copia il resto del codice
+COPY prisma ./prisma
+COPY src ./src
+
+# Genera Prisma Client
+RUN npx prisma generate
+
+# Compila TypeScript
+RUN npm run build
+
+# Stage 2: Runner
+FROM node:18-alpine AS runner
+
+WORKDIR /app
+
+# Installa wget per healthcheck
+RUN apk add --no-cache wget
+
+# Copia solo production dependencies
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copia Prisma schema e genera client
+COPY prisma ./prisma
+RUN npx prisma generate
+
+# Copia il codice compilato dal builder
+COPY --from=builder /app/dist ./dist
+
+# Crea user non-root
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+USER nodejs
+
+EXPOSE 3001
+
+# Script di avvio con migrazione database
+COPY --chown=nodejs:nodejs <<'EOF' /app/start.sh
+#!/bin/sh
+set -e
+
+echo "🔧 Running database migrations..."
+npx prisma migrate deploy
+
+echo "🚀 Starting API server..."
+exec node dist/index.js
+EOF
+
+RUN chmod +x /app/start.sh
+
+CMD ["/app/start.sh"]

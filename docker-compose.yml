@@ -1,0 +1,116 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: calciopred-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: calciopred
+      POSTGRES_PASSWORD: calciopred123
+      POSTGRES_DB: calciopred
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U calciopred"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - calciopred-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: calciopred-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - calciopred-network
+
+  # Backend API
+  api:
+    build:
+      context: ./api
+      dockerfile: ../Dockerfile.api
+    container_name: calciopred-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://calciopred:calciopred123@postgres:5432/calciopred?schema=public
+      REDIS_URL: redis://redis:6379
+      # Queste variabili devono essere fornite tramite file .env
+      APIFOOTBALL_BASE: ${APIFOOTBALL_BASE}
+      APIFOOTBALL_KEY: ${APIFOOTBALL_KEY}
+      HISTORY_GAMES: ${HISTORY_GAMES:-20}
+      HOME_ADV_GOALS: ${HOME_ADV_GOALS:-0.20}
+      CONFIDENCE_MIN: ${CONFIDENCE_MIN:-0.60}
+      BLEND_EMPIRIC: ${BLEND_EMPIRIC:-0.6}
+      BLEND_POISSON: ${BLEND_POISSON:-0.4}
+      TZ: ${TZ:-Europe/Rome}
+      CRON_ENABLED: ${CRON_ENABLED:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./api/src:/app/src:ro
+    networks:
+      - calciopred-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../Dockerfile.frontend
+    container_name: calciopred-frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+    ports:
+      - "3000:3000"
+    networks:
+      - calciopred-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  calciopred-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local

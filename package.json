@@ -1,0 +1,29 @@
+{
+  "name": "calcio-pred",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema di predizioni calcistiche basato su dati storici reali",
+  "workspaces": [
+    "api",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w api\" \"npm run dev -w frontend\"",
+    "build": "npm run build -w api && npm run build -w frontend",
+    "start": "npm run start -w api",
+    "docker:up": "docker-compose -f infra/docker-compose.yml up -d",
+    "docker:down": "docker-compose -f infra/docker-compose.yml down",
+    "docker:logs": "docker-compose -f infra/docker-compose.yml logs -f"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0"
+  }
+}
