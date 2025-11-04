@@ -212,32 +212,57 @@ function MainApp() {
             </div>
           </div>
 
-          <div className="max-w-7xl mx-auto px-6 py-16">
-            <div className="text-center mb-12">
-              <div className="flex justify-center mb-8">
-                <div className="relative">
-                  <div className="absolute -inset-4 bg-gradient-to-r from-blue-500 via-purple-500 to-emerald-500 rounded-full blur-xl opacity-50 animate-pulse"></div>
-                  <div className="relative w-24 h-24 bg-gradient-to-br from-blue-600 via-purple-600 to-emerald-600 rounded-full flex items-center justify-center shadow-2xl">
-                    <span className="text-4xl animate-bounce"></span>
+          <div className="max-w-7xl mx-auto px-6 py-20">
+            <div className="text-center mb-16">
+              {/* Animated Logo */}
+              <div className="flex justify-center mb-10">
+                <div className="relative group">
+                  <div className="absolute -inset-6 bg-gradient-to-r from-blue-500 via-purple-500 to-emerald-500 rounded-full blur-2xl opacity-40 group-hover:opacity-60 animate-pulse transition-opacity"></div>
+                  <div className="relative w-32 h-32 bg-gradient-to-br from-blue-600 via-purple-600 to-emerald-600 rounded-full flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform">
+                    <svg className="w-16 h-16 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+                    </svg>
                   </div>
                 </div>
               </div>
 
-              <h1 className="text-7xl font-black mb-4">
-                <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-emerald-400 bg-clip-text text-transparent">
+              {/* Main Title */}
+              <h1 className="text-6xl md:text-7xl lg:text-8xl font-black mb-6 animate-fade-in">
+                <span className="gradient-text drop-shadow-2xl">
                   CALCIO-PRED
                 </span>
               </h1>
               
-              <div className="text-2xl font-bold mb-6">
-                <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+              {/* Subtitle */}
+              <div className="text-2xl md:text-3xl font-bold mb-8 animate-fade-in animation-delay-150">
+                <span className="bg-gradient-to-r from-white via-gray-200 to-gray-300 bg-clip-text text-transparent">
                   AI-Powered Football Prediction Engine
                 </span>
               </div>
 
-              <p className="text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
-                Analizza le partite di oggi con l'intelligenza artificiale
+              {/* Description */}
+              <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed mb-8 animate-fade-in animation-delay-300">
+                 Analizza le partite con intelligenza artificiale avanzata
+                <br />
+                <span className="text-blue-400 font-semibold">xG, Over/Under, BTTS</span> e molto altro
               </p>
+
+              {/* Features Pills */}
+              <div className="flex flex-wrap justify-center gap-3 animate-fade-in animation-delay-600">
+                <span className="px-4 py-2 bg-blue-500/20 border border-blue-500/50 rounded-full text-blue-300 text-sm font-semibold">
+                   Previsioni AI
+                </span>
+                <span className="px-4 py-2 bg-purple-500/20 border border-purple-500/50 rounded-full text-purple-300 text-sm font-semibold">
+                  ⚽ Expected Goals
+                </span>
+                <span className="px-4 py-2 bg-emerald-500/20 border border-emerald-500/50 rounded-full text-emerald-300 text-sm font-semibold">
+                   Value Betting
+                </span>
+                <span className="px-4 py-2 bg-yellow-500/20 border border-yellow-500/50 rounded-full text-yellow-300 text-sm font-semibold">
+                  📊 Statistiche Live
+                </span>
+              </div>
+```
             </div>
           </div>
         </div>
@@ -308,36 +333,56 @@ function MainApp() {
                         </div>
 
                         {/* Matches Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                           {matches.map((match) => (
                             <div
                               key={match.id}
-                              className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:bg-white/10 hover:scale-[1.02] transition-all duration-200 shadow-xl"
+                              className="glass-card p-6 hover:bg-white/15 hover:border-white/30 transition-all duration-300 group"
                             >
                               {/* Time Badge */}
-                              <div className="flex justify-end mb-3">
-                                <span className={`bg-gradient-to-r ${competitionColor} px-3 py-1 rounded-lg text-xs font-bold text-white shadow-md`}>
+                              <div className="flex justify-between items-center mb-4">
+                                <span className={`bg-gradient-to-r ${competitionColor} px-4 py-2 rounded-xl text-sm font-bold text-white shadow-lg`}>
                                   ⏰ {match.time}
                                 </span>
+                                <span className="text-gray-400 text-sm">{competitionEmoji}</span>
                               </div>
                               
-                              {/* Teams */}
-                              <div className="space-y-3 mb-5">
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                                  <div className="text-lg font-black text-white flex-1">
-                                    {match.homeTeam}
+                              {/* Teams Container */}
+                              <div className="space-y-4 mb-6">
+                                {/* Home Team */}
+                                <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-black text-lg shadow-lg">
+                                      H
+                                    </div>
+                                    <div className="flex-1">
+                                      <p className="text-xs text-blue-300 uppercase tracking-wider mb-1">Casa</p>
+                                      <p className="text-xl font-black text-white">
+                                        {match.homeTeam}
+                                      </p>
+                                    </div>
                                   </div>
                                 </div>
                                 
+                                {/* VS Divider */}
                                 <div className="flex items-center justify-center">
-                                  <span className="text-gray-500 font-bold text-sm">VS</span>
+                                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+                                  <span className="px-4 text-white font-bold text-lg">VS</span>
+                                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
                                 </div>
                                 
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-2 h-2 bg-red-400 rounded-full"></div>
-                                  <div className="text-lg font-black text-white flex-1">
-                                    {match.awayTeam}
+                                {/* Away Team */}
+                                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center text-white font-black text-lg shadow-lg">
+                                      A
+                                    </div>
+                                    <div className="flex-1">
+                                      <p className="text-xs text-red-300 uppercase tracking-wider mb-1">Trasferta</p>
+                                      <p className="text-xl font-black text-white">
+                                        {match.awayTeam}
+                                      </p>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
@@ -346,9 +391,19 @@ function MainApp() {
                               <button
                                 onClick={() => analyzeMatch(match.homeTeam, match.awayTeam, match.competition)}
                                 disabled={analyzing}
-                                className={`w-full py-3 bg-gradient-to-r ${competitionColor} rounded-xl font-bold text-white hover:scale-105 hover:shadow-2xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed`}
+                                className={`w-full py-4 bg-gradient-to-r ${competitionColor} rounded-xl font-bold text-white text-lg hover:scale-[1.02] hover:shadow-2xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group-hover:shadow-lg`}
                               >
-                                {analyzing ? '⚙️ Analisi...' : '🔍 Analizza'}
+                                {analyzing ? (
+                                  <span className="flex items-center justify-center space-x-2">
+                                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                                    </svg>
+                                    <span>Analisi in corso...</span>
+                                  </span>
+                                ) : (
+                                  '🔍 Analizza Partita'
+                                )}
                               </button>
                             </div>
                           ))}
