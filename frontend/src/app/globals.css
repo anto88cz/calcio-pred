@@ -2,39 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom Styles */
+/* ===== DARK THEME - Professional Design ===== */
+
 @layer base {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 15, 23, 42;
+    --background-end-rgb: 30, 41, 59;
+  }
+
   body {
-    @apply bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900;
-    @apply min-h-screen;
+    @apply min-h-screen text-white;
+    background: linear-gradient(135deg, rgb(15, 23, 42) 0%, rgb(30, 58, 138) 50%, rgb(15, 23, 42) 100%);
+    background-attachment: fixed;
   }
 }
 
 @layer components {
+  /* Glass Card - Modern glassmorphism effect */
   .glass-card {
     @apply bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl;
+    transition: all 0.3s ease;
   }
   
+  .glass-card:hover {
+    @apply bg-white/15 border-white/30 shadow-3xl;
+    transform: translateY(-2px);
+  }
+  
+  /* Gradient Text */
   .gradient-text {
     @apply bg-gradient-to-r from-blue-400 via-emerald-400 to-purple-400 bg-clip-text text-transparent;
+    font-weight: 800;
   }
-}
-
-
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 249, 250, 251;
-  --background-end-rgb: 255, 255, 255;
-}
-
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
 }
 
 @layer utilities {
@@ -43,26 +43,28 @@ body {
   }
 }
 
-/* Custom scrollbar */
+/* ===== CUSTOM SCROLLBAR - Dark Theme ===== */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: rgba(30, 41, 59, 0.5);
+  border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 4px;
+  background: rgba(59, 130, 246, 0.5);
+  border-radius: 10px;
+  border: 2px solid rgba(30, 41, 59, 0.5);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: rgba(59, 130, 246, 0.8);
 }
 
-/* Enhanced Animations */
+/* ===== ANIMATIONS ===== */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -87,19 +89,10 @@ body {
 
 @keyframes pulseGlow {
   0%, 100% {
-    box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
   }
   50% {
-    box-shadow: 0 0 40px rgba(16, 185, 129, 0.6);
-  }
-}
-
-@keyframes floatAnimation {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
+    box-shadow: 0 0 40px rgba(59, 130, 246, 0.6);
   }
 }
 
@@ -110,6 +103,19 @@ body {
   100% {
     background-position: 1000px 0;
   }
+}
+
+/* Animation Classes */
+.animate-fade-in {
+  animation: fadeIn 0.6s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideInUp 0.8s ease-out forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2s infinite;
 }
 
 .animation-delay-150 {
@@ -124,39 +130,25 @@ body {
   animation-delay: 600ms;
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.6s ease-out;
-}
-
-.animate-slide-up {
-  animation: slideInUp 0.8s ease-out;
-}
-
-.animate-pulse-glow {
-  animation: pulseGlow 2s infinite;
-}
-
-.animate-float {
-  animation: floatAnimation 3s ease-in-out infinite;
-}
-
 .shimmer-bg {
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
   background-size: 200% 100%;
   animation: shimmer 2s infinite;
 }
 
-/* Glass Effect */
-.glass-effect {
-  backdrop-filter: blur(16px) saturate(180%);
-  background-color: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.125);
+/* ===== UTILITY CLASSES ===== */
+.shadow-3xl {
+  box-shadow: 0 35px 60px -15px rgba(0, 0, 0, 0.5);
 }
 
-/* Gradient Text */
-.gradient-text {
-  background: linear-gradient(135deg, #10b981, #3b82f6);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+/* Smooth transitions */
+* {
+  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
 }
