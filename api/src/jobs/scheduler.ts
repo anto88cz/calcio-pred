@@ -27,6 +27,7 @@ import prisma from '../lib/prisma';
 import logger from '../utils/logger';
 import { withLock } from '../utils/redisLock';
 import { schedulerConfig } from '../config';
+import { startXGUpdateJob } from './xg-update.job';
 
 // ============================================
 // JOB 1: DAILY FIXTURES (06:00)
@@ -370,6 +371,9 @@ export function startScheduler() {
   }, {
     timezone: schedulerConfig.timezone,
   });
+  
+  // Job 4: xG Update at 03:00 (builds xG cache gradually)
+  startXGUpdateJob();
   
   logger.info('Cron scheduler started successfully');
 }

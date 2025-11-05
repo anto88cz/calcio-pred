@@ -616,21 +616,67 @@ export class PredictionEngine {
   
   /**
    * Calcola xG/xGA medio dalla storia delle partite
-   * Per ora usa i goal reali come proxy degli xG (in futuro potremmo recuperare xG reali dall'API)
+   * HYBRID CACHE: Preferisce xG reali quando disponibili (≥10 partite con xG)
+   * Altrimenti usa goal reali come proxy (fallback)
    */
   private calculateAvgXG(history: MatchHistoryData[], forGoals: boolean): number {
     if (history.length === 0) return 0;
     
-    const totalXG = history.reduce((sum, match) => {
-      // Se forGoals=true, calcola xG (goal fatti)
-      // Se forGoals=false, calcola xGA (goal subiti)
-      const goals = forGoals 
-        ? (match.isHome ? match.homeGoals : match.awayGoals)
-        : (match.isHome ? match.awayGoals : match.homeGoals);
-      return sum + goals;
-    }, 0);
-    
-    return parseFloat((totalXG / history.length).toFixed(2));
+    // Conta quante partite hanno xG reali disponibili
+    const matchesWithXG = history.filter(match => {
+      if (forGoals) {
+        // Per xG offensivi: cerca xg_home o xg_away a seconda del ruolo
+        return match.isHome ? match.xg_home != null : match.xg_away != null;
+      } else {
+        // Per xG difensivi (xGA): cerca xga_home o xga_away
+        return match.isHome ? match.xga_home != null : match.xga_away != null;
+      }
+    });
+
+    const xgAvailable = matchesWithXG.length >= 10; // Soglia minima: 10 partite con xG
+
+    if (xgAvailable) {
+      // Usa xG reali dalla cache
+      const totalXG = matchesWithXG.reduce((sum, match) => {
+        const xgValue = forGoals
+          ? (match.isHome ? match.xg_home! : match.xg_away!)
+          : (match.isHome ? match.xga_home! : match.xga_away!);
+        return sum + xgValue;
+      }, 0);
+
+      const avgXG = parseFloat((totalXG / matchesWithXG.length).toFixed(2));
+      
+      logger.info({
+        historyLength: history.length,
+        matchesWithXG: matchesWithXG.length,
+        forGoals,
+        avgXG,
+        method: 'REAL_XG'
+      }, 'Calculated avg xG using REAL xG data from cache');
+
+      return avgXG;
+    } else {
+      // Fallback: usa goal reali come proxy
+      const totalGoals = history.reduce((sum, match) => {
+        const goals = forGoals 
+          ? (match.isHome ? match.homeGoals : match.awayGoals)
+          : (match.isHome ? match.awayGoals : match.homeGoals);
+        return sum + goals;
+      }, 0);
+
+      const avgGoals = parseFloat((totalGoals / history.length).toFixed(2));
+
+      logger.warn({
+        historyLength: history.length,
+        matchesWithXG: matchesWithXG.length,
+        threshold: 10,
+        forGoals,
+        avgGoals,
+        method: 'GOAL_PROXY'
+      }, 'Insufficient xG data - using goal average as proxy');
+
+      return avgGoals;
+    }
   }
 }
 

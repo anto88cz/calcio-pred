@@ -4,6 +4,7 @@
 
 import { fixturesService } from './fixtures';
 import { statisticsService as _statisticsService, FixtureStatistics } from './statistics';
+import { prisma } from '../../lib/prisma';
 import logger from '../../utils/logger';
 import type { APIFootballFixture } from '../../types';
 import { config } from '../../config';
@@ -21,6 +22,11 @@ export interface MatchHistoryData {
   leagueId: number;
   leagueName: string;
   season: number;
+  // Expected Goals (xG) - Dati reali quando disponibili
+  xg_home?: number | null;
+  xg_away?: number | null;
+  xga_home?: number | null;
+  xga_away?: number | null;
   // Statistiche opzionali
   statistics?: FixtureStatistics[];
 }
@@ -61,8 +67,8 @@ export class HistoryService {
       // Prendi solo il limite richiesto
       const limitedFixtures = sortedFixtures.slice(0, limit);
 
-      // Converti a MatchHistoryData
-      return this.parseFixturesToHistory(limitedFixtures, teamId);
+      // Converti a MatchHistoryData (con xG dal database)
+      return await this.parseFixturesToHistory(limitedFixtures, teamId);
     } catch (error) {
       logger.error({ error, teamId, season }, 'Failed to fetch team history');
       throw error;
@@ -134,7 +140,7 @@ export class HistoryService {
 
       const limitedFixtures = sortedFixtures.slice(0, limit);
 
-      return this.parseFixturesToHistory(limitedFixtures, team1Id);
+      return await this.parseFixturesToHistory(limitedFixtures, team1Id);
     } catch (error) {
       logger.error({ error, team1Id, team2Id }, 'Failed to fetch head to head history');
       throw error;
@@ -143,15 +149,42 @@ export class HistoryService {
 
   /**
    * Converti APIFootballFixture a MatchHistoryData
+   * AGGIORNATO: Carica anche i dati xG dal database quando disponibili
    */
-  private parseFixturesToHistory(
+  private async parseFixturesToHistory(
     fixtures: APIFootballFixture[],
     perspectiveTeamId?: number
-  ): MatchHistoryData[] {
+  ): Promise<MatchHistoryData[]> {
+    // Raccogli gli IDs delle fixture
+    const fixtureApiIds = fixtures.map(f => f.fixture.id);
+
+    // Fetch dati xG dal database in batch
+    const fixturesFromDB = await prisma.fixture.findMany({
+      where: {
+        apiId: { in: fixtureApiIds }
+      },
+      select: {
+        apiId: true,
+        // @ts-expect-error - Prisma generated types not yet refreshed in IDE
+        xg_home: true,
+        xg_away: true,
+        xga_home: true,
+        xga_away: true,
+      }
+    });
+
+    // Crea mappa per lookup veloce
+    const xgMap = new Map(
+      fixturesFromDB.map(f => [f.apiId, f])
+    );
+
     return fixtures.map(fixture => {
       const isHome = perspectiveTeamId 
         ? fixture.teams.home.id === perspectiveTeamId
         : true;
+
+      // Recupera dati xG dal database se disponibili
+      const xgData = xgMap.get(fixture.fixture.id);
 
       return {
         fixtureId: fixture.fixture.id,
@@ -166,6 +199,15 @@ export class HistoryService {
         leagueId: fixture.league.id,
         leagueName: fixture.league.name,
         season: fixture.league.season,
+        // Aggiungi xG se disponibili
+        // @ts-expect-error - Prisma generated types not yet refreshed in IDE
+        xg_home: xgData?.xg_home ?? null,
+        // @ts-expect-error
+        xg_away: xgData?.xg_away ?? null,
+        // @ts-expect-error
+        xga_home: xgData?.xga_home ?? null,
+        // @ts-expect-error
+        xga_away: xgData?.xga_away ?? null,
       };
     });
   }

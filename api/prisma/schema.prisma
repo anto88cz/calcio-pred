@@ -14,29 +14,29 @@ datasource db {
 // SQUADRE (Teams)
 // ============================================
 model Team {
-  id            Int       @id @default(autoincrement())
-  apiId         Int       @unique // ID da API-FOOTBALL
-  name          String
-  code          String?   // Codice a 3 lettere (es. JUV, MIL)
-  country       String
-  logo          String?   // URL logo
-  founded       Int?
-  venue         String?   // Nome stadio
-  
+  id      Int     @id @default(autoincrement())
+  apiId   Int     @unique // ID da API-FOOTBALL
+  name    String
+  code    String? // Codice a 3 lettere (es. JUV, MIL)
+  country String
+  logo    String? // URL logo
+  founded Int?
+  venue   String? // Nome stadio
+
   // Statistiche aggregate (aggiornate periodicamente)
-  goalsScored   Int       @default(0)
-  goalsConceded Int       @default(0)
-  matchesPlayed Int       @default(0)
-  
+  goalsScored   Int @default(0)
+  goalsConceded Int @default(0)
+  matchesPlayed Int @default(0)
+
   // Relazioni
-  homeFixtures  Fixture[] @relation("HomeTeam")
-  awayFixtures  Fixture[] @relation("AwayTeam")
-  matchesHome   MatchHistory[] @relation("TeamHome")
-  matchesAway   MatchHistory[] @relation("TeamAway")
-  
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
+  homeFixtures Fixture[]      @relation("HomeTeam")
+  awayFixtures Fixture[]      @relation("AwayTeam")
+  matchesHome  MatchHistory[] @relation("TeamHome")
+  matchesAway  MatchHistory[] @relation("TeamAway")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([apiId])
   @@index([name])
   @@map("teams")
@@ -46,54 +46,61 @@ model Team {
 // PARTITE (Fixtures)
 // ============================================
 model Fixture {
-  id              Int       @id @default(autoincrement())
-  apiId           Int       @unique // ID da API-FOOTBALL
-  
+  id    Int @id @default(autoincrement())
+  apiId Int @unique // ID da API-FOOTBALL
+
   // Info partita
-  date            DateTime
-  timestamp       Int       // Unix timestamp
-  timezone        String    @default("Europe/Rome")
-  
+  date      DateTime
+  timestamp Int // Unix timestamp
+  timezone  String   @default("Europe/Rome")
+
   // Squadre
-  homeTeamId      Int
-  homeTeam        Team      @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: Cascade)
-  awayTeamId      Int
-  awayTeam        Team      @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: Cascade)
-  
+  homeTeamId Int
+  homeTeam   Team @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: Cascade)
+  awayTeamId Int
+  awayTeam   Team @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: Cascade)
+
   // Competizione
-  leagueId        Int
-  leagueName      String
-  leagueCountry   String
-  leagueSeason    Int
-  round           String?   // Es: "Regular Season - 10"
-  
+  leagueId      Int
+  leagueName    String
+  leagueCountry String
+  leagueSeason  Int
+  round         String? // Es: "Regular Season - 10"
+
   // Status
-  status          FixtureStatus @default(SCHEDULED)
-  elapsed         Int?      // Minuti giocati
-  
+  status  FixtureStatus @default(SCHEDULED)
+  elapsed Int? // Minuti giocati
+
   // Venue & Referee
-  venue           String?
-  referee         String?
-  
+  venue   String?
+  referee String?
+
   // Risultato (se conclusa)
-  homeGoals       Int?
-  awayGoals       Int?
-  
+  homeGoals Int?
+  awayGoals Int?
+
+  // Expected Goals (xG) - Dati reali da API-FOOTBALL
+  xg_home       Float? // Expected Goals squadra casa
+  xg_away       Float? // Expected Goals squadra trasferta
+  xga_home      Float? // Expected Goals Against squadra casa (xG concessi)
+  xga_away      Float? // Expected Goals Against squadra trasferta (xG concessi)
+  xg_fetched_at DateTime? // Timestamp ultimo aggiornamento xG
+
   // Flags
-  isOfficial      Boolean   @default(true) // No amichevoli
-  isSuspended     Boolean   @default(false)
-  hasLineup       Boolean   @default(false)
-  
+  isOfficial  Boolean @default(true) // No amichevoli
+  isSuspended Boolean @default(false)
+  hasLineup   Boolean @default(false)
+
   // Relazioni
-  prediction      Prediction?
-  injuries        PlayerInjury[]
-  lineupStatus    LineupStatus?
-  
+  prediction   Prediction?
+  injuries     PlayerInjury[]
+  lineupStatus LineupStatus?
+
   // Metadata
-  lastFetch       DateTime  @default(now())
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
+  lastFetch DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([apiId])
   @@index([date])
   @@index([status])
@@ -104,13 +111,13 @@ model Fixture {
 }
 
 enum FixtureStatus {
-  SCHEDULED     // Non ancora iniziata
-  NS            // Not Started (alias for SCHEDULED)
-  LIVE          // In corso
-  FINISHED      // Conclusa
-  POSTPONED     // Posticipata
-  CANCELLED     // Cancellata
-  SUSPENDED     // Sospesa
+  SCHEDULED // Non ancora iniziata
+  NS // Not Started (alias for SCHEDULED)
+  LIVE // In corso
+  FINISHED // Conclusa
+  POSTPONED // Posticipata
+  CANCELLED // Cancellata
+  SUSPENDED // Sospesa
 }
 
 // ============================================
@@ -118,24 +125,24 @@ enum FixtureStatus {
 // ============================================
 // Storico delle partite concluse per calcoli statistici
 model MatchHistory {
-  id              Int       @id @default(autoincrement())
-  apiFixtureId    Int       @unique
-  
+  id           Int @id @default(autoincrement())
+  apiFixtureId Int @unique
+
   // Data partita
-  date            DateTime
-  
+  date DateTime
+
   // Squadre
-  homeTeamId      Int
-  homeTeam        Team      @relation("TeamHome", fields: [homeTeamId], references: [id], onDelete: Cascade)
-  awayTeamId      Int
-  awayTeam        Team      @relation("TeamAway", fields: [awayTeamId], references: [id], onDelete: Cascade)
-  
+  homeTeamId Int
+  homeTeam   Team @relation("TeamHome", fields: [homeTeamId], references: [id], onDelete: Cascade)
+  awayTeamId Int
+  awayTeam   Team @relation("TeamAway", fields: [awayTeamId], references: [id], onDelete: Cascade)
+
   // Risultato
-  homeGoals       Int
-  awayGoals       Int
-  
+  homeGoals Int
+  awayGoals Int
+
   // Statistiche avanzate (da API-FOOTBALL)
-  homePossession  Int?      // Percentuale possesso
+  homePossession  Int? // Percentuale possesso
   awayPossession  Int?
   homeShotsOnGoal Int?
   awayShotsOnGoal Int?
@@ -145,18 +152,18 @@ model MatchHistory {
   awayYellowCards Int?
   homeRedCards    Int?
   awayRedCards    Int?
-  
+
   // Flags
-  isHome          Boolean   // TRUE se homeTeam giocava in casa
-  isOfficial      Boolean   @default(true)
-  
+  isHome     Boolean // TRUE se homeTeam giocava in casa
+  isOfficial Boolean @default(true)
+
   // Metadata
-  leagueId        Int
-  leagueName      String
-  season          Int
-  
-  createdAt       DateTime  @default(now())
-  
+  leagueId   Int
+  leagueName String
+  season     Int
+
+  createdAt DateTime @default(now())
+
   @@index([homeTeamId, date])
   @@index([awayTeamId, date])
   @@index([date])
@@ -167,147 +174,147 @@ model MatchHistory {
 // PREDIZIONI (Predictions)
 // ============================================
 model Prediction {
-  id              Int       @id @default(autoincrement())
-  
+  id Int @id @default(autoincrement())
+
   // Riferimento fixture
-  fixtureId       Int       @unique
-  fixture         Fixture   @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
-  
+  fixtureId Int     @unique
+  fixture   Fixture @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+
   // Confidence (0-1)
   confidence      Float
   confidenceLevel ConfidenceLevel
-  
+
   // Numero partite usate per calcolo
   homeMatchesUsed Int
   awayMatchesUsed Int
-  
+
   // ========== MERCATO 1X2 ==========
   // Empirico
-  prob1Empiric    Float
-  probXEmpiric    Float
-  prob2Empiric    Float
-  
+  prob1Empiric Float
+  probXEmpiric Float
+  prob2Empiric Float
+
   // Poisson
-  prob1Poisson    Float
-  probXPoisson    Float
-  prob2Poisson    Float
-  
+  prob1Poisson Float
+  probXPoisson Float
+  prob2Poisson Float
+
   // Media finale
-  prob1Final      Float
-  probXFinal      Float
-  prob2Final      Float
-  
+  prob1Final Float
+  probXFinal Float
+  prob2Final Float
+
   // Forza predizione 1X2
-  strength1X2     PredictionStrength
-  
+  strength1X2 PredictionStrength
+
   // ========== UNDER/OVER ==========
   // Under/Over 0.5
-  probUnder05Empiric  Float
-  probOver05Empiric   Float
-  probUnder05Poisson  Float
-  probOver05Poisson   Float
-  probUnder05Final    Float
-  probOver05Final     Float
-  strengthOver05      PredictionStrength
-  
+  probUnder05Empiric Float
+  probOver05Empiric  Float
+  probUnder05Poisson Float
+  probOver05Poisson  Float
+  probUnder05Final   Float
+  probOver05Final    Float
+  strengthOver05     PredictionStrength
+
   // Under/Over 1.5
-  probUnder15Empiric  Float
-  probOver15Empiric   Float
-  probUnder15Poisson  Float
-  probOver15Poisson   Float
-  probUnder15Final    Float
-  probOver15Final     Float
-  strengthOver15      PredictionStrength
-  
+  probUnder15Empiric Float
+  probOver15Empiric  Float
+  probUnder15Poisson Float
+  probOver15Poisson  Float
+  probUnder15Final   Float
+  probOver15Final    Float
+  strengthOver15     PredictionStrength
+
   // Under/Over 2.5
-  probUnder25Empiric  Float
-  probOver25Empiric   Float
-  probUnder25Poisson  Float
-  probOver25Poisson   Float
-  probUnder25Final    Float
-  probOver25Final     Float
-  strengthOver25      PredictionStrength
-  
+  probUnder25Empiric Float
+  probOver25Empiric  Float
+  probUnder25Poisson Float
+  probOver25Poisson  Float
+  probUnder25Final   Float
+  probOver25Final    Float
+  strengthOver25     PredictionStrength
+
   // Under/Over 3.5
-  probUnder35Empiric  Float
-  probOver35Empiric   Float
-  probUnder35Poisson  Float
-  probOver35Poisson   Float
-  probUnder35Final    Float
-  probOver35Final     Float
-  strengthOver35      PredictionStrength
-  
+  probUnder35Empiric Float
+  probOver35Empiric  Float
+  probUnder35Poisson Float
+  probOver35Poisson  Float
+  probUnder35Final   Float
+  probOver35Final    Float
+  strengthOver35     PredictionStrength
+
   // Under/Over 4.5
-  probUnder45Empiric  Float
-  probOver45Empiric   Float
-  probUnder45Poisson  Float
-  probOver45Poisson   Float
-  probUnder45Final    Float
-  probOver45Final     Float
-  strengthOver45      PredictionStrength
-  
+  probUnder45Empiric Float
+  probOver45Empiric  Float
+  probUnder45Poisson Float
+  probOver45Poisson  Float
+  probUnder45Final   Float
+  probOver45Final    Float
+  strengthOver45     PredictionStrength
+
   // ========== BTTS (Both Teams To Score) ==========
-  probBttsYesEmpiric  Float
-  probBttsNoEmpiric   Float
-  probBttsYesPoisson  Float
-  probBttsNoPoisson   Float
-  probBttsYesFinal    Float
-  probBttsNoFinal     Float
-  strengthBtts        PredictionStrength
-  
+  probBttsYesEmpiric Float
+  probBttsNoEmpiric  Float
+  probBttsYesPoisson Float
+  probBttsNoPoisson  Float
+  probBttsYesFinal   Float
+  probBttsNoFinal    Float
+  strengthBtts       PredictionStrength
+
   // ========== DOPPIA CHANCE ==========
   // 1X (Home win or Draw)
-  prob1XEmpiric   Float
-  prob1XPoisson   Float
-  prob1XFinal     Float
-  strength1X      PredictionStrength
-  
+  prob1XEmpiric Float
+  prob1XPoisson Float
+  prob1XFinal   Float
+  strength1X    PredictionStrength
+
   // 12 (Home win or Away win)
-  prob12Empiric   Float
-  prob12Poisson   Float
-  prob12Final     Float
-  strength12      PredictionStrength
-  
+  prob12Empiric Float
+  prob12Poisson Float
+  prob12Final   Float
+  strength12    PredictionStrength
+
   // X2 (Draw or Away win)
-  probX2Empiric   Float
-  probX2Poisson   Float
-  probX2Final     Float
-  strengthX2      PredictionStrength
-  
+  probX2Empiric Float
+  probX2Poisson Float
+  probX2Final   Float
+  strengthX2    PredictionStrength
+
   // ========== PARAMETRI POISSON ==========
-  lambdaHome      Float     // Gol attesi casa
-  lambdaAway      Float     // Gol attesi trasferta
-  homeAdvantage   Float     // Vantaggio casa applicato
-  
+  lambdaHome    Float // Gol attesi casa
+  lambdaAway    Float // Gol attesi trasferta
+  homeAdvantage Float // Vantaggio casa applicato
+
   // ========== EXPECTED GOALS (xG) ==========
-  xgHome          Float?    // Expected Goals casa (da API-FOOTBALL)
-  xgAway          Float?    // Expected Goals trasferta
-  xgaHome         Float?    // xG Against casa (= xgAway opponent)
-  xgaAway         Float?    // xG Against trasferta (= xgHome opponent)
-  xgotHome        Float?    // xG on Target casa (facoltativo)
-  xgotAway        Float?    // xG on Target trasferta (facoltativo)
-  xgLastUpdate    DateTime? // Ultimo aggiornamento xG
-  
+  xgHome       Float? // Expected Goals casa (da API-FOOTBALL)
+  xgAway       Float? // Expected Goals trasferta
+  xgaHome      Float? // xG Against casa (= xgAway opponent)
+  xgaAway      Float? // xG Against trasferta (= xgHome opponent)
+  xgotHome     Float? // xG on Target casa (facoltativo)
+  xgotAway     Float? // xG on Target trasferta (facoltativo)
+  xgLastUpdate DateTime? // Ultimo aggiornamento xG
+
   // xG Flags
-  missingXg       Boolean   @default(false)  // TRUE se xG non disponibili
-  lowXgConsistency Boolean  @default(false)  // TRUE se xG divergono >60% da storico
-  
+  missingXg        Boolean @default(false) // TRUE se xG non disponibili
+  lowXgConsistency Boolean @default(false) // TRUE se xG divergono >60% da storico
+
   // xG Sources (JSON array)
-  xgSources       Json?     // [{type:"statistics", provider:"API-FOOTBALL", provider_id:123, last_update_utc:"..."}]
-  
+  xgSources Json? // [{type:"statistics", provider:"API-FOOTBALL", provider_id:123, last_update_utc:"..."}]
+
   // ========== METADATA ==========
-  dataQuality     DataQuality
-  hasInjuries     Boolean   @default(false)
-  hasLineup       Boolean   @default(false)
-  
+  dataQuality DataQuality
+  hasInjuries Boolean     @default(false)
+  hasLineup   Boolean     @default(false)
+
   // Sorgenti dati
-  provider        String    @default("API-FOOTBALL")
+  provider          String @default("API-FOOTBALL")
   providerFixtureId Int
-  
+
   // Timestamp
-  calculatedAt    DateTime  @default(now())
-  lastUpdate      DateTime  @updatedAt
-  
+  calculatedAt DateTime @default(now())
+  lastUpdate   DateTime @updatedAt
+
   @@index([fixtureId])
   @@index([confidence])
   @@index([calculatedAt])
@@ -315,26 +322,26 @@ model Prediction {
 }
 
 enum ConfidenceLevel {
-  VERY_LOW    // < 0.3
-  LOW         // 0.3 - 0.5
-  MEDIUM      // 0.5 - 0.7
-  HIGH        // 0.7 - 0.85
-  VERY_HIGH   // > 0.85
+  VERY_LOW // < 0.3
+  LOW // 0.3 - 0.5
+  MEDIUM // 0.5 - 0.7
+  HIGH // 0.7 - 0.85
+  VERY_HIGH // > 0.85
 }
 
 enum PredictionStrength {
-  GIOCALA     // 🟩 >= 80% (solo se confidence >= 0.60)
-  STRONG      // 🟢 Soglie forti
-  MEDIUM      // 🟡 Soglie medie
-  NEUTRAL     // ⚪ Sotto soglie
-  ND          // 🔴 Dati insufficienti
+  GIOCALA // 🟩 >= 80% (solo se confidence >= 0.60)
+  STRONG // 🟢 Soglie forti
+  MEDIUM // 🟡 Soglie medie
+  NEUTRAL // ⚪ Sotto soglie
+  ND // 🔴 Dati insufficienti
 }
 
 enum DataQuality {
-  EXCELLENT   // Tutti i dati disponibili
-  GOOD        // Dati completi con piccole lacune
-  FAIR        // Alcuni dati mancanti
-  POOR        // Molti dati mancanti
+  EXCELLENT // Tutti i dati disponibili
+  GOOD // Dati completi con piccole lacune
+  FAIR // Alcuni dati mancanti
+  POOR // Molti dati mancanti
   INSUFFICIENT // Troppi dati mancanti per calcolo affidabile
 }
 
@@ -342,29 +349,29 @@ enum DataQuality {
 // INFORTUNI GIOCATORI (Player Injuries)
 // ============================================
 model PlayerInjury {
-  id              Int       @id @default(autoincrement())
-  
+  id Int @id @default(autoincrement())
+
   // Riferimenti
-  fixtureId       Int
-  fixture         Fixture   @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
-  teamId          Int
-  
+  fixtureId Int
+  fixture   Fixture @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+  teamId    Int
+
   // Info giocatore
-  playerApiId     Int
-  playerName      String
-  playerNumber    Int?
-  playerPosition  String?   // Goalkeeper, Defender, Midfielder, Attacker
-  
+  playerApiId    Int
+  playerName     String
+  playerNumber   Int?
+  playerPosition String? // Goalkeeper, Defender, Midfielder, Attacker
+
   // Info infortunio
-  injuryType      String    // Injury, Doubtful, Suspended, Missing
-  reason          String?   // Knee Injury, Muscle Injury, etc.
-  
+  injuryType String // Injury, Doubtful, Suspended, Missing
+  reason     String? // Knee Injury, Muscle Injury, etc.
+
   // Status
-  isActive        Boolean   @default(true)
-  
+  isActive Boolean @default(true)
+
   // Metadata
-  fetchedAt       DateTime  @default(now())
-  
+  fetchedAt DateTime @default(now())
+
   @@index([fixtureId])
   @@index([teamId])
   @@index([playerApiId])
@@ -375,33 +382,33 @@ model PlayerInjury {
 // STATUS FORMAZIONI (Lineup Status)
 // ============================================
 model LineupStatus {
-  id              Int       @id @default(autoincrement())
-  
+  id Int @id @default(autoincrement())
+
   // Riferimento fixture
-  fixtureId       Int       @unique
-  fixture         Fixture   @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
-  
+  fixtureId Int     @unique
+  fixture   Fixture @relation(fields: [fixtureId], references: [id], onDelete: Cascade)
+
   // Status lineup
-  homeLineupConfirmed   Boolean   @default(false)
-  awayLineupConfirmed   Boolean   @default(false)
-  
+  homeLineupConfirmed Boolean @default(false)
+  awayLineupConfirmed Boolean @default(false)
+
   // Formazioni (JSON)
-  homeFormation   String?   // Es: "4-3-3"
-  awayFormation   String?   // Es: "4-4-2"
-  
+  homeFormation String? // Es: "4-3-3"
+  awayFormation String? // Es: "4-4-2"
+
   // Statistiche lineup
-  homeStartingXI  Int?      // Numero giocatori titolari
+  homeStartingXI  Int? // Numero giocatori titolari
   awayStartingXI  Int?
   homeSubstitutes Int?
   awaySubstitutes Int?
-  
+
   // Key players status (JSON array)
-  homeKeyPlayers  Json?     // [{name, position, isPlaying}]
-  awayKeyPlayers  Json?
-  
+  homeKeyPlayers Json? // [{name, position, isPlaying}]
+  awayKeyPlayers Json?
+
   // Metadata
-  lastUpdate      DateTime  @default(now())
-  
+  lastUpdate DateTime @default(now())
+
   @@index([fixtureId])
   @@map("lineup_status")
 }
@@ -411,19 +418,19 @@ model LineupStatus {
 // ============================================
 // Traccia gli ultimi fetch dalle API per rate limiting
 model ApiCache {
-  id              Int       @id @default(autoincrement())
-  
-  endpoint        String    // Es: "fixtures", "h2h", "statistics"
-  cacheKey        String    @unique // Hash della query
-  
+  id Int @id @default(autoincrement())
+
+  endpoint String // Es: "fixtures", "h2h", "statistics"
+  cacheKey String @unique // Hash della query
+
   // Dati
-  data            Json      // Response API cachata
-  
+  data Json // Response API cachata
+
   // Metadata
-  fetchedAt       DateTime  @default(now())
-  expiresAt       DateTime
-  hitCount        Int       @default(0)
-  
+  fetchedAt DateTime @default(now())
+  expiresAt DateTime
+  hitCount  Int      @default(0)
+
   @@index([endpoint])
   @@index([expiresAt])
   @@map("api_cache")
@@ -434,37 +441,37 @@ model ApiCache {
 // ============================================
 // Traccia l'esecuzione dei job schedulati
 model JobLog {
-  id              Int       @id @default(autoincrement())
-  
-  jobName         String    // Es: "daily-fixtures", "lineup-refresh"
-  jobType         JobType
-  
+  id Int @id @default(autoincrement())
+
+  jobName String // Es: "daily-fixtures", "lineup-refresh"
+  jobType JobType
+
   // Status
-  status          JobStatus
-  message         String?
-  errorDetails    String?   @db.Text
-  
+  status       JobStatus
+  message      String?
+  errorDetails String?   @db.Text
+
   // Statistiche
-  itemsProcessed  Int       @default(0)
-  itemsFailed     Int       @default(0)
-  
+  itemsProcessed Int @default(0)
+  itemsFailed    Int @default(0)
+
   // Timing
-  startedAt       DateTime  @default(now())
-  executedAt      DateTime? // Alias for completedAt
-  completedAt     DateTime?
-  durationMs      Int?
-  
+  startedAt   DateTime  @default(now())
+  executedAt  DateTime? // Alias for completedAt
+  completedAt DateTime?
+  durationMs  Int?
+
   @@index([jobName, startedAt])
   @@index([status])
   @@map("job_logs")
 }
 
 enum JobType {
-  DAILY_FIXTURES      // Caricamento partite del giorno (06:00)
-  LINEUP_REFRESH      // Refresh lineup e infortuni (H-120)
-  FINAL_UPDATE        // Update finale pre-partita (H-30)
-  HISTORICAL_UPDATE   // Update storico partite
-  STATISTICS_UPDATE   // Update statistiche squadre
+  DAILY_FIXTURES // Caricamento partite del giorno (06:00)
+  LINEUP_REFRESH // Refresh lineup e infortuni (H-120)
+  FINAL_UPDATE // Update finale pre-partita (H-30)
+  HISTORICAL_UPDATE // Update storico partite
+  STATISTICS_UPDATE // Update statistiche squadre
 }
 
 enum JobStatus {

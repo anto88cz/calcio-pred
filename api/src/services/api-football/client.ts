@@ -7,6 +7,7 @@ import axios, { AxiosInstance, AxiosError } from 'axios';
 import { config } from '../../config';
 import logger from '../../utils/logger';
 import { cacheGet, cacheSet } from '../../lib/redis';
+import { incrementAPICall } from '../../utils/api-monitor';
 
 class APIFootballClient {
   private client: AxiosInstance;
@@ -180,6 +181,9 @@ class APIFootballClient {
         this.requestCount++;
 
         const response = await this.client.get(endpoint, { params });
+        
+        // Track API call per monitoraggio giornaliero
+        void incrementAPICall();
 
         // Verifica response API-FOOTBALL
         if (!response.data) {

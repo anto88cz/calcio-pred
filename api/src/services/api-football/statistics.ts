@@ -4,6 +4,7 @@
 
 import { apiFootballClient } from './client';
 import logger from '../../utils/logger';
+import { prisma } from '../../lib/prisma';
 import type { APIFootballStatistics } from '../../types';
 
 export interface FixtureStatistics {
@@ -139,6 +140,60 @@ export class StatisticsService {
     
     const value = typeof stat.value === 'string' ? parseFloat(stat.value) : stat.value;
     return isNaN(value) ? null : value;
+  }
+
+  /**
+   * Fetch xG reali e salvali nel database (Hybrid Cache)
+   * Questa funzione è il cuore del sistema xG Real Hybrid Cache
+   */
+  async fetchAndCacheXG(fixtureApiId: number): Promise<boolean> {
+    try {
+      logger.info({ fixtureApiId }, 'Fetching and caching xG data');
+
+      // 1. Trova fixture nel database
+      const fixture = await prisma.fixture.findUnique({
+        where: { apiId: fixtureApiId }
+      });
+
+      if (!fixture) {
+        logger.warn({ fixtureApiId }, 'Fixture not found in database');
+        return false;
+      }
+
+      // 2. Fetch xG da API-FOOTBALL
+      const xgData = await this.getExpectedGoals(fixtureApiId);
+
+      // 3. Se dati xG mancanti, non salvare
+      if (xgData.missingXg) {
+        logger.info({ fixtureApiId }, 'xG data not available from API');
+        return false;
+      }
+
+      // 4. Salva nel database con timestamp
+      await prisma.fixture.update({
+        where: { id: fixture.id },
+        data: {
+          // @ts-expect-error - Prisma generated types not yet refreshed in IDE
+          xg_home: xgData.home.xg,
+          xg_away: xgData.away.xg,
+          xga_home: xgData.away.xg, // xG concessi casa = xG attacco trasferta
+          xga_away: xgData.home.xg, // xG concessi trasferta = xG attacco casa
+          xg_fetched_at: new Date()
+        }
+      });
+
+      logger.info({ 
+        fixtureApiId, 
+        xg_home: xgData.home.xg, 
+        xg_away: xgData.away.xg 
+      }, 'xG data cached successfully');
+
+      return true;
+
+    } catch (error) {
+      logger.error({ error, fixtureApiId }, 'Failed to fetch and cache xG data');
+      return false;
+    }
   }
 
   /**

@@ -48,6 +48,18 @@ app.get('/health', (_req, res) => {
   });
 });
 
+// API usage statistics
+app.get('/api/usage', async (_req, res) => {
+  try {
+    const { getAPIUsageStats } = await import('./utils/api-monitor');
+    const stats = await getAPIUsageStats();
+    res.json(stats);
+  } catch (error) {
+    logger.error({ error }, 'Failed to get API usage stats');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // API routes
 app.use('/api/fixtures', fixturesRouter);
 app.use('/api/predictions', predictionsRouter);
