@@ -95,6 +95,7 @@ function MainApp() {
         
         // Log per debug
         console.log('🔍 Dati ricevuti dal backend:', data);
+        console.log('🥅 BTTS data:', data.marketBTTS);
         
         const mappedPrediction: ExtendedMatchPrediction = {
           id: Date.now().toString(),

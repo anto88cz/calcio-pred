@@ -202,17 +202,17 @@ export default function ProfessionalPredictionCard({ predictions }: Props) {
           <div className="glass-card p-6">
             <h3 className="text-xl font-bold text-white mb-6 flex items-center">
               <span className="text-2xl mr-3">🥅</span>
-              Both Teams To Score
+              Goal / NoGoal
             </h3>
             
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-6 bg-green-500/10 rounded-xl border border-green-500/20 text-center">
-                <p className="text-gray-400 text-sm mb-2">Yes</p>
+              <div className="p-6 bg-green-500/10 rounded-xl border border-green-500/20 text-center hover:bg-green-500/20 transition-colors">
+                <p className="text-gray-400 text-sm mb-2 font-semibold">GOAL (Entrambe segnano)</p>
                 <p className="text-4xl font-black text-green-400">{pred.btts.yes.toFixed(1)}%</p>
               </div>
               
-              <div className="p-6 bg-red-500/10 rounded-xl border border-red-500/20 text-center">
-                <p className="text-gray-400 text-sm mb-2">No</p>
+              <div className="p-6 bg-red-500/10 rounded-xl border border-red-500/20 text-center hover:bg-red-500/20 transition-colors">
+                <p className="text-gray-400 text-sm mb-2 font-semibold">NOGOAL (Almeno una non segna)</p>
                 <p className="text-4xl font-black text-red-400">{pred.btts.no.toFixed(1)}%</p>
               </div>
             </div>
