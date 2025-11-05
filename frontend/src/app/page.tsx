@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ProfessionalPredictionCard from '@/components/ProfessionalPredictionCard';
+import AnalysisLoadingModal from '@/components/AnalysisLoadingModal';
 import { useState, useEffect } from 'react';
 import type { MatchPrediction } from '@/types';
 import { ENV } from '@/config/env';
@@ -45,6 +46,7 @@ function MainApp() {
   const [loadingMatches, setLoadingMatches] = useState(false);
   const [prediction, setPrediction] = useState<ExtendedMatchPrediction | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [analyzingTeams, setAnalyzingTeams] = useState<{ home: string; away: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -78,6 +80,7 @@ function MainApp() {
   const analyzeMatch = async (homeTeam: string, awayTeam: string, competition: string) => {
     try {
       setAnalyzing(true);
+      setAnalyzingTeams({ home: homeTeam, away: awayTeam });
       setError(null);
       setPrediction(null);
 
@@ -148,6 +151,7 @@ function MainApp() {
       setError('Errore nella connessione al server');
     } finally {
       setAnalyzing(false);
+      setAnalyzingTeams(null);
     }
   };
 
@@ -418,30 +422,12 @@ function MainApp() {
           </div>
         </div>
 
-        {/* Risultati analisi */}
-        {analyzing && (
-          <div className="text-center py-24">
-            <div className="relative inline-block mb-8">
-              <div className="absolute inset-0 animate-spin">
-                <div className="w-32 h-32 border-4 border-blue-500/30 border-t-blue-500 rounded-full"></div>
-              </div>
-              
-              <div className="w-32 h-32 bg-gradient-to-br from-blue-600 via-purple-600 to-emerald-600 rounded-full flex items-center justify-center shadow-2xl">
-                <span className="text-4xl animate-bounce"></span>
-              </div>
-            </div>
-            
-            <div className="space-y-6">
-              <div className="text-3xl font-black text-white mb-2">
-                 AI Processing...
-              </div>
-              
-              <div className="text-lg text-gray-300 mb-8">
-                Analizzando dati storici e statistiche avanzate
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Modal di caricamento analisi */}
+        <AnalysisLoadingModal 
+          isOpen={analyzing} 
+          homeTeam={analyzingTeams?.home || ''} 
+          awayTeam={analyzingTeams?.away || ''} 
+        />
 
         {!analyzing && prediction && (
           <div id="prediction-results" className="relative mb-16">
