@@ -548,11 +548,16 @@ router.post('/calculate', async (req: Request, res: Response, next: NextFunction
  */
 router.post('/calculate-by-name', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // Calcola stagione dinamicamente (anno corrente o precedente se prima di agosto)
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth(); // 0-11
+    const currentSeason = currentMonth >= 7 ? currentYear : currentYear - 1; // 7 = agosto
+    
     const schema = z.object({
       homeTeamName: z.string().min(1),
       awayTeamName: z.string().min(1),
       leagueId: z.number().int().positive().optional().default(39), // Default Premier League
-      season: z.number().int().positive().optional().default(2024),
+      season: z.number().int().positive().optional().default(currentSeason),
     });
     
     const input = schema.parse(req.body);

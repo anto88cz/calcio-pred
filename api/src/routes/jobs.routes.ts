@@ -25,8 +25,10 @@ router.post('/load-today-fixtures', async (_req, res) => {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     
-    // Per le leghe europee 2024/2025, usa sempre 2024
-    const season = 2024;
+    // Calcola stagione dinamicamente (anno corrente o precedente se prima di agosto)
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth(); // 0-11
+    const season = currentMonth >= 7 ? currentYear : currentYear - 1; // 7 = agosto
     
     logger.info({ season, date: today.toISOString() }, 'Using season for fixtures');
     

@@ -30,7 +30,7 @@ const configSchema = z.object({
   
   // Parametri Calcolo
   HISTORY_GAMES: z.string().transform(Number).default('20'),
-  HOME_ADV_GOALS: z.string().transform(Number).default('0.20'),
+  HOME_ADV_GOALS: z.string().transform(Number).default('0.0'), // Fattore casa rimosso
   CONFIDENCE_MIN: z.string().transform(Number).default('0.60'),
   BLEND_EMPIRIC: z.string().transform(Number).default('0.6'),
   BLEND_POISSON: z.string().transform(Number).default('0.4'),

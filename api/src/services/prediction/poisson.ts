@@ -24,7 +24,7 @@ export class PoissonEngine {
   calculate(
     homeHistory: MatchHistoryData[],
     awayHistory: MatchHistoryData[],
-    homeAdvantage: number = 0.20,
+    homeAdvantage: number = 0.0, // Fattore casa rimosso
     xgData?: XGCalibrationData
   ): PoissonResult {
     logger.info({ 
