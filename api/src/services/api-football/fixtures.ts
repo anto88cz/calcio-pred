@@ -69,6 +69,7 @@ export class FixturesService {
 
   /**
    * Get fixtures per squadra e stagione
+   * Cache estesa a 24 ore per ridurre rate limit
    */
   async getFixturesByTeam(
     teamId: number,
@@ -92,7 +93,7 @@ export class FixturesService {
       const fixtures = await apiFootballClient.request<APIFootballFixture[]>(
         '/fixtures',
         params,
-        { cache: true, cacheTTL: 1800 }
+        { cache: true, cacheTTL: 86400 } // 24 ore per dati storici
       );
 
       return fixtures || [];

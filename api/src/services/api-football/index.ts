@@ -6,7 +6,7 @@
 export { apiFootballClient } from './client';
 export { fixturesService, FixturesService } from './fixtures';
 export { statisticsService, StatisticsService, type FixtureStatistics, type ExpectedGoalsData } from './statistics';
-export { injuriesService, InjuriesService, type PlayerInjuryInfo } from './injuries';
+export { injuriesService, InjuriesService, type PlayerInjuryInfo, type TeamInjuriesAnalysis, type InjuriesImpactAnalysis } from './injuries';
 export { lineupsService, LineupsService, type LineupInfo } from './lineups';
 export { historyService, HistoryService, type MatchHistoryData } from './history';
 export { teamsService, TeamsService, type TeamInfo } from './teams';

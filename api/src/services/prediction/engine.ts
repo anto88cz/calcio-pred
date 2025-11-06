@@ -157,6 +157,45 @@ export class PredictionEngine {
         },
       }, 'Lambda adjusted with H2H factor');
 
+      // 6.7. Applica Injuries Impact factor a lambda
+      const injuriesAnalysis = await injuriesService.analyzeMatchInjuriesImpact(
+        input.homeTeamId,
+        input.awayTeamId,
+        input.fixtureId,
+        input.season
+      );
+      
+      let lambdaHomeBeforeInjuries = poissonResult.lambdaHome;
+      let lambdaAwayBeforeInjuries = poissonResult.lambdaAway;
+      
+      if (injuriesAnalysis) {
+        // Apply attacking multipliers
+        poissonResult.lambdaHome *= injuriesAnalysis.home.impactFactor.attacking;
+        poissonResult.lambdaAway *= injuriesAnalysis.away.impactFactor.attacking;
+        
+        logger.info({
+          home: {
+            lambdaBeforeInjuries: lambdaHomeBeforeInjuries.toFixed(2),
+            injuriesSeverity: injuriesAnalysis.home.severityScore,
+            attackingImpact: injuriesAnalysis.home.impactFactor.attacking.toFixed(3),
+            lambdaAfterInjuries: poissonResult.lambdaHome.toFixed(2),
+            injuriesBoost: ((injuriesAnalysis.home.impactFactor.attacking - 1) * 100).toFixed(1) + '%',
+            totalBoostFromOriginal: ((poissonResult.lambdaHome / lambdaHomeOriginal - 1) * 100).toFixed(1) + '%',
+          },
+          away: {
+            lambdaBeforeInjuries: lambdaAwayBeforeInjuries.toFixed(2),
+            injuriesSeverity: injuriesAnalysis.away.severityScore,
+            attackingImpact: injuriesAnalysis.away.impactFactor.attacking.toFixed(3),
+            lambdaAfterInjuries: poissonResult.lambdaAway.toFixed(2),
+            injuriesBoost: ((injuriesAnalysis.away.impactFactor.attacking - 1) * 100).toFixed(1) + '%',
+            totalBoostFromOriginal: ((poissonResult.lambdaAway / lambdaAwayOriginal - 1) * 100).toFixed(1) + '%',
+          },
+          impactDescription: injuriesAnalysis.impactDescription,
+        }, 'Lambda adjusted with injuries impact');
+      } else {
+        logger.debug('No injuries analysis available');
+      }
+
       // 7. Blend risultati
       const blendedResult = blender.blend(
         empiricResult,
@@ -309,7 +348,8 @@ export class PredictionEngine {
         homeForm,
         awayForm,
         h2hStats,
-        calibrationResult
+        calibrationResult,
+        injuriesAnalysis
       );
 
     } catch (error) {
@@ -893,7 +933,29 @@ export class PredictionEngine {
       h2hFactor: { home: number; away: number };
       recentResults: string;
     },
-    calibrationResult?: any
+    calibrationResult?: any,
+    injuriesAnalysis?: {
+      home: {
+        teamId: number;
+        teamName: string;
+        players: PlayerInjuryInfo[];
+        totalInjuries: number;
+        severityScore: number;
+        impactFactor: { attacking: number; defensive: number };
+      };
+      away: {
+        teamId: number;
+        teamName: string;
+        players: PlayerInjuryInfo[];
+        totalInjuries: number;
+        severityScore: number;
+        impactFactor: { attacking: number; defensive: number };
+      };
+      homeAdvantage: boolean;
+      awayAdvantage: boolean;
+      balanced: boolean;
+      impactDescription: string;
+    } | null
   ): PredictionResponse {
     const { empiric, poisson, final } = blendedResult;
     
@@ -1053,6 +1115,32 @@ export class PredictionEngine {
           agreement: calibrationResult.agreement,
           confidenceBoost: calibrationResult.confidenceBoost,
           valueBets: calibrationResult.valueBets || [],
+        },
+      }),
+
+      // Injuries & Suspensions Analysis (optional)
+      ...(injuriesAnalysis && {
+        injuriesAnalysis: {
+          home: {
+            teamId: injuriesAnalysis.home.teamId,
+            teamName: injuriesAnalysis.home.teamName,
+            players: injuriesAnalysis.home.players,
+            totalInjuries: injuriesAnalysis.home.totalInjuries,
+            severityScore: injuriesAnalysis.home.severityScore,
+            impactFactor: injuriesAnalysis.home.impactFactor,
+          },
+          away: {
+            teamId: injuriesAnalysis.away.teamId,
+            teamName: injuriesAnalysis.away.teamName,
+            players: injuriesAnalysis.away.players,
+            totalInjuries: injuriesAnalysis.away.totalInjuries,
+            severityScore: injuriesAnalysis.away.severityScore,
+            impactFactor: injuriesAnalysis.away.impactFactor,
+          },
+          homeAdvantage: injuriesAnalysis.homeAdvantage,
+          awayAdvantage: injuriesAnalysis.awayAdvantage,
+          balanced: injuriesAnalysis.balanced,
+          impactDescription: injuriesAnalysis.impactDescription,
         },
       }),
       

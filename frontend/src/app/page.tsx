@@ -3,9 +3,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ProfessionalPredictionCard from '@/components/ProfessionalPredictionCard';
 import MarketCalibrationCard from '@/components/MarketCalibrationCard';
+import InjuriesCard from '@/components/InjuriesCard';
 import AnalysisLoadingModal from '@/components/AnalysisLoadingModal';
 import { useState, useEffect } from 'react';
-import type { MatchPrediction, MarketCalibration } from '@/types';
+import type { MatchPrediction, MarketCalibration, InjuriesAnalysis } from '@/types';
 import { ENV } from '@/config/env';
 
 const queryClient = new QueryClient({
@@ -69,6 +70,7 @@ interface ExtendedMatchPrediction extends MatchPrediction {
     recentResults: string;
   };
   marketCalibration?: MarketCalibration;
+  injuriesAnalysis?: InjuriesAnalysis;
 }
 
 export default function Home() {
@@ -122,7 +124,8 @@ function MainApp() {
       setError(null);
       setPrediction(null);
 
-      const response = await fetch(`${ENV.API_URL}/api/predic
+      const response = await fetch(`${ENV.API_URL}/api/predictions/calculate-by-name`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           homeTeamName: homeTeam,
@@ -176,7 +179,8 @@ function MainApp() {
           mostProbableScores: data.mostProbableScores,
           formMomentum: data.formMomentum,
           h2hAnalysis: data.h2hAnalysis,
-          marketCalibration: data.marketCalibration, // Add market calibration data
+          marketCalibration: data.marketCalibration,
+          injuriesAnalysis: data.injuriesAnalysis,
         };
         
         setPrediction(mappedPrediction);
@@ -493,6 +497,11 @@ function MainApp() {
               {/* Market Calibration Card */}
               {prediction.marketCalibration && (
                 <MarketCalibrationCard calibration={prediction.marketCalibration} />
+              )}
+
+              {/* Injuries & Suspensions Card */}
+              {prediction.injuriesAnalysis && (
+                <InjuriesCard analysis={prediction.injuriesAnalysis} />
               )}
               
               <ProfessionalPredictionCard predictions={[prediction]} />

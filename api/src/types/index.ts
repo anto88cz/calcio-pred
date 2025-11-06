@@ -151,6 +151,50 @@ export interface PredictionResponse {
       marketOdds: number;
     }>;
   };
+
+  // Injuries & Suspensions Analysis (optional - presente se disponibile)
+  injuriesAnalysis?: {
+    home: {
+      teamId: number;
+      teamName: string;
+      players: Array<{
+        playerId: number;
+        playerName: string;
+        playerPhoto: string;
+        type: string;                         // 'Injury', 'Suspended', 'Missing', 'Doubtful'
+        reason: string;                       // Injury reason
+        position?: string;                    // Goalkeeper, Defender, Midfielder, Attacker
+      }>;
+      totalInjuries: number;
+      severityScore: number;                  // 0-100 (higher = worse)
+      impactFactor: {
+        attacking: number;                    // Multiplier for lambda (0.7 = -30%)
+        defensive: number;                    // Multiplier for xGA (1.2 = +20% more goals conceded)
+      };
+    };
+    away: {
+      teamId: number;
+      teamName: string;
+      players: Array<{
+        playerId: number;
+        playerName: string;
+        playerPhoto: string;
+        type: string;
+        reason: string;
+        position?: string;
+      }>;
+      totalInjuries: number;
+      severityScore: number;
+      impactFactor: {
+        attacking: number;
+        defensive: number;
+      };
+    };
+    homeAdvantage: boolean;                   // true if away has more severe injuries
+    awayAdvantage: boolean;                   // true if home has more severe injuries
+    balanced: boolean;                        // true if similar injury situations
+    impactDescription: string;                // Human-readable description in Italian
+  };
   
   // Risultati esatti più probabili
   mostProbableScores: Array<{

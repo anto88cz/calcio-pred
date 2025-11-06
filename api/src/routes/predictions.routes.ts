@@ -619,7 +619,16 @@ router.post('/calculate-by-name', async (req: Request, res: Response, next: Next
       awayTeam: awayTeam.name,
       confidence: predictionResult.confidence,
       calibrated: !!predictionResult.marketCalibration,
+      hasInjuriesAnalysis: !!predictionResult.injuriesAnalysis,
     }, 'Manual prediction calculated');
+    
+    // 🔍 DEBUG: Log dettagliato prima di ritornare al frontend
+    logger.debug({
+      marketCalibration: predictionResult.marketCalibration ? 'PRESENT' : 'NULL',
+      injuriesAnalysis: predictionResult.injuriesAnalysis ? 'PRESENT' : 'NULL',
+      formMomentum: predictionResult.formMomentum ? 'PRESENT' : 'NULL',
+      h2hAnalysis: predictionResult.h2hAnalysis ? 'PRESENT' : 'NULL',
+    }, '🔍 Response data check before sending to frontend');
     
     return res.json({
       success: true,

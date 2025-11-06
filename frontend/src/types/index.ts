@@ -330,3 +330,34 @@ export interface MarketCalibration {
   confidenceBoost: number; // 0-0.10
   valueBets: ValueBet[];
 }
+
+export interface InjuredPlayer {
+  playerId: number;
+  playerName: string;
+  playerPhoto: string;
+  type: string; // 'Injury', 'Suspended', 'Missing', 'Doubtful'
+  reason: string;
+  position?: string; // Goalkeeper, Defender, Midfielder, Attacker
+}
+
+export interface TeamInjuriesAnalysis {
+  teamId: number;
+  teamName: string;
+  players: InjuredPlayer[];
+  totalInjuries: number;
+  severityScore: number; // 0-100 (higher = worse)
+  impactFactor: {
+    attacking: number; // Multiplier for lambda (0.7 = -30%)
+    defensive: number; // Multiplier for xGA (1.2 = +20% more goals conceded)
+  };
+}
+
+export interface InjuriesAnalysis {
+  home: TeamInjuriesAnalysis;
+  away: TeamInjuriesAnalysis;
+  homeAdvantage: boolean;
+  awayAdvantage: boolean;
+  balanced: boolean;
+  impactDescription: string;
+}
+
