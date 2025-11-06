@@ -85,6 +85,80 @@ export interface PredictionResponse {
     homeAdvantage: number;
   };
   
+  // Form Momentum (ultimi 5 match)
+  formMomentum: {
+    home: {
+      formScore: number;       // 0-1 (0=pessima, 1=perfetta)
+      formFactor: number;      // 0.7-1.3 (moltiplicatore lambda)
+      formLabel: string;       // HOT, GOOD, AVERAGE, COLD
+      recentResults: string;   // Es: "W-W-D-L-W"
+    };
+    away: {
+      formScore: number;
+      formFactor: number;
+      formLabel: string;
+      recentResults: string;
+    };
+  };
+  
+  // Head-to-Head Analysis (optional - presente se ci sono scontri diretti)
+  h2hAnalysis?: {
+    totalMatches: number;      // Totale scontri diretti ultimi 5 anni
+    homeWins: number;          // Vittorie squadra casa (nei ruoli attuali)
+    awayWins: number;          // Vittorie squadra trasferta
+    draws: number;             // Pareggi
+    homeWinRate: number;       // 0-1 (% vittorie home)
+    awayWinRate: number;       // 0-1 (% vittorie away)
+    avgGoalsHome: number;      // Media gol squadra casa negli H2H
+    avgGoalsAway: number;      // Media gol squadra trasferta negli H2H
+    dominance: 'HOME' | 'AWAY' | 'BALANCED';  // Chi domina storicamente
+    dominanceLevel: number;    // 0-1 (0=away dominant, 0.5=balanced, 1=home dominant)
+    h2hFactor: {
+      home: number;            // 0.85-1.15 (moltiplicatore lambda)
+      away: number;            // 0.85-1.15 (moltiplicatore lambda)
+    };
+    recentResults: string;     // Es: "W-L-D-W-W" (dalla prospettiva home)
+  };
+
+  // Market Odds Calibration (optional - presente se ODDS_API attiva)
+  marketCalibration?: {
+    calibrated: boolean;                      // Indica se la calibrazione è stata applicata
+    modelProbabilities: {                     // Probabilità originali del modello
+      prob1: number;
+      probX: number;
+      prob2: number;
+    };
+    marketProbabilities?: {                   // Probabilità derivate dalle quote reali
+      prob1: number;
+      probX: number;
+      prob2: number;
+      bookmakerCount: number;                 // Numero di bookmaker utilizzati
+      overround: number;                      // Margine bookmaker rimosso
+    };
+    calibratedProbabilities: {                // Probabilità finali calibrate (70% model + 30% market)
+      prob1: number;
+      probX: number;
+      prob2: number;
+    };
+    agreement: number;                        // 0-1 (accordo modello/mercato - 0=disaccordo totale, 1=perfetto)
+    confidenceBoost: number;                  // Boost confidence se agreement alto (0-0.10)
+    valueBets: Array<{                        // Scommesse value (modello > mercato + 10%)
+      market: '1' | 'X' | '2';
+      modelProb: number;
+      marketProb: number;
+      difference: number;                     // Differenza model - market
+      expectedValue: number;                  // EV = (modelProb * marketOdds) - 1
+      marketOdds: number;
+    }>;
+  };
+  
+  // Risultati esatti più probabili
+  mostProbableScores: Array<{
+    homeGoals: number;
+    awayGoals: number;
+    probability: number;
+  }>;
+  
   // Team xG/xGA stats from historical matches
   teamStats: {
     home: {

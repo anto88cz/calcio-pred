@@ -207,6 +207,41 @@ export class PoissonEngine {
   }
 
   /**
+   * Estrae i risultati esatti più probabili dalla matrice
+   * @param matrix - Matrice score con probabilità
+   * @param top - Numero di risultati da restituire (default 5)
+   * @returns Array di risultati ordinati per probabilità decrescente
+   */
+  getMostProbableScores(matrix: number[][], top: number = 5): Array<{
+    homeGoals: number;
+    awayGoals: number;
+    probability: number;
+  }> {
+    const scores: Array<{
+      homeGoals: number;
+      awayGoals: number;
+      probability: number;
+    }> = [];
+
+    // Estrai tutti i punteggi con probabilità
+    for (let homeGoals = 0; homeGoals < matrix.length; homeGoals++) {
+      for (let awayGoals = 0; awayGoals < matrix[homeGoals].length; awayGoals++) {
+        scores.push({
+          homeGoals,
+          awayGoals,
+          probability: matrix[homeGoals][awayGoals],
+        });
+      }
+    }
+
+    // Ordina per probabilità decrescente
+    scores.sort((a, b) => b.probability - a.probability);
+
+    // Restituisci top N
+    return scores.slice(0, top);
+  }
+
+  /**
    * Applica correzione Dixon-Coles per punteggi bassi
    * Corregge la sovrastima di 0-0, 1-0, 0-1, 1-1
    */

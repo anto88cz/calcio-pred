@@ -2,9 +2,10 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ProfessionalPredictionCard from '@/components/ProfessionalPredictionCard';
+import MarketCalibrationCard from '@/components/MarketCalibrationCard';
 import AnalysisLoadingModal from '@/components/AnalysisLoadingModal';
 import { useState, useEffect } from 'react';
-import type { MatchPrediction } from '@/types';
+import type { MatchPrediction, MarketCalibration } from '@/types';
 import { ENV } from '@/config/env';
 
 const queryClient = new QueryClient({
@@ -31,6 +32,43 @@ interface ExtendedMatchPrediction extends MatchPrediction {
     home: { xg: number; xga: number };
     away: { xg: number; xga: number };
   };
+  mostProbableScores?: Array<{
+    homeGoals: number;
+    awayGoals: number;
+    probability: number;
+  }>;
+  formMomentum?: {
+    home: {
+      formScore: number;
+      formFactor: number;
+      formLabel: string;
+      recentResults: string;
+    };
+    away: {
+      formScore: number;
+      formFactor: number;
+      formLabel: string;
+      recentResults: string;
+    };
+  };
+  h2hAnalysis?: {
+    totalMatches: number;
+    homeWins: number;
+    awayWins: number;
+    draws: number;
+    homeWinRate: number;
+    awayWinRate: number;
+    avgGoalsHome: number;
+    avgGoalsAway: number;
+    dominance: 'HOME' | 'AWAY' | 'BALANCED';
+    dominanceLevel: number;
+    h2hFactor: {
+      home: number;
+      away: number;
+    };
+    recentResults: string;
+  };
+  marketCalibration?: MarketCalibration;
 }
 
 export default function Home() {
@@ -84,8 +122,7 @@ function MainApp() {
       setError(null);
       setPrediction(null);
 
-      const response = await fetch(`${ENV.API_URL}/api/predictions/calculate-by-name`, {
-        method: 'POST',
+      const response = await fetch(`${ENV.API_URL}/api/predic
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           homeTeamName: homeTeam,
@@ -99,6 +136,8 @@ function MainApp() {
         // Log per debug
         console.log('🔍 Dati ricevuti dal backend:', data);
         console.log('🥅 BTTS data:', data.marketBTTS);
+        console.log('🎲 Most Probable Scores:', data.mostProbableScores);
+        console.log('📊 Market Calibration:', data.marketCalibration);
         
         const mappedPrediction: ExtendedMatchPrediction = {
           id: Date.now().toString(),
@@ -134,6 +173,10 @@ function MainApp() {
           strength: data.market1X2?.strength || 'MEDIO',
           valueBets: [],
           teamStats: data.teamStats,
+          mostProbableScores: data.mostProbableScores,
+          formMomentum: data.formMomentum,
+          h2hAnalysis: data.h2hAnalysis,
+          marketCalibration: data.marketCalibration, // Add market calibration data
         };
         
         setPrediction(mappedPrediction);
@@ -447,71 +490,9 @@ function MainApp() {
                 </div>
               </div>
               
-              {/* Team Stats - xG/xGA */}
-              {prediction.teamStats && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-                  {/* Home Team Stats */}
-                  <div className="bg-gradient-to-br from-blue-600/20 to-blue-800/20 backdrop-blur-sm border border-blue-500/30 rounded-2xl p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-xl font-black text-white">{prediction.homeTeam}</h3>
-                      <span className="text-xs bg-blue-500/20 px-3 py-1 rounded-lg text-blue-300 font-bold">HOME</span>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-300 font-semibold">⚽ xG (Goal attesi)</span>
-                        <span className="text-2xl font-black text-white">{prediction.teamStats.home.xg.toFixed(2)}</span>
-                      </div>
-                      <div className="h-px bg-blue-500/20"></div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-300 font-semibold">🛡️ xGA (Goal subiti)</span>
-                        <span className="text-2xl font-black text-white">{prediction.teamStats.home.xga.toFixed(2)}</span>
-                      </div>
-                      <div className="h-px bg-blue-500/20"></div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-300 font-semibold">📊 Differenza</span>
-                        <span className={`text-xl font-black ${
-                          (prediction.teamStats.home.xg - prediction.teamStats.home.xga) > 0 
-                            ? 'text-green-400' 
-                            : 'text-red-400'
-                        }`}>
-                          {(prediction.teamStats.home.xg - prediction.teamStats.home.xga) > 0 ? '+' : ''}
-                          {(prediction.teamStats.home.xg - prediction.teamStats.home.xga).toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Away Team Stats */}
-                  <div className="bg-gradient-to-br from-red-600/20 to-red-800/20 backdrop-blur-sm border border-red-500/30 rounded-2xl p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-xl font-black text-white">{prediction.awayTeam}</h3>
-                      <span className="text-xs bg-red-500/20 px-3 py-1 rounded-lg text-red-300 font-bold">AWAY</span>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-300 font-semibold">⚽ xG (Goal attesi)</span>
-                        <span className="text-2xl font-black text-white">{prediction.teamStats.away.xg.toFixed(2)}</span>
-                      </div>
-                      <div className="h-px bg-red-500/20"></div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-300 font-semibold">🛡️ xGA (Goal subiti)</span>
-                        <span className="text-2xl font-black text-white">{prediction.teamStats.away.xga.toFixed(2)}</span>
-                      </div>
-                      <div className="h-px bg-red-500/20"></div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-300 font-semibold">📊 Differenza</span>
-                        <span className={`text-xl font-black ${
-                          (prediction.teamStats.away.xg - prediction.teamStats.away.xga) > 0 
-                            ? 'text-green-400' 
-                            : 'text-red-400'
-                        }`}>
-                          {(prediction.teamStats.away.xg - prediction.teamStats.away.xga) > 0 ? '+' : ''}
-                          {(prediction.teamStats.away.xg - prediction.teamStats.away.xga).toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              {/* Market Calibration Card */}
+              {prediction.marketCalibration && (
+                <MarketCalibrationCard calibration={prediction.marketCalibration} />
               )}
               
               <ProfessionalPredictionCard predictions={[prediction]} />

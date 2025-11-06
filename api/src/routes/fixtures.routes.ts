@@ -269,6 +269,158 @@ router.get('/today', async (_req: Request, res: Response) => {
       });
     }
     
+    // 🎯 NUOVO: Salva fixture nel DB e popola cache xG in background
+    if (filteredFixtures.length > 0) {
+      // STEP 1: Salva PRIMA tutti i team (per evitare foreign key violations)
+      const teamsMap = new Map<number, any>();
+      for (const fixture of filteredFixtures) {
+        if (fixture.teams?.home?.id && !teamsMap.has(fixture.teams.home.id)) {
+          teamsMap.set(fixture.teams.home.id, {
+            apiId: fixture.teams.home.id,
+            name: fixture.teams.home.name,
+            country: fixture.league?.country || 'Unknown',
+            logo: fixture.teams.home.logo,
+          });
+        }
+        if (fixture.teams?.away?.id && !teamsMap.has(fixture.teams.away.id)) {
+          teamsMap.set(fixture.teams.away.id, {
+            apiId: fixture.teams.away.id,
+            name: fixture.teams.away.name,
+            country: fixture.league?.country || 'Unknown',
+            logo: fixture.teams.away.logo,
+          });
+        }
+      }
+      
+      // Salva team in sequenza (PRIMA delle fixture)
+      await Promise.all(
+        Array.from(teamsMap.values()).map(team =>
+          prisma.team.upsert({
+            where: { apiId: team.apiId },
+            update: {},
+            create: team,
+          }).catch(err => {
+            logger.warn({ team: team.name, error: err }, 'Failed to save team');
+          })
+        )
+      );
+      
+      logger.info({ count: teamsMap.size }, 'Teams saved BEFORE fixtures');
+      
+      // STEP 2: Salva fixture (ora i team esistono)
+      Promise.all(
+        filteredFixtures.slice(0, 20).map(async (fixture: any) => {
+          try {
+            // Mappa status a enum valido
+            const statusMap: Record<string, string> = {
+              'TBD': 'SCHEDULED',
+              'NS': 'SCHEDULED',
+              '1H': 'LIVE',
+              'HT': 'LIVE',
+              '2H': 'LIVE',
+              'ET': 'LIVE',
+              'P': 'LIVE',
+              'FT': 'FINISHED',
+              'AET': 'FINISHED',
+              'PEN': 'FINISHED',
+              'BT': 'FINISHED',
+              'SUSP': 'SUSPENDED',
+              'INT': 'SUSPENDED',
+              'PST': 'POSTPONED',
+              'CANC': 'CANCELLED',
+              'ABD': 'CANCELLED',
+              'AWD': 'FINISHED',
+              'WO': 'FINISHED',
+            };
+            
+            const rawStatus = fixture.fixture.status.short;
+            const mappedStatus = statusMap[rawStatus] || 'SCHEDULED';
+            
+            // Salva fixture nel DB
+            await prisma.fixture.upsert({
+              where: { apiId: fixture.fixture.id },
+              update: {
+                date: new Date(fixture.fixture.date),
+                status: mappedStatus as any,
+              },
+              create: {
+                apiId: fixture.fixture.id,
+                date: new Date(fixture.fixture.date),
+                timestamp: fixture.fixture.timestamp,
+                timezone: fixture.fixture.timezone || 'Europe/Rome',
+                homeTeamId: fixture.teams.home.id,
+                awayTeamId: fixture.teams.away.id,
+                leagueId: fixture.league.id,
+                leagueName: fixture.league.name,
+                leagueCountry: fixture.league.country,
+                leagueSeason: fixture.league.season,
+                round: fixture.league.round,
+                status: mappedStatus as any,
+                venue: fixture.fixture.venue?.name,
+                referee: fixture.fixture.referee,
+              },
+            });
+            
+            // Fetcha storico squadre per popolare xG cache
+            const season = fixture.league.season || new Date().getFullYear();
+            const [homeHistory, awayHistory] = await Promise.all([
+              fixturesService.getFixturesByTeam(fixture.teams.home.id, season, { last: 20 }),
+              fixturesService.getFixturesByTeam(fixture.teams.away.id, season, { last: 20 }),
+            ]);
+            
+            // Salva partite storiche e fetcha xG
+            const allHistorical = [...homeHistory, ...awayHistory].slice(0, 10);
+            for (const histFixture of allHistorical) {
+              try {
+                const histStatus = statusMap[histFixture.fixture.status.short] || 'FINISHED';
+                
+                // Salva fixture storica
+                await prisma.fixture.upsert({
+                  where: { apiId: histFixture.fixture.id },
+                  update: {},
+                  create: {
+                    apiId: histFixture.fixture.id,
+                    date: new Date(histFixture.fixture.date),
+                    timestamp: histFixture.fixture.timestamp,
+                    timezone: histFixture.fixture.timezone || 'Europe/Rome',
+                    homeTeamId: histFixture.teams.home.id,
+                    awayTeamId: histFixture.teams.away.id,
+                    leagueId: histFixture.league.id,
+                    leagueName: histFixture.league.name,
+                    leagueCountry: histFixture.league.country,
+                    leagueSeason: histFixture.league.season,
+                    status: histStatus as any,
+                    homeGoals: histFixture.goals?.home,
+                    awayGoals: histFixture.goals?.away,
+                  },
+                });
+                
+                // Fetcha xG se partita conclusa
+                if (histFixture.fixture.status.short === 'FT') {
+                  const { statisticsService } = await import('../services/api-football');
+                  await statisticsService.fetchAndCacheXG(histFixture.fixture.id);
+                }
+              } catch (err) {
+                // Ignora errori su singole fixture
+              }
+            }
+            
+            logger.info({ 
+              fixtureId: fixture.fixture.id,
+              homeTeam: fixture.teams.home.name,
+              awayTeam: fixture.teams.away.name,
+              historicalCached: allHistorical.length
+            }, 'Fixture and xG cache prepared');
+            
+          } catch (err) {
+            logger.warn({ fixtureId: fixture.fixture.id, error: err }, 'Failed to prepare fixture');
+          }
+        })
+      ).catch((err) => {
+        logger.error({ error: err }, 'Error preparing fixtures and xG cache');
+      });
+    }
+    
     // Formatta per il frontend
     const formatted = filteredFixtures.map((fixture: any) => ({
       id: fixture.fixture.id,

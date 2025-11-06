@@ -4,6 +4,26 @@
 
 'use client';
 
+// Form Badge Component
+function FormBadge({ label }: { label: string }) {
+  const badges = {
+    'HOT': { emoji: '🔥', color: 'bg-orange-500/20 border-orange-500/50 text-orange-300', text: 'HOT FORM' },
+    'GOOD': { emoji: '⚡', color: 'bg-yellow-500/20 border-yellow-500/50 text-yellow-300', text: 'GOOD' },
+    'AVERAGE': { emoji: '📊', color: 'bg-gray-500/20 border-gray-500/50 text-gray-300', text: 'AVERAGE' },
+    'COLD': { emoji: '❄️', color: 'bg-blue-400/20 border-blue-400/50 text-blue-300', text: 'COLD' },
+    'UNKNOWN': { emoji: '❓', color: 'bg-gray-600/20 border-gray-600/50 text-gray-400', text: 'N/A' },
+  };
+  
+  const badge = badges[label as keyof typeof badges] || badges['UNKNOWN'];
+  
+  return (
+    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full border text-xs font-bold ${badge.color}`}>
+      <span>{badge.emoji}</span>
+      <span>{badge.text}</span>
+    </span>
+  );
+}
+
 interface Prediction {
   homeTeam: string;
   awayTeam: string;
@@ -60,16 +80,6 @@ export default function ProfessionalPredictionCard({ predictions }: Props) {
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white mb-4">
             {pred.homeTeam} <span className="text-blue-400">vs</span> {pred.awayTeam}
           </h1>
-          
-          <p className="text-gray-400 text-sm md:text-base">
-            {new Date(pred.date).toLocaleDateString('it-IT', {
-              weekday: 'long',
-              day: 'numeric',
-              month: 'long',
-              hour: '2-digit',
-              minute: '2-digit'
-            })}
-          </p>
         </div>
 
         {/* Score Box */}
@@ -82,9 +92,57 @@ export default function ProfessionalPredictionCard({ predictions }: Props) {
               <div className="text-4xl text-gray-600 font-bold">-</div>
               <div className="text-6xl font-black text-red-400">{pred.predictions.awayGoals.toFixed(1)}</div>
             </div>
+            <p className="text-center text-gray-500 text-xs mt-4 italic">Lambda di Poisson (goal attesi medi)</p>
           </div>
         </div>
       </div>
+
+      {/* Risultati Esatti Più Probabili */}
+      {(pred as any).mostProbableScores && (pred as any).mostProbableScores.length > 0 && (
+        <div className="glass-card p-8 mb-6">
+          <h3 className="text-2xl font-bold text-white mb-6 flex items-center">
+            <span className="text-3xl mr-3">🎲</span>
+            Risultati Esatti Più Probabili
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {(pred as any).mostProbableScores.map((score: any, index: number) => {
+              const isTopPick = index === 0;
+              return (
+                <div 
+                  key={index}
+                  className={`relative p-6 rounded-2xl border-2 text-center transition-all hover:scale-105 ${
+                    isTopPick 
+                      ? 'bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border-yellow-500/50' 
+                      : 'bg-slate-800/50 border-slate-700/50'
+                  }`}
+                >
+                  {isTopPick && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-yellow-500 text-black text-xs font-bold rounded-full">
+                      TOP
+                    </div>
+                  )}
+                  <div className="flex items-center justify-center gap-3 mb-3">
+                    <span className="text-3xl font-black text-blue-400">{score.homeGoals}</span>
+                    <span className="text-2xl text-gray-600">-</span>
+                    <span className="text-3xl font-black text-red-400">{score.awayGoals}</span>
+                  </div>
+                  <div className="text-sm text-gray-400">
+                    Probabilità
+                  </div>
+                  <div className={`text-2xl font-bold ${isTopPick ? 'text-yellow-400' : 'text-emerald-400'}`}>
+                    {(score.probability * 100).toFixed(1)}%
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          
+          <p className="text-center text-gray-500 text-sm mt-6 italic">
+            Calcolati con distribuzione di Poisson + correzione Dixon-Coles
+          </p>
+        </div>
+      )}
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -155,6 +213,188 @@ export default function ProfessionalPredictionCard({ predictions }: Props) {
                     <p className="text-2xl font-black text-red-400">{pred.teamStats.away.xga.toFixed(2)}</p>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Form Momentum */}
+        {(pred as any).formMomentum && (
+          <div className="glass-card p-6">
+            <h3 className="text-xl font-bold text-white mb-6 flex items-center">
+              <span className="text-2xl mr-3">📈</span>
+              Form Momentum (Last 5)
+            </h3>
+            
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="font-bold text-blue-300">{pred.homeTeam}</p>
+                  <FormBadge label={(pred as any).formMomentum.home.formLabel} />
+                </div>
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <p className="text-xs text-gray-400">Recent</p>
+                    <p className="text-lg font-mono text-blue-400">{(pred as any).formMomentum.home.recentResults}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">Impact</p>
+                    <p className="text-lg font-bold text-blue-400">
+                      {((((pred as any).formMomentum.home.formFactor - 1) * 100) >= 0 ? '+' : '')}
+                      {(((pred as any).formMomentum.home.formFactor - 1) * 100).toFixed(0)}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-red-500/10 rounded-xl border border-red-500/20">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="font-bold text-red-300">{pred.awayTeam}</p>
+                  <FormBadge label={(pred as any).formMomentum.away.formLabel} />
+                </div>
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <p className="text-xs text-gray-400">Recent</p>
+                    <p className="text-lg font-mono text-red-400">{(pred as any).formMomentum.away.recentResults}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400">Impact</p>
+                    <p className="text-lg font-bold text-red-400">
+                      {((((pred as any).formMomentum.away.formFactor - 1) * 100) >= 0 ? '+' : '')}
+                      {(((pred as any).formMomentum.away.formFactor - 1) * 100).toFixed(0)}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Head-to-Head Analysis */}
+        {(pred as any).h2hAnalysis && (
+          <div className="glass-card p-6">
+            <h3 className="text-xl font-bold text-white mb-6 flex items-center">
+              <span className="text-2xl mr-3">⚔️</span>
+              Head-to-Head (Last {(pred as any).h2hAnalysis.totalMatches})
+            </h3>
+            
+            {/* Dominance Badge */}
+            <div className="mb-6 text-center">
+              <div className="inline-flex items-center px-6 py-3 rounded-full bg-gradient-to-r from-blue-500/20 to-red-500/20 border border-white/20">
+                {(pred as any).h2hAnalysis.dominance === 'HOME' && (
+                  <>
+                    <span className="text-3xl mr-2">👑</span>
+                    <span className="text-lg font-bold text-blue-400">{pred.homeTeam} Dominates</span>
+                  </>
+                )}
+                {(pred as any).h2hAnalysis.dominance === 'AWAY' && (
+                  <>
+                    <span className="text-3xl mr-2">👑</span>
+                    <span className="text-lg font-bold text-red-400">{pred.awayTeam} Dominates</span>
+                  </>
+                )}
+                {(pred as any).h2hAnalysis.dominance === 'BALANCED' && (
+                  <>
+                    <span className="text-3xl mr-2">🤝</span>
+                    <span className="text-lg font-bold text-gray-300">Balanced History</span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Win Rate Progress Bars */}
+            <div className="space-y-4 mb-6">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-blue-300">{pred.homeTeam}</span>
+                  <span className="text-lg font-bold text-blue-400">
+                    {((pred as any).h2hAnalysis.homeWinRate * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <div className="h-3 bg-gray-700/50 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-full transition-all duration-500"
+                    style={{ width: `${(pred as any).h2hAnalysis.homeWinRate * 100}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">{(pred as any).h2hAnalysis.homeWins} wins</p>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-300">Draws</span>
+                  <span className="text-lg font-bold text-gray-400">
+                    {(((pred as any).h2hAnalysis.draws / (pred as any).h2hAnalysis.totalMatches) * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <div className="h-3 bg-gray-700/50 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gray-500 rounded-full transition-all duration-500"
+                    style={{ width: `${((pred as any).h2hAnalysis.draws / (pred as any).h2hAnalysis.totalMatches) * 100}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">{(pred as any).h2hAnalysis.draws} draws</p>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-red-300">{pred.awayTeam}</span>
+                  <span className="text-lg font-bold text-red-400">
+                    {((pred as any).h2hAnalysis.awayWinRate * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <div className="h-3 bg-gray-700/50 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-red-500 to-red-400 rounded-full transition-all duration-500"
+                    style={{ width: `${(pred as any).h2hAnalysis.awayWinRate * 100}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">{(pred as any).h2hAnalysis.awayWins} wins</p>
+              </div>
+            </div>
+
+            {/* Stats Grid */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-blue-500/10 p-4 rounded-xl border border-blue-500/20">
+                <p className="text-xs text-gray-400 mb-1">Avg Goals</p>
+                <p className="text-2xl font-bold text-blue-400">
+                  {(pred as any).h2hAnalysis.avgGoalsHome.toFixed(1)}
+                </p>
+                <p className="text-xs text-blue-300">{pred.homeTeam}</p>
+              </div>
+
+              <div className="bg-gray-500/10 p-4 rounded-xl border border-gray-500/20">
+                <p className="text-xs text-gray-400 mb-1">Recent H2H</p>
+                <p className="text-sm font-mono font-bold text-gray-300">
+                  {(pred as any).h2hAnalysis.recentResults}
+                </p>
+                <p className="text-xs text-gray-400">Last 5 matches</p>
+              </div>
+
+              <div className="bg-red-500/10 p-4 rounded-xl border border-red-500/20">
+                <p className="text-xs text-gray-400 mb-1">Avg Goals</p>
+                <p className="text-2xl font-bold text-red-400">
+                  {(pred as any).h2hAnalysis.avgGoalsAway.toFixed(1)}
+                </p>
+                <p className="text-xs text-red-300">{pred.awayTeam}</p>
+              </div>
+            </div>
+
+            {/* H2H Factor Impact */}
+            <div className="mt-6 grid grid-cols-2 gap-4">
+              <div className="bg-blue-500/5 p-3 rounded-lg border border-blue-500/10">
+                <p className="text-xs text-gray-400 mb-1">H2H Impact {pred.homeTeam}</p>
+                <p className="text-xl font-bold text-blue-400">
+                  {((((pred as any).h2hAnalysis.h2hFactor.home - 1) * 100) >= 0 ? '+' : '')}
+                  {(((pred as any).h2hAnalysis.h2hFactor.home - 1) * 100).toFixed(0)}%
+                </p>
+              </div>
+              <div className="bg-red-500/5 p-3 rounded-lg border border-red-500/10">
+                <p className="text-xs text-gray-400 mb-1">H2H Impact {pred.awayTeam}</p>
+                <p className="text-xl font-bold text-red-400">
+                  {((((pred as any).h2hAnalysis.h2hFactor.away - 1) * 100) >= 0 ? '+' : '')}
+                  {(((pred as any).h2hAnalysis.h2hFactor.away - 1) * 100).toFixed(0)}%
+                </p>
               </div>
             </div>
           </div>

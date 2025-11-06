@@ -610,12 +610,15 @@ router.post('/calculate-by-name', async (req: Request, res: Response, next: Next
       awayTeamId: awayTeam.apiId,
       season: input.season,
       leagueId: input.leagueId,
+      homeTeamName: homeTeam.name,  // Aggiungi nome per Market Odds
+      awayTeamName: awayTeam.name,  // Aggiungi nome per Market Odds
     });
     
     logger.info({ 
       homeTeam: homeTeam.name, 
       awayTeam: awayTeam.name,
       confidence: predictionResult.confidence,
+      calibrated: !!predictionResult.marketCalibration,
     }, 'Manual prediction calculated');
     
     return res.json({

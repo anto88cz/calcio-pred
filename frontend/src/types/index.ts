@@ -293,3 +293,40 @@ export const DATA_QUALITY_LABELS: Record<DataQuality, string> = {
   POOR: 'Scarso',
   INSUFFICIENT: 'Insufficiente',
 };
+
+// ============================================
+// MARKET CALIBRATION
+// ============================================
+
+export interface ValueBet {
+  market: string; // '1', 'X', '2', 'Over2.5', 'Under2.5'
+  modelProb: number;
+  marketProb: number;
+  difference: number;
+  expectedValue: number;
+  marketOdds: number;
+}
+
+export interface MarketCalibration {
+  calibrated: boolean;
+  modelProbabilities: {
+    prob1: number;
+    probX: number;
+    prob2: number;
+  };
+  marketProbabilities: {
+    prob1: number;
+    probX: number;
+    prob2: number;
+    bookmakerCount: number;
+    overround: number;
+  };
+  calibratedProbabilities: {
+    prob1: number;
+    probX: number;
+    prob2: number;
+  };
+  agreement: number; // 0-1 (0 = disaccordo, 1 = accordo perfetto)
+  confidenceBoost: number; // 0-0.10
+  valueBets: ValueBet[];
+}

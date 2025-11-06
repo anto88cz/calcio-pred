@@ -156,7 +156,7 @@ export class StatisticsService {
       });
 
       if (!fixture) {
-        logger.warn({ fixtureApiId }, 'Fixture not found in database');
+        logger.debug({ fixtureApiId }, 'Fixture not in database - skipping xG cache (historical match not saved)');
         return false;
       }
 
@@ -165,7 +165,7 @@ export class StatisticsService {
 
       // 3. Se dati xG mancanti, non salvare
       if (xgData.missingXg) {
-        logger.info({ fixtureApiId }, 'xG data not available from API');
+        logger.debug({ fixtureApiId }, 'xG data not available from API');
         return false;
       }
 

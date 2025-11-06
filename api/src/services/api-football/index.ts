@@ -10,6 +10,7 @@ export { injuriesService, InjuriesService, type PlayerInjuryInfo } from './injur
 export { lineupsService, LineupsService, type LineupInfo } from './lineups';
 export { historyService, HistoryService, type MatchHistoryData } from './history';
 export { teamsService, TeamsService, type TeamInfo } from './teams';
+export { h2hService, H2HService, type H2HMatch, type H2HData } from './h2h';
 
 // Re-export types
 export type { 

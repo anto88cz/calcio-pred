@@ -22,6 +22,14 @@ const configSchema = z.object({
   APIFOOTBALL_BASE: z.string().url(),
   APIFOOTBALL_KEY: z.string().min(1),
   
+  // The Odds API (Market Calibration)
+  ODDS_API_BASE: z.string().url().default('https://api.the-odds-api.com'),
+  ODDS_API_KEY: z.string().optional(), // Optional - se non presente, skip calibration
+  ODDS_API_SPORT: z.string().default('soccer_uefa_champs_league'), // Default sport
+  ODDS_API_REGIONS: z.string().default('eu'), // Europe bookmakers
+  ODDS_API_MARKETS: z.string().default('h2h,totals'), // 1X2 + Over/Under
+  ODDS_API_CACHE_TTL: z.string().transform(Number).default('1800'), // 30 min cache
+  
   // Database
   DATABASE_URL: z.string().url(),
   
@@ -113,6 +121,11 @@ export const calculationConfig = {
   xgMinTotal: config.XG_MIN_TOTAL,
   xgHighThreshold: config.XG_HIGH_THRESHOLD,
   thresholds,
+  // Market Odds Calibration
+  oddsCalibrationEnabled: !!config.ODDS_API_KEY,
+  oddsBlendWeight: 0.30, // 70% model + 30% market
+  oddsMinDifferenceForValueBet: 0.10, // 10% difference = value bet
+  oddsConfidenceBoostThreshold: 0.05, // If diff < 5%, boost confidence
 };
 
 // Valida che i blend sommino a 1

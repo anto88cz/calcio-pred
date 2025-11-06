@@ -322,6 +322,13 @@ class APIFootballClient {
       throw error;
     }
   }
+
+  /**
+   * Get axios client per services
+   */
+  getClient(): AxiosInstance {
+    return this.client;
+  }
 }
 
 // Singleton
