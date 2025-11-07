@@ -535,7 +535,13 @@ router.post('/calculate', async (req: Request, res: Response, next: NextFunction
     // Invalida cache
     await redis.del(`prediction:${input.fixtureId}`);
     
-    return res.status(201).json(savedPrediction);
+    // Aggiungi exactGoals alla risposta (non salvato nel DB per evitare verbosity)
+    const responseWithExactGoals = {
+      ...savedPrediction,
+      exactGoals: predictionResult.poisson?.exactGoals || null,
+    };
+    
+    return res.status(201).json(responseWithExactGoals);
     
   } catch (error) {
     return next(error);

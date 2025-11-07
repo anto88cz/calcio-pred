@@ -315,6 +315,11 @@ export interface PoissonResult {
     [key: string]: { under: number; over: number };
   };
   
+  // Probabilità per numero esatto di gol totali
+  exactGoals: {
+    [goals: string]: number;
+  };
+  
   // BTTS
   btts: { yes: number; no: number };
   
@@ -339,6 +344,10 @@ export interface BlendedResult {
     
     underOver: {
       [key: string]: { under: number; over: number };
+    };
+    
+    exactGoals: {
+      [goals: string]: number;
     };
     
     btts: { yes: number; no: number };

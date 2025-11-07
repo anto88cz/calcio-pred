@@ -50,6 +50,14 @@ export class Blender {
       };
     });
 
+    // Blend Exact Goals (solo da Poisson, empirico non ha questo dato)
+    const exactGoals: { [goals: string]: number } = {};
+    if (poisson.exactGoals) {
+      Object.keys(poisson.exactGoals).forEach(goals => {
+        exactGoals[goals] = poisson.exactGoals[goals];
+      });
+    }
+
     // Blend BTTS
     const bttsYes = this.blendProbability(empiric.btts.yes, poisson.btts.yes, empiricWeight, poissonWeight);
     const bttsNo = this.blendProbability(empiric.btts.no, poisson.btts.no, empiricWeight, poissonWeight);
@@ -78,6 +86,7 @@ export class Blender {
         probX,
         prob2,
         underOver,
+        exactGoals,
         btts,
         doubleChance,
       },

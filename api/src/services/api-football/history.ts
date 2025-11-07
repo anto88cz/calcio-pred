@@ -5,6 +5,7 @@
 import { fixturesService } from './fixtures';
 import { statisticsService as _statisticsService, FixtureStatistics } from './statistics';
 import { prisma } from '../../lib/prisma';
+import redis from '../../lib/redis';
 import logger from '../../utils/logger';
 import type { APIFootballFixture } from '../../types';
 import { config } from '../../config';
@@ -34,20 +35,37 @@ export interface MatchHistoryData {
 export class HistoryService {
   /**
    * Get storico partite per squadra
-   * Ritorna solo partite ufficiali concluse
+   * Ritorna solo partite ufficiali concluse DELLA STAGIONE CORRENTE
+   * 
+   * IMPORTANTE: Non usa più limit fisso, prende TUTTE le partite della stagione
+   * Questo permette calcoli più accurati di form, trend, statistiche
+   * 
+   * @param teamId - ID squadra
+   * @param season - Stagione (es: 2024 per 2024-2025)
+   * @param limit - DEPRECATO ma mantenuto per backward compatibility, ignorato se 0
    */
   async getTeamHistory(
     teamId: number,
     season: number,
-    limit: number = config.HISTORY_GAMES
+    limit: number = 0 // Default 0 = prendi TUTTA la stagione
   ): Promise<MatchHistoryData[]> {
     try {
-      logger.info({ teamId, season, limit }, 'Fetching team history');
+      // ⚡ CACHE: Riduce API calls drasticamente (TTL: 1 ora)
+      const cacheKey = `history:team:${teamId}:season:${season}:limit:${limit}`;
+      const cached = await redis.get(cacheKey);
+      
+      if (cached) {
+        logger.debug({ teamId, season, limit, cacheHit: true }, 'History cache HIT');
+        const parsed = JSON.parse(cached) as MatchHistoryData[];
+        // Deserializza Date objects
+        parsed.forEach(m => { m.date = new Date(m.date); });
+        return parsed;
+      }
 
-      // Prendi ultime N partite
-      const fixtures = await fixturesService.getFixturesByTeam(teamId, season, {
-        last: limit * 2, // Prendiamo più partite per filtraggio
-      });
+      logger.info({ teamId, season, useFullSeason: limit === 0 }, 'Fetching team history (cache MISS)');
+
+      // Prendi TUTTE le partite della stagione (filtro solo per season, non limit)
+      const fixtures = await fixturesService.getFixturesByTeam(teamId, season, {});
 
       if (!fixtures || fixtures.length === 0) {
         logger.warn({ teamId, season }, 'No fixtures found for team');
@@ -64,11 +82,27 @@ export class HistoryService {
         b.fixture.timestamp - a.fixture.timestamp
       );
 
-      // Prendi solo il limite richiesto
-      const limitedFixtures = sortedFixtures.slice(0, limit);
+      // Se limit > 0, usa limit per backward compatibility
+      // Se limit === 0, prendi TUTTE le partite della stagione corrente
+      const finalFixtures = limit > 0 
+        ? sortedFixtures.slice(0, limit)
+        : sortedFixtures; // TUTTE le partite della stagione
+
+      logger.info({
+        teamId,
+        season,
+        totalMatches: finalFixtures.length,
+        mode: limit > 0 ? `limited-${limit}` : 'full-season',
+      }, 'Team history fetched from current season');
 
       // Converti a MatchHistoryData (con xG dal database)
-      return await this.parseFixturesToHistory(limitedFixtures, teamId);
+      const history = await this.parseFixturesToHistory(finalFixtures, teamId);
+
+      // ⚡ SALVA IN CACHE (TTL: 3600s = 1 ora)
+      await redis.setex(cacheKey, 3600, JSON.stringify(history));
+      logger.debug({ teamId, season, cached: history.length }, 'History cached for 1 hour');
+
+      return history;
     } catch (error) {
       logger.error({ error, teamId, season }, 'Failed to fetch team history');
       throw error;
@@ -76,23 +110,37 @@ export class HistoryService {
   }
 
   /**
-   * Get storico home/away separato
+   * Get storico home/away separato DELLA STAGIONE CORRENTE
+   * 
+   * @param limit - Se 0, prende tutte le partite della stagione (consigliato)
    */
   async getTeamHistoryByVenue(
     teamId: number,
     season: number,
     isHome: boolean,
-    limit: number = config.HISTORY_GAMES
+    limit: number = 0 // Default 0 = TUTTA la stagione
   ): Promise<MatchHistoryData[]> {
     try {
-      logger.info({ teamId, season, isHome, limit }, 'Fetching team history by venue');
+      logger.info({ teamId, season, isHome, useFullSeason: limit === 0 }, 'Fetching team history by venue');
 
-      const allHistory = await this.getTeamHistory(teamId, season, limit * 2);
+      // Prendi TUTTA la stagione (limit=0)
+      const allHistory = await this.getTeamHistory(teamId, season, 0);
 
       // Filtra per venue
       const venueHistory = allHistory.filter(match => match.isHome === isHome);
 
-      return venueHistory.slice(0, limit);
+      // Se limit > 0, limita (backward compatibility)
+      const finalHistory = limit > 0 
+        ? venueHistory.slice(0, limit)
+        : venueHistory; // TUTTE le partite home/away della stagione
+
+      logger.info({
+        teamId,
+        venue: isHome ? 'home' : 'away',
+        totalMatches: finalHistory.length,
+      }, 'Venue history fetched from current season');
+
+      return finalHistory;
     } catch (error) {
       logger.error({ error, teamId, season, isHome }, 'Failed to fetch team history by venue');
       throw error;

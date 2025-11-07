@@ -190,7 +190,13 @@ function MainApp() {
         }, 100);
       } else {
         const errorData = await response.json();
-        setError(errorData.error || 'Errore nel calcolo della predizione');
+        
+        // Messaggio personalizzato per dati insufficienti
+        if (errorData.error && errorData.error.includes('Dati insufficienti')) {
+          setError(`⚠️ ${errorData.error}\n\nQuesta partita non può essere analizzata perché una o entrambe le squadre non hanno giocato abbastanza partite nella stagione corrente.`);
+        } else {
+          setError(errorData.error || 'Errore nel calcolo della predizione');
+        }
       }
       
     } catch (err) {

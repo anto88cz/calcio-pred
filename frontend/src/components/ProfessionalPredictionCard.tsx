@@ -408,31 +408,86 @@ export default function ProfessionalPredictionCard({ predictions }: Props) {
               Over/Under
             </h3>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* 0.5 Goals */}
               {pred.overUnder.over05 !== undefined && (
-                <div className="p-4 bg-purple-500/10 rounded-xl border border-purple-500/20">
-                  <p className="text-gray-400 text-sm">O 0.5</p>
-                  <p className="text-2xl font-black text-purple-400">{pred.overUnder.over05.toFixed(1)}%</p>
+                <div className="space-y-2">
+                  <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20">
+                    <p className="text-gray-400 text-xs font-semibold mb-1">O 0.5</p>
+                    <p className="text-xl font-black text-purple-400">{pred.overUnder.over05.toFixed(1)}%</p>
+                  </div>
+                  <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                    <p className="text-gray-400 text-xs font-semibold mb-1">U 0.5</p>
+                    <p className="text-xl font-black text-blue-400">{pred.overUnder.under05.toFixed(1)}%</p>
+                  </div>
                 </div>
               )}
+              
+              {/* 1.5 Goals */}
               {pred.overUnder.over15 !== undefined && (
-                <div className="p-4 bg-purple-500/10 rounded-xl border border-purple-500/20">
-                  <p className="text-gray-400 text-sm">O 1.5</p>
-                  <p className="text-2xl font-black text-purple-400">{pred.overUnder.over15.toFixed(1)}%</p>
+                <div className="space-y-2">
+                  <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20">
+                    <p className="text-gray-400 text-xs font-semibold mb-1">O 1.5</p>
+                    <p className="text-xl font-black text-purple-400">{pred.overUnder.over15.toFixed(1)}%</p>
+                  </div>
+                  <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                    <p className="text-gray-400 text-xs font-semibold mb-1">U 1.5</p>
+                    <p className="text-xl font-black text-blue-400">{pred.overUnder.under15.toFixed(1)}%</p>
+                  </div>
                 </div>
               )}
+              
+              {/* 2.5 Goals */}
               {pred.overUnder.over25 !== undefined && (
-                <div className="p-4 bg-purple-500/10 rounded-xl border border-purple-500/20">
-                  <p className="text-gray-400 text-sm">O 2.5</p>
-                  <p className="text-2xl font-black text-purple-400">{pred.overUnder.over25.toFixed(1)}%</p>
+                <div className="space-y-2">
+                  <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20">
+                    <p className="text-gray-400 text-xs font-semibold mb-1">O 2.5</p>
+                    <p className="text-xl font-black text-purple-400">{pred.overUnder.over25.toFixed(1)}%</p>
+                  </div>
+                  <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                    <p className="text-gray-400 text-xs font-semibold mb-1">U 2.5</p>
+                    <p className="text-xl font-black text-blue-400">{pred.overUnder.under25.toFixed(1)}%</p>
+                  </div>
                 </div>
               )}
+              
+              {/* 3.5 Goals */}
               {pred.overUnder.over35 !== undefined && (
-                <div className="p-4 bg-purple-500/10 rounded-xl border border-purple-500/20">
-                  <p className="text-gray-400 text-sm">O 3.5</p>
-                  <p className="text-2xl font-black text-purple-400">{pred.overUnder.over35.toFixed(1)}%</p>
+                <div className="space-y-2">
+                  <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20">
+                    <p className="text-gray-400 text-xs font-semibold mb-1">O 3.5</p>
+                    <p className="text-xl font-black text-purple-400">{pred.overUnder.over35.toFixed(1)}%</p>
+                  </div>
+                  <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                    <p className="text-gray-400 text-xs font-semibold mb-1">U 3.5</p>
+                    <p className="text-xl font-black text-blue-400">{pred.overUnder.under35.toFixed(1)}%</p>
+                  </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Exact Goals */}
+        {pred.exactGoals && (
+          <div className="glass-card p-6">
+            <h3 className="text-xl font-bold text-white mb-6 flex items-center">
+              <span className="text-2xl mr-3">🎯</span>
+              Numero Esatto Gol
+            </h3>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {['0', '1', '2', '3', '4', '5', '6'].map((goals) => {
+                const prob = pred.exactGoals?.[goals];
+                if (prob === undefined || prob < 0.01) return null; // Nascondi probabilità < 1%
+                
+                return (
+                  <div key={goals} className="p-4 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-xl border border-indigo-500/20 hover:border-indigo-500/40 transition-all">
+                    <p className="text-gray-400 text-sm font-semibold mb-1 text-center">{goals} gol</p>
+                    <p className="text-2xl font-black text-indigo-400 text-center">{(prob * 100).toFixed(1)}%</p>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

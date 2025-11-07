@@ -109,6 +109,10 @@ export interface MatchPrediction {
     over45?: number;
     under45?: number;
   };
+  // Exact Goals (probabilità per numero esatto di gol totali)
+  exactGoals?: {
+    [goals: string]: number; // "0", "1", "2", "3", ecc.
+  };
   // BTTS (Both Teams To Score)
   btts?: {
     yes: number;

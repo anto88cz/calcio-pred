@@ -4,6 +4,7 @@
  */
 
 import { AxiosInstance } from 'axios';
+import redis from '../../lib/redis';
 import logger from '../../utils/logger';
 
 export interface H2HMatch {
@@ -42,7 +43,21 @@ export class H2HService {
     last: number = 10
   ): Promise<H2HData> {
     try {
-      logger.info({ homeTeamId, awayTeamId, last }, 'Fetching H2H data');
+      // ⚡ CACHE: Riduce API calls (TTL: 24 ore - H2H cambia raramente)
+      const cacheKey = `h2h:${homeTeamId}:${awayTeamId}:last:${last}`;
+      const cached = await redis.get(cacheKey);
+      
+      if (cached) {
+        logger.debug({ homeTeamId, awayTeamId, cacheHit: true }, 'H2H cache HIT');
+        const parsed = JSON.parse(cached) as H2HData;
+        // Deserializza Date objects (JSON.parse le converte in stringhe)
+        parsed.matches.forEach(m => { m.date = new Date(m.date); });
+        parsed.dateRange.from = new Date(parsed.dateRange.from);
+        parsed.dateRange.to = new Date(parsed.dateRange.to);
+        return parsed;
+      }
+
+      logger.info({ homeTeamId, awayTeamId, last }, 'Fetching H2H data (cache MISS)');
 
       const response = await this.client.get('/fixtures/headtohead', {
         params: {
@@ -123,7 +138,7 @@ export class H2HService {
         'H2H data fetched successfully'
       );
 
-      return {
+      const h2hData = {
         matches,
         totalMatches: matches.length,
         dateRange: {
@@ -131,6 +146,12 @@ export class H2HService {
           to: newestDate,
         },
       };
+
+      // ⚡ SALVA IN CACHE (TTL: 86400s = 24 ore)
+      await redis.setex(cacheKey, 86400, JSON.stringify(h2hData));
+      logger.debug({ homeTeamId, awayTeamId, cached: matches.length }, 'H2H cached for 24 hours');
+
+      return h2hData;
     } catch (error: any) {
       logger.error(
         {

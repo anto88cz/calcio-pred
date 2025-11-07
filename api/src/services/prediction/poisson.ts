@@ -15,8 +15,73 @@ export interface XGCalibrationData {
 }
 
 export class PoissonEngine {
-  // Correzione Dixon-Coles per punteggi bassi (0-0, 0-1, 1-0, 1-1)
-  private readonly RHO = -0.1; // Parametro correlazione Dixon-Coles
+  // Correzione Dixon-Coles: RHO dinamico invece di fisso
+  // OLD: private readonly RHO = -0.1;
+  
+  /**
+   * Calcola RHO dinamico basato su lambda totali e caratteristiche del match
+   * 
+   * @param lambdaHome - Goal attesi casa
+   * @param lambdaAway - Goal attesi trasferta
+   * @returns RHO ottimale per questo match (-0.20 a -0.05)
+   * 
+   * Logica:
+   * - Match ad alto punteggio (>3.0 gol attesi): RHO più negativo (-0.15)
+   *   → Maggiore correzione per evitare sovrastima di punteggi bassi
+   * 
+   * - Match a basso punteggio (<2.0 gol attesi): RHO meno negativo (-0.08)
+   *   → Correzione più leggera, i punteggi bassi sono già probabili
+   * 
+   * - Match ad altissimo punteggio (>4.0 gol): RHO molto negativo (-0.18)
+   *   → Forte penalizzazione di 0-0, 1-1 che sono improbabili
+   * 
+   * - Match molto difensivi (<1.5 gol): RHO minimo (-0.05)
+   *   → Quasi nessuna correzione, la Poisson pura è già accurata
+   * 
+   * - Match squilibrati (|λhome - λaway| > 1.5): RHO moderato (-0.12)
+   *   → Correzione standard con leggero boost per favorito
+   */
+  private calculateDynamicRho(
+    lambdaHome: number, 
+    lambdaAway: number
+  ): number {
+    const totalLambda = lambdaHome + lambdaAway;
+    const lambdaDiff = Math.abs(lambdaHome - lambdaAway);
+    
+    // Match ad altissimo punteggio (>4.0 gol attesi totali)
+    // Es: Man City (2.8) vs Brighton (1.5) = 4.3 gol
+    if (totalLambda > 4.0) {
+      return -0.18; // Forte penalizzazione 0-0, 1-1
+    }
+    
+    // Match ad alto punteggio (3.0-4.0 gol attesi)
+    // Es: Liverpool (2.2) vs Newcastle (1.2) = 3.4 gol
+    if (totalLambda > 3.0) {
+      return -0.15; // Correzione aumentata
+    }
+    
+    // Match molto difensivi (<1.5 gol attesi totali)
+    // Es: Atletico Madrid (0.8) vs Getafe (0.6) = 1.4 gol
+    if (totalLambda < 1.5) {
+      return -0.05; // Correzione minima, 0-0 è già probabile
+    }
+    
+    // Match a basso punteggio (1.5-2.0 gol attesi)
+    // Es: Inter (1.3) vs Milan (0.9) = 2.2 gol
+    if (totalLambda < 2.0) {
+      return -0.08; // Correzione leggera
+    }
+    
+    // Match molto squilibrati (differenza >1.5 gol)
+    // Es: Bayern (2.8) vs Augsburg (0.9) = diff 1.9
+    if (lambdaDiff > 1.5) {
+      return -0.12; // Correzione moderata, favorito dominante
+    }
+    
+    // Match equilibrati o standard (2.0-3.0 gol, diff <1.5)
+    // Es: Arsenal (1.6) vs Chelsea (1.3) = 2.9 gol
+    return -0.10; // RHO standard (default Dixon-Coles originale)
+  }
 
   /**
    * Calcola probabilità con modello Poisson + xG calibration
@@ -68,6 +133,9 @@ export class PoissonEngine {
     // Calcola Under/Over
     const underOver = this.calculateUnderOverFromMatrix(scoreMatrix);
 
+    // Calcola probabilità per numero esatto di gol
+    const exactGoals = this.calculateExactGoalsFromMatrix(scoreMatrix);
+
     // Calcola BTTS
     const btts = this.calculateBTTSFromMatrix(scoreMatrix);
 
@@ -80,6 +148,7 @@ export class PoissonEngine {
       prob2,
       scoreMatrix,
       underOver,
+      exactGoals,
       btts,
       doubleChance,
       lambdaHome,
@@ -244,13 +313,21 @@ export class PoissonEngine {
   /**
    * Applica correzione Dixon-Coles per punteggi bassi
    * Corregge la sovrastima di 0-0, 1-0, 0-1, 1-1
+   * Usa RHO dinamico calcolato in base a lambda
    */
   private applyDixonColesCorrection(
     matrix: number[][],
     lambdaHome: number,
     lambdaAway: number
   ): void {
-    const rho = this.RHO;
+    // Calcola RHO dinamico per questo match specifico
+    const rho = this.calculateDynamicRho(lambdaHome, lambdaAway);
+    
+    // Salva le probabilità originali per logging
+    const original00 = matrix[0][0];
+    const original10 = matrix[1][0];
+    const original01 = matrix[0][1];
+    const original11 = matrix[1][1];
 
     // Correzione per (0,0)
     const tau00 = 1 - lambdaHome * lambdaAway * rho;
@@ -267,6 +344,40 @@ export class PoissonEngine {
     // Correzione per (1,1)
     const tau11 = 1 - rho;
     matrix[1][1] *= tau11;
+
+    // Log dettagliato correzione
+    logger.debug({
+      lambdaHome: lambdaHome.toFixed(2),
+      lambdaAway: lambdaAway.toFixed(2),
+      totalLambda: (lambdaHome + lambdaAway).toFixed(2),
+      rhoDynamic: rho.toFixed(3),
+      corrections: {
+        '0-0': {
+          original: (original00 * 100).toFixed(2) + '%',
+          tau: tau00.toFixed(3),
+          corrected: (matrix[0][0] * 100).toFixed(2) + '%',
+          delta: ((matrix[0][0] - original00) * 100).toFixed(2) + '%',
+        },
+        '1-0': {
+          original: (original10 * 100).toFixed(2) + '%',
+          tau: tau10.toFixed(3),
+          corrected: (matrix[1][0] * 100).toFixed(2) + '%',
+          delta: ((matrix[1][0] - original10) * 100).toFixed(2) + '%',
+        },
+        '0-1': {
+          original: (original01 * 100).toFixed(2) + '%',
+          tau: tau01.toFixed(3),
+          corrected: (matrix[0][1] * 100).toFixed(2) + '%',
+          delta: ((matrix[0][1] - original01) * 100).toFixed(2) + '%',
+        },
+        '1-1': {
+          original: (original11 * 100).toFixed(2) + '%',
+          tau: tau11.toFixed(3),
+          corrected: (matrix[1][1] * 100).toFixed(2) + '%',
+          delta: ((matrix[1][1] - original11) * 100).toFixed(2) + '%',
+        },
+      },
+    }, 'Dixon-Coles correction applied with dynamic RHO');
 
     // Normalizza la matrice (somma = 1)
     this.normalizeMatrix(matrix);
@@ -347,6 +458,31 @@ export class PoissonEngine {
     });
 
     return underOver;
+  }
+
+  /**
+   * Calcola probabilità per numero esatto di gol totali
+   */
+  private calculateExactGoalsFromMatrix(
+    matrix: number[][]
+  ): { [goals: string]: number } {
+    const exactGoals: { [goals: string]: number } = {};
+    
+    // Inizializza contatori per 0-10 gol
+    for (let i = 0; i <= 10; i++) {
+      exactGoals[i.toString()] = 0;
+    }
+
+    matrix.forEach((row, homeGoals) => {
+      row.forEach((prob, awayGoals) => {
+        const totalGoals = homeGoals + awayGoals;
+        if (totalGoals <= 10) {
+          exactGoals[totalGoals.toString()] += prob;
+        }
+      });
+    });
+
+    return exactGoals;
   }
 
   /**

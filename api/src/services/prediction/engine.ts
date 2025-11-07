@@ -9,6 +9,8 @@ import { blender } from './blender';
 import { confidenceCalculator } from './confidence';
 import { strengthClassifier } from './strength';
 import { xgService } from './xg-service';
+import { formMomentumCalculator, type FormMomentumResult } from './form-momentum';
+import { getLeagueStrength } from './league-strength';
 import { 
   historyService,
   injuriesService,
@@ -38,20 +40,51 @@ export interface PredictionInput {
 export class PredictionEngine {
   /**
    * Calcola predizione completa per una partita
+   * OTTIMIZZATO: Fetch sequenziale con cache aggressiva per evitare rate limit
    */
   async calculatePrediction(input: PredictionInput): Promise<PredictionResponse> {
     logger.info({ fixtureId: input.fixtureId }, 'Starting prediction calculation');
 
     try {
-      // 1. Raccogli dati storici
+      // 1. Raccogli dati storici (SEQUENZIALE per rate limit)
+      logger.debug('Step 1/5: Fetching historical data');
       const { homeHistory, awayHistory } = await this.fetchHistoricalData(input);
+      
+      // 🎯 VERIFICA DATI STAGIONE CORRENTE (Minimo 3 partite per squadra)
+      const currentSeason = input.season;
+      const seasonStartDate = new Date(`${currentSeason}-08-01`); // Stagione inizia ad agosto
+      
+      const homeSeasonMatches = homeHistory.filter(m => new Date(m.date) >= seasonStartDate);
+      const awaySeasonMatches = awayHistory.filter(m => new Date(m.date) >= seasonStartDate);
+      
+      logger.info({
+        homeTeam: input.homeTeamId,
+        awayTeam: input.awayTeamId,
+        homeSeasonMatches: homeSeasonMatches.length,
+        awaySeasonMatches: awaySeasonMatches.length,
+        requiredMatches: 3,
+        season: `${currentSeason}/${currentSeason + 1}`,
+      }, 'Checking current season data availability');
+      
+      // Se non ci sono abbastanza dati della stagione corrente, ritorna errore
+      if (homeSeasonMatches.length < 3 || awaySeasonMatches.length < 3) {
+        const missingTeam = homeSeasonMatches.length < 3 ? 'home' : 'away';
+        const missingCount = homeSeasonMatches.length < 3 ? homeSeasonMatches.length : awaySeasonMatches.length;
+        
+        throw new Error(
+          `Dati insufficienti per la stagione ${currentSeason}/${currentSeason + 1}. ` +
+          `Squadra ${missingTeam} ha solo ${missingCount} partite (minimo 3 richiesto).`
+        );
+      }
 
-      // 2. Raccogli infortuni e lineup
+      // 2. Fetch xG data (priorità alta - necessario per lambda calibration)
+      logger.debug('Step 2/5: Fetching xG data');
+      const xgData = await this.fetchExpectedGoals(input.fixtureId);
+
+      // 3. Raccogli infortuni e lineup (opzionali - possono fallire)
+      logger.debug('Step 3/5: Fetching injuries and lineups');
       const injuries = await this.fetchInjuries(input.fixtureId);
       const lineups = await this.fetchLineups(input.fixtureId);
-
-      // 3. Fetch xG data from API-FOOTBALL
-      const xgData = await this.fetchExpectedGoals(input.fixtureId);
 
       // 4. Valuta qualità dati
       const dataQuality = this.assessDataQuality(homeHistory, awayHistory);
@@ -61,26 +94,34 @@ export class PredictionEngine {
         return this.createNDPrediction(input, homeHistory, awayHistory, xgData);
       }
 
-      // 4.5. Calcola Form Momentum
-      const homeForm = this.calculateFormMomentum(homeHistory, 5);
-      const awayForm = this.calculateFormMomentum(awayHistory, 5);
+      // 4.5. 🏠🛫 Calcola Form Momentum SEPARATO (Home/Away specific)
+      // NUOVO: Squadra casa usa solo performance casalinghe, trasferta usa solo performance esterne
+      const homeForm = formMomentumCalculator.calculateHomeForm(homeHistory, input.homeTeamId);
+      const awayForm = formMomentumCalculator.calculateAwayForm(awayHistory, input.awayTeamId);
       
       logger.info({
         homeForm: {
+          type: '🏠 HOME',
           score: homeForm.formScore.toFixed(2),
           factor: homeForm.formFactor.toFixed(2),
           label: homeForm.formLabel,
           results: homeForm.recentResults,
+          trend: homeForm.trend,
+          windows: `short:${homeForm.windows.short.matches} med:${homeForm.windows.medium.matches} long:${homeForm.windows.long.matches}`,
         },
         awayForm: {
+          type: '🛫 AWAY',
           score: awayForm.formScore.toFixed(2),
           factor: awayForm.formFactor.toFixed(2),
           label: awayForm.formLabel,
           results: awayForm.recentResults,
+          trend: awayForm.trend,
+          windows: `short:${awayForm.windows.short.matches} med:${awayForm.windows.medium.matches} long:${awayForm.windows.long.matches}`,
         },
-      }, 'Form momentum calculated for both teams');
+      }, '🏠🛫 Form momentum calculated (HOME/AWAY specific)');
 
-      // 4.6. Fetch e calcola H2H stats
+      // 5. Fetch H2H stats (SEQUENZIALE - ultima API call prima calcoli)
+      logger.debug('Step 5/5: Fetching H2H data');
       const h2hData = await h2hService.fetchH2H(input.homeTeamId, input.awayTeamId, 10);
       const h2hStats = this.calculateH2HStats(h2hData.matches, input.homeTeamId, input.awayTeamId);
       
@@ -91,6 +132,9 @@ export class PredictionEngine {
         h2hFactorHome: h2hStats.h2hFactor.home.toFixed(3),
         h2hFactorAway: h2hStats.h2hFactor.away.toFixed(3),
       }, 'H2H stats calculated');
+
+      // === FASE CALCOLO (nessuna API call, solo matematica) ===
+      logger.debug('All data fetched, starting calculations...');
 
       // 5. Calcola Empirico
       const empiricResult = empiricEngine.calculate(
@@ -196,6 +240,36 @@ export class PredictionEngine {
         logger.debug('No injuries analysis available');
       }
 
+      // 6.8. Applica League Strength Adjustment
+      const leagueStrength = getLeagueStrength(input.leagueId);
+      const lambdaHomeBeforeLeague = poissonResult.lambdaHome;
+      const lambdaAwayBeforeLeague = poissonResult.lambdaAway;
+      
+      poissonResult.lambdaHome *= leagueStrength.coefficient;
+      poissonResult.lambdaAway *= leagueStrength.coefficient;
+      
+      logger.info({
+        league: {
+          id: input.leagueId,
+          name: leagueStrength.name,
+          country: leagueStrength.country,
+          tier: leagueStrength.tier,
+          coefficient: leagueStrength.coefficient.toFixed(2),
+        },
+        home: {
+          lambdaBeforeLeague: lambdaHomeBeforeLeague.toFixed(2),
+          lambdaAfterLeague: poissonResult.lambdaHome.toFixed(2),
+          leagueAdjustment: ((leagueStrength.coefficient - 1) * 100).toFixed(1) + '%',
+          totalBoostFromOriginal: ((poissonResult.lambdaHome / lambdaHomeOriginal - 1) * 100).toFixed(1) + '%',
+        },
+        away: {
+          lambdaBeforeLeague: lambdaAwayBeforeLeague.toFixed(2),
+          lambdaAfterLeague: poissonResult.lambdaAway.toFixed(2),
+          leagueAdjustment: ((leagueStrength.coefficient - 1) * 100).toFixed(1) + '%',
+          totalBoostFromOriginal: ((poissonResult.lambdaAway / lambdaAwayOriginal - 1) * 100).toFixed(1) + '%',
+        },
+      }, '🏆 League strength adjustment applied');
+
       // 7. Blend risultati
       const blendedResult = blender.blend(
         empiricResult,
@@ -289,6 +363,17 @@ export class PredictionEngine {
           finalConfidence: (confidenceOverall * 100).toFixed(1) + '%',
         }, 'Confidence boosted by market agreement');
       }
+      
+      // Apply league strength confidence adjustment
+      const confidenceBeforeLeague = confidenceOverall;
+      confidenceOverall *= leagueStrength.confidenceFactor;
+      
+      logger.info({
+        confidenceBeforeLeague: (confidenceBeforeLeague * 100).toFixed(1) + '%',
+        leagueConfidenceFactor: leagueStrength.confidenceFactor.toFixed(2),
+        confidenceAfterLeague: (confidenceOverall * 100).toFixed(1) + '%',
+        adjustment: ((leagueStrength.confidenceFactor - 1) * 100).toFixed(1) + '%',
+      }, '🏆 Confidence adjusted by league strength');
       
       const confidence = {
         ...confidenceCalculator.calculate(
@@ -438,28 +523,29 @@ export class PredictionEngine {
   }
 
   /**
-   * Fetch dati storici e popola cache xG
+   * Fetch dati storici (SEQUENZIALE per evitare rate limit)
+   * Con cache Redis (TTL: 1 ora) per ridurre chiamate API
    */
   private async fetchHistoricalData(input: PredictionInput): Promise<{
     homeHistory: MatchHistoryData[];
     awayHistory: MatchHistoryData[];
   }> {
-    logger.debug('Fetching historical data');
+    logger.debug('Fetching historical data (sequential)');
 
-    const [homeHistory, awayHistory] = await Promise.all([
-      historyService.getTeamHistoryByVenue(
-        input.homeTeamId,
-        input.season,
-        true, // home
-        calculationConfig.historyGames
-      ),
-      historyService.getTeamHistoryByVenue(
-        input.awayTeamId,
-        input.season,
-        false, // away
-        calculationConfig.historyGames
-      ),
-    ]);
+    // Fetch SEQUENZIALE (non parallelo) per rate limit
+    const homeHistory = await historyService.getTeamHistoryByVenue(
+      input.homeTeamId,
+      input.season,
+      true, // home
+      calculationConfig.historyGames
+    );
+
+    const awayHistory = await historyService.getTeamHistoryByVenue(
+      input.awayTeamId,
+      input.season,
+      false, // away
+      calculationConfig.historyGames
+    );
 
     // NUOVO: Popola cache xG per partite storiche (background - non blocca predizione)
     void this.populateXGCache([...homeHistory, ...awayHistory]);
@@ -554,115 +640,6 @@ export class PredictionEngine {
     if (completeness >= 0.5) return 'FAIR';
     if (completeness >= 0.3) return 'POOR';
     return 'INSUFFICIENT';
-  }
-
-  /**
-   * Calcola Form Momentum (ultimi 5 match)
-   * Formula: form_score = Σ(points × weight) / 15 (max)
-   * Points: W=3, D=1, L=0
-   * Weights: [2.0, 1.5, 1.2, 1.0, 0.8] (più recente = più peso)
-   * Form factor: 0.7 + 0.6 * form_score
-   * @returns { formScore: 0-1, formFactor: 0.7-1.3, formLabel: string }
-   */
-  private calculateFormMomentum(
-    history: MatchHistoryData[],
-    lastN: number = 5
-  ): {
-    formScore: number;
-    formFactor: number;
-    formLabel: string;
-    recentResults: string; // Es: "W-W-D-L-W"
-  } {
-    if (history.length === 0) {
-      return {
-        formScore: 0.5,
-        formFactor: 1.0,
-        formLabel: 'UNKNOWN',
-        recentResults: '-',
-      };
-    }
-
-    // Prendi ultimi N match
-    const recentMatches = history.slice(0, Math.min(lastN, history.length));
-    
-    // Weight esponenziale (più recente = più peso)
-    const weights = [2.0, 1.5, 1.2, 1.0, 0.8];
-    
-    let totalPoints = 0;
-    let maxPossible = 0;
-    const results: string[] = [];
-
-    recentMatches.forEach((match, index) => {
-      const weight = weights[index] || 0.5;
-      
-      // Determina risultato (W/D/L)
-      let points = 0;
-      let result = '';
-      
-      if (match.isHome) {
-        if (match.homeGoals > match.awayGoals) {
-          points = 3; // Win
-          result = 'W';
-        } else if (match.homeGoals === match.awayGoals) {
-          points = 1; // Draw
-          result = 'D';
-        } else {
-          points = 0; // Loss
-          result = 'L';
-        }
-      } else {
-        if (match.awayGoals > match.homeGoals) {
-          points = 3; // Win
-          result = 'W';
-        } else if (match.awayGoals === match.homeGoals) {
-          points = 1; // Draw
-          result = 'D';
-        } else {
-          points = 0; // Loss
-          result = 'L';
-        }
-      }
-      
-      totalPoints += points * weight;
-      maxPossible += 3 * weight; // Max 3 punti per match
-      results.push(result);
-    });
-
-    // Form score normalizzato (0-1)
-    const formScore = maxPossible > 0 ? totalPoints / maxPossible : 0.5;
-    
-    // Form factor per lambda adjustment (0.7 - 1.3)
-    // Formula: 0.7 + 0.6*formScore
-    // Se formScore = 0 (crisi totale) → factor = 0.7 (-30%)
-    // Se formScore = 0.5 (media) → factor = 1.0 (neutro)
-    // Se formScore = 1.0 (perfetto) → factor = 1.3 (+30%)
-    const formFactor = 0.7 + 0.6 * formScore;
-    
-    // Label descrittivo
-    let formLabel = '';
-    if (formScore >= 0.80) formLabel = 'HOT'; // 🔥
-    else if (formScore >= 0.60) formLabel = 'GOOD'; // ⚡
-    else if (formScore >= 0.40) formLabel = 'AVERAGE'; // 📊
-    else formLabel = 'COLD'; // ❄️
-    
-    const recentResults = results.join('-') || '-';
-
-    logger.debug({
-      recentMatches: recentMatches.length,
-      totalPoints: totalPoints.toFixed(2),
-      maxPossible: maxPossible.toFixed(2),
-      formScore: formScore.toFixed(3),
-      formFactor: formFactor.toFixed(3),
-      formLabel,
-      recentResults,
-    }, 'Form momentum calculated');
-
-    return {
-      formScore,
-      formFactor,
-      formLabel,
-      recentResults,
-    };
   }
 
   /**
@@ -917,8 +894,8 @@ export class PredictionEngine {
     xgData: ExpectedGoalsData | null,
     homeHistory: MatchHistoryData[],
     awayHistory: MatchHistoryData[],
-    homeForm: { formScore: number; formFactor: number; formLabel: string; recentResults: string },
-    awayForm: { formScore: number; formFactor: number; formLabel: string; recentResults: string },
+    homeForm: FormMomentumResult,
+    awayForm: FormMomentumResult,
     h2hStats?: {
       totalMatches: number;
       homeWins: number;
@@ -1054,19 +1031,23 @@ export class PredictionEngine {
         homeAdvantage,
       },
       
-      // Form Momentum
+      // Form Momentum (MULTI-WINDOW + TREND)
       formMomentum: {
         home: {
           formScore: homeForm.formScore,
           formFactor: homeForm.formFactor,
           formLabel: homeForm.formLabel,
           recentResults: homeForm.recentResults,
+          trend: homeForm.trend,
+          windows: homeForm.windows,
         },
         away: {
           formScore: awayForm.formScore,
           formFactor: awayForm.formFactor,
           formLabel: awayForm.formLabel,
           recentResults: awayForm.recentResults,
+          trend: awayForm.trend,
+          windows: awayForm.windows,
         },
       },
       
