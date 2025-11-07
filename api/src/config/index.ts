@@ -37,11 +37,17 @@ const configSchema = z.object({
   REDIS_URL: z.string().url(),
   
   // Parametri Calcolo
-  HISTORY_GAMES: z.string().transform(Number).default('20'),
+  // Parametri Calcolo
+  HISTORY_GAMES: z.string().transform(Number).default('40'), // Aumentato a 40 partite
   HOME_ADV_GOALS: z.string().transform(Number).default('0.0'), // Fattore casa rimosso
   CONFIDENCE_MIN: z.string().transform(Number).default('0.60'),
   BLEND_EMPIRIC: z.string().transform(Number).default('0.6'),
   BLEND_POISSON: z.string().transform(Number).default('0.4'),
+  
+  // Time-Weighted Analysis (NEW)
+  TIME_DECAY_FACTOR: z.string().transform(Number).default('0.96'), // Decay esponenziale
+  TIME_RECENT_DAYS: z.string().transform(Number).default('60'),    // Fascia recente
+  TIME_MEDIUM_DAYS: z.string().transform(Number).default('150'),   // Fascia media
   
   // xG Parameters
   XG_BLEND_WEIGHT: z.string().transform(Number).default('0.30'), // 30% peso xG, 70% storico

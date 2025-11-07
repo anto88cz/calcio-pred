@@ -22,6 +22,7 @@ import {
   type LineupInfo,
   type ExpectedGoalsData,
 } from '../api-football';
+import apiFootballOdds from '../api-football/odds'; // 🆕 Quote reali da API-Football
 import { oddsService, calibrationService } from '../odds';
 import { config as _config, calculationConfig } from '../../config';
 import logger from '../../utils/logger';
@@ -50,7 +51,7 @@ export class PredictionEngine {
       logger.debug('Step 1/5: Fetching historical data');
       const { homeHistory, awayHistory } = await this.fetchHistoricalData(input);
       
-      // 🎯 VERIFICA DATI STAGIONE CORRENTE (Minimo 3 partite per squadra)
+      // 🎯 LOG DATI STAGIONE CORRENTE (per diagnostica)
       const currentSeason = input.season;
       const seasonStartDate = new Date(`${currentSeason}-08-01`); // Stagione inizia ad agosto
       
@@ -62,20 +63,14 @@ export class PredictionEngine {
         awayTeam: input.awayTeamId,
         homeSeasonMatches: homeSeasonMatches.length,
         awaySeasonMatches: awaySeasonMatches.length,
-        requiredMatches: 3,
+        homeHistoryTotal: homeHistory.length,
+        awayHistoryTotal: awayHistory.length,
         season: `${currentSeason}/${currentSeason + 1}`,
-      }, 'Checking current season data availability');
+      }, 'Historical data summary');
       
-      // Se non ci sono abbastanza dati della stagione corrente, ritorna errore
-      if (homeSeasonMatches.length < 3 || awaySeasonMatches.length < 3) {
-        const missingTeam = homeSeasonMatches.length < 3 ? 'home' : 'away';
-        const missingCount = homeSeasonMatches.length < 3 ? homeSeasonMatches.length : awaySeasonMatches.length;
-        
-        throw new Error(
-          `Dati insufficienti per la stagione ${currentSeason}/${currentSeason + 1}. ` +
-          `Squadra ${missingTeam} ha solo ${missingCount} partite (minimo 3 richiesto).`
-        );
-      }
+      // NOTA: Non blocchiamo più se ci sono poche partite della stagione corrente.
+      // Usiamo invece il check di assessDataQuality che valuta la qualità complessiva
+      // dei dati storici (anche di stagioni precedenti se necessario).
 
       // 2. Fetch xG data (priorità alta - necessario per lambda calibration)
       logger.debug('Step 2/5: Fetching xG data');
@@ -91,6 +86,12 @@ export class PredictionEngine {
 
       // Se dati insufficienti, ritorna ND
       if (dataQuality === 'INSUFFICIENT') {
+        logger.warn({
+          homeMatches: homeHistory.length,
+          awayMatches: awayHistory.length,
+          required: calculationConfig.historyGames * 2,
+          completeness: ((homeHistory.length + awayHistory.length) / (calculationConfig.historyGames * 2) * 100).toFixed(1) + '%',
+        }, 'Insufficient data for prediction - returning ND');
         return this.createNDPrediction(input, homeHistory, awayHistory, xgData);
       }
 
@@ -278,54 +279,98 @@ export class PredictionEngine {
         calculationConfig.blendPoisson
       );
 
-      // 7.5. Market Odds Calibration (se abilitato)
+      // 7.5. Market Odds Calibration con API-Football 🆕
       let marketOdds = null;
       let calibrationResult = null;
+      let realOdds = null; // 🆕 Quote reali da mostrare nel frontend
       
-      if (calculationConfig.oddsCalibrationEnabled && input.homeTeamName && input.awayTeamName) {
-        logger.info({ 
+      // PRIORITÀ 1: Prova a recuperare quote reali da API-Football
+      logger.info({ 
+        fixtureId: input.fixtureId,
+        homeTeam: input.homeTeamName, 
+        awayTeam: input.awayTeamName 
+      }, '🎲 Fetching real odds from API-Football');
+      
+      try {
+        // ⚠️ IMPORTANTE: Se fixtureId è undefined/null/0, skip
+        if (input.fixtureId && input.fixtureId > 0) {
+          realOdds = await apiFootballOdds.fetchOddsByFixtureId(input.fixtureId);
+        } else {
+          logger.warn('⚠️ Invalid fixtureId - skipping odds fetch by ID');
+        }
+        
+        if (realOdds) {
+          logger.info({
+            fixtureId: input.fixtureId,
+            bookmakers: realOdds.bookmakerCount,
+            home: realOdds.odds1X2.home.toFixed(2),
+            draw: realOdds.odds1X2.draw.toFixed(2),
+            away: realOdds.odds1X2.away.toFixed(2),
+          }, '✅ Real odds fetched from API-Football');
+          
+          // Converti in formato MarketOdds per calibrazione
+          marketOdds = {
+            prob1: realOdds.odds1X2.prob1,
+            probX: realOdds.odds1X2.probX,
+            prob2: realOdds.odds1X2.prob2,
+            over25: realOdds.oddsOverUnder ? 1 / realOdds.oddsOverUnder.over25 : blendedResult.final.underOver['2.5'].over,
+            under25: realOdds.oddsOverUnder ? 1 / realOdds.oddsOverUnder.under25 : blendedResult.final.underOver['2.5'].under,
+            rawOdds: {
+              home: realOdds.odds1X2.home,
+              draw: realOdds.odds1X2.draw,
+              away: realOdds.odds1X2.away,
+              over25: realOdds.oddsOverUnder?.over25,
+              under25: realOdds.oddsOverUnder?.under25,
+            },
+            bookmakerCount: realOdds.bookmakerCount,
+            overround: realOdds.overround,
+          };
+        } else {
+          logger.warn({ fixtureId: input.fixtureId }, '⚠️ No odds found for fixture - using model predictions');
+        }
+      } catch (error: any) {
+        logger.error({ error: error.message }, '❌ Error fetching real odds');
+      }
+      
+      // PRIORITÀ 2: Se non trovate con fixtureId, NON cercare per nome
+      // API-Football richiede Team ID (intero), non supporta ricerca per nome
+      if (!marketOdds) {
+        logger.warn({ 
           homeTeam: input.homeTeamName, 
           awayTeam: input.awayTeamName 
-        }, 'Fetching market odds for calibration');
+        }, '⚠️ No valid fixtureId - skipping odds fetch (manual predictions cannot fetch real odds)');
         
-        // Fetch odds
-        marketOdds = await oddsService.fetchOddsByTeams(
-          input.homeTeamName,
-          input.awayTeamName
+        // Per predizioni manuali, usiamo solo le quote del modello
+        // Le quote reali sono disponibili solo per partite programmate con fixtureId valido
+      }
+      
+      // Se abbiamo le quote di mercato, applica calibrazione
+      if (marketOdds) {
+        calibrationResult = calibrationService.calibrate(
+          {
+            prob1: blendedResult.final.prob1,
+            probX: blendedResult.final.probX,
+            prob2: blendedResult.final.prob2,
+            over25: blendedResult.final.underOver['2.5'].over,
+            under25: blendedResult.final.underOver['2.5'].under,
+          },
+          marketOdds
         );
         
-        if (marketOdds) {
-          // Apply calibration
-          calibrationResult = calibrationService.calibrate(
-            {
-              prob1: blendedResult.final.prob1,
-              probX: blendedResult.final.probX,
-              prob2: blendedResult.final.prob2,
-              over25: blendedResult.final.underOver['2.5'].over,
-              under25: blendedResult.final.underOver['2.5'].under,
-            },
-            marketOdds
-          );
-          
-          // Update blended result with calibrated probabilities
-          blendedResult.final.prob1 = calibrationResult.prob1;
-          blendedResult.final.probX = calibrationResult.probX;
-          blendedResult.final.prob2 = calibrationResult.prob2;
-          blendedResult.final.underOver['2.5'].over = calibrationResult.over25;
-          blendedResult.final.underOver['2.5'].under = calibrationResult.under25;
-          
-          logger.info({
-            calibrated: true,
-            confidenceBoost: (calibrationResult.confidenceBoost * 100).toFixed(1) + '%',
-            valueBets: calibrationResult.valueBets.length,
-          }, 'Market calibration applied');
-        } else {
-          logger.debug('No market odds available - using model predictions');
-        }
-      } else if (!calculationConfig.oddsCalibrationEnabled) {
-        logger.debug('Market calibration disabled (ODDS_API_KEY not configured)');
+        // Update blended result con probabilità calibrate
+        blendedResult.final.prob1 = calibrationResult.prob1;
+        blendedResult.final.probX = calibrationResult.probX;
+        blendedResult.final.prob2 = calibrationResult.prob2;
+        blendedResult.final.underOver['2.5'].over = calibrationResult.over25;
+        blendedResult.final.underOver['2.5'].under = calibrationResult.under25;
+        
+        logger.info({
+          calibrated: true,
+          confidenceBoost: (calibrationResult.confidenceBoost * 100).toFixed(1) + '%',
+          valueBets: calibrationResult.valueBets.length,
+        }, '✅ Market calibration applied');
       } else {
-        logger.debug('Team names not provided - skipping market calibration');
+        logger.debug('No market odds available - using model predictions');
       }
 
       // 8. Valida coerenza
@@ -434,7 +479,8 @@ export class PredictionEngine {
         awayForm,
         h2hStats,
         calibrationResult,
-        injuriesAnalysis
+        injuriesAnalysis,
+        realOdds // 🆕 Passa le quote reali
       );
 
     } catch (error) {
@@ -631,14 +677,23 @@ export class PredictionEngine {
     awayHistory: MatchHistoryData[]
   ): DataQuality {
     const totalMatches = homeHistory.length + awayHistory.length;
-    const required = calculationConfig.historyGames * 2;
-
-    const completeness = totalMatches / required;
-
-    if (completeness >= 0.9) return 'EXCELLENT';
-    if (completeness >= 0.7) return 'GOOD';
-    if (completeness >= 0.5) return 'FAIR';
-    if (completeness >= 0.3) return 'POOR';
+    
+    // NUOVO: Soglie più realistiche basate sul numero minimo di partite
+    // Minimo assoluto: 6 partite (3 per squadra)
+    // Buono: 10+ partite
+    // Ottimo: 20+ partite
+    
+    if (totalMatches >= 20) return 'EXCELLENT';
+    if (totalMatches >= 14) return 'GOOD';
+    if (totalMatches >= 10) return 'FAIR';
+    if (totalMatches >= 6) return 'POOR';
+    
+    logger.warn({ 
+      totalMatches, 
+      homeMatches: homeHistory.length, 
+      awayMatches: awayHistory.length 
+    }, 'Insufficient data for prediction');
+    
     return 'INSUFFICIENT';
   }
 
@@ -932,7 +987,8 @@ export class PredictionEngine {
       awayAdvantage: boolean;
       balanced: boolean;
       impactDescription: string;
-    } | null
+    } | null,
+    realOdds?: any // 🆕 Quote reali da API-Football
   ): PredictionResponse {
     const { empiric, poisson, final } = blendedResult;
     
@@ -1122,6 +1178,39 @@ export class PredictionEngine {
           awayAdvantage: injuriesAnalysis.awayAdvantage,
           balanced: injuriesAnalysis.balanced,
           impactDescription: injuriesAnalysis.impactDescription,
+        },
+      }),
+      
+      // 🆕 Quote reali dai bookmaker (se disponibili)
+      ...(realOdds && {
+        realOdds: {
+          odds1X2: {
+            home: realOdds.odds1X2.home,
+            draw: realOdds.odds1X2.draw,
+            away: realOdds.odds1X2.away,
+            prob1: realOdds.odds1X2.prob1,
+            probX: realOdds.odds1X2.probX,
+            prob2: realOdds.odds1X2.prob2,
+          },
+          ...(realOdds.oddsOverUnder && {
+            oddsOverUnder: {
+              over15: realOdds.oddsOverUnder.over15,
+              under15: realOdds.oddsOverUnder.under15,
+              over25: realOdds.oddsOverUnder.over25,
+              under25: realOdds.oddsOverUnder.under25,
+              over35: realOdds.oddsOverUnder.over35,
+              under35: realOdds.oddsOverUnder.under35,
+            },
+          }),
+          ...(realOdds.oddsBTTS && {
+            oddsBTTS: {
+              yes: realOdds.oddsBTTS.yes,
+              no: realOdds.oddsBTTS.no,
+            },
+          }),
+          bookmakerCount: realOdds.bookmakerCount,
+          overround: realOdds.overround,
+          lastUpdate: realOdds.lastUpdate,
         },
       }),
       

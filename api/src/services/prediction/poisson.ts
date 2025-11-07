@@ -160,7 +160,8 @@ export class PoissonEngine {
   }
 
   /**
-   * Calcola lambda (gol attesi) da storico
+   * Calcola lambda (gol attesi) da storico con pesatura avanzata
+   * Utilizza sistema a fasce temporali per dare più peso ai dati recenti
    */
   private calculateLambda(
     history: MatchHistoryData[],
@@ -171,13 +172,35 @@ export class PoissonEngine {
       return isHome ? 1.5 : 1.2;
     }
 
+    const now = new Date();
     let totalGoals = 0;
     let totalWeight = 0;
 
-    // Time-decay per dare più peso ai match recenti
+    // Sistema a fasce temporali + decay posizione
     history.forEach((match, index) => {
-      const weight = Math.pow(0.95, index);
       const goals = match.isHome ? match.homeGoals : match.awayGoals;
+      
+      // Calcola giorni dalla partita
+      const daysSince = (now.getTime() - match.date.getTime()) / (1000 * 60 * 60 * 24);
+      
+      // Peso base in base alla fascia temporale
+      let baseWeight: number;
+      if (daysSince <= 60) {
+        // Fascia RECENTE (0-60 giorni): peso massimo
+        baseWeight = 1.0;
+      } else if (daysSince <= 150) {
+        // Fascia MEDIA (60-150 giorni): peso ridotto
+        baseWeight = 0.7;
+      } else {
+        // Fascia STORICA (150+ giorni): peso minimo
+        baseWeight = 0.4;
+      }
+      
+      // Decay per posizione nell'array (più recenti = maggior peso)
+      const positionDecay = Math.pow(0.96, index);
+      
+      // Peso finale combinato
+      const weight = baseWeight * positionDecay;
       
       totalGoals += goals * weight;
       totalWeight += weight;

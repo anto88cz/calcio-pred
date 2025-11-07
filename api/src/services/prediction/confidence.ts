@@ -118,7 +118,7 @@ export class ConfidenceCalculator {
   }
 
   /**
-   * 2. Recenza dati (0-1)
+   * 2. Recenza dati (0-1) - Sistema a fasce ottimizzato
    */
   private calculateRecency(
     homeHistory: MatchHistoryData[],
@@ -134,15 +134,27 @@ export class ConfidenceCalculator {
     allMatches.forEach(match => {
       const daysSince = (now.getTime() - match.date.getTime()) / (1000 * 60 * 60 * 24);
       
-      // Score decrescente con il tempo
-      // 100% se <30 giorni, decresce linearmente fino a 0% a 365 giorni
+      // Sistema a fasce temporali ottimizzato
       let recencyScore: number;
+      
       if (daysSince <= 30) {
+        // Ultimi 30 giorni: peso massimo (100%)
         recencyScore = 1.0;
+      } else if (daysSince <= 60) {
+        // 30-60 giorni: peso alto (90-100%)
+        recencyScore = 1.0 - ((daysSince - 30) / 300); // Decay lento
+      } else if (daysSince <= 120) {
+        // 60-120 giorni: peso medio (70-90%)
+        recencyScore = 0.9 - ((daysSince - 60) / 300);
+      } else if (daysSince <= 180) {
+        // 120-180 giorni: peso ridotto (50-70%)
+        recencyScore = 0.7 - ((daysSince - 120) / 300);
       } else if (daysSince <= 365) {
-        recencyScore = 1.0 - ((daysSince - 30) / 335);
+        // 180-365 giorni: peso basso (20-50%)
+        recencyScore = 0.5 - ((daysSince - 180) / 617);
       } else {
-        recencyScore = 0;
+        // Oltre 365 giorni: peso minimo (10-20%)
+        recencyScore = Math.max(0.1, 0.2 - ((daysSince - 365) / 1825));
       }
 
       totalRecencyScore += recencyScore;

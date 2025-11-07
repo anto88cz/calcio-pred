@@ -58,16 +58,47 @@ export class EmpiricEngine {
   }
 
   /**
-   * Applica time-decay ai match (più recenti = più peso)
+   * Applica time-decay ai match con pesatura a fasce temporali
+   * Sistema a 3 fasce:
+   * - Recente (0-60 giorni): peso 1.0 (100%)
+   * - Medio (60-150 giorni): peso 0.7 (70%) 
+   * - Storico (150+ giorni): peso 0.4 (40%)
+   * + decay esponenziale all'interno di ogni fascia
    */
   private applyTimeDecay(
     matches: MatchHistoryData[],
     decayFactor: number
   ): Array<{ match: MatchHistoryData; weight: number }> {
-    return matches.map((match, index) => ({
-      match,
-      weight: Math.pow(decayFactor, index), // Peso decresce esponenzialmente
-    }));
+    const now = new Date();
+    
+    return matches.map((match, index) => {
+      // Calcola giorni dalla partita
+      const daysSince = (now.getTime() - match.date.getTime()) / (1000 * 60 * 60 * 24);
+      
+      // Peso base in base alla fascia temporale
+      let baseWeight: number;
+      if (daysSince <= 60) {
+        // Fascia RECENTE (0-60 giorni): peso massimo
+        baseWeight = 1.0;
+      } else if (daysSince <= 150) {
+        // Fascia MEDIA (60-150 giorni): peso ridotto
+        baseWeight = 0.7;
+      } else {
+        // Fascia STORICA (150+ giorni): peso minimo
+        baseWeight = 0.4;
+      }
+      
+      // Applica decay esponenziale per posizione (partite più recenti nell'array)
+      const positionDecay = Math.pow(decayFactor, index);
+      
+      // Peso finale = base * decay posizione
+      const finalWeight = baseWeight * positionDecay;
+      
+      return {
+        match,
+        weight: finalWeight,
+      };
+    });
   }
 
   /**

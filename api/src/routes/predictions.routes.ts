@@ -551,6 +551,7 @@ router.post('/calculate', async (req: Request, res: Response, next: NextFunction
 /**
  * POST /api/predictions/calculate-by-name
  * Calcola predizione inserendo manualmente i nomi delle squadre
+ * Supporta cache Redis con parametro forceRecalculate per sovrascrivere
  */
 router.post('/calculate-by-name', async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -564,9 +565,37 @@ router.post('/calculate-by-name', async (req: Request, res: Response, next: Next
       awayTeamName: z.string().min(1),
       leagueId: z.number().int().positive().optional().default(39), // Default Premier League
       season: z.number().int().positive().optional().default(currentSeason),
+      forceRecalculate: z.boolean().optional().default(false), // 🆕 Forza ricalcolo
+      fixtureId: z.number().int().positive().optional(), // 🆕 Fixture ID opzionale (se dalla lista partite)
     });
     
     const input = schema.parse(req.body);
+    
+    // 🔑 Cache key unica per questa predizione
+    const cacheKey = `prediction:${input.homeTeamName.toLowerCase()}:${input.awayTeamName.toLowerCase()}:${input.season}:${input.leagueId}`;
+    
+    // 📦 Controlla cache (se non forza ricalcolo)
+    if (!input.forceRecalculate) {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        logger.info({ 
+          homeTeam: input.homeTeamName, 
+          awayTeam: input.awayTeamName,
+          cacheKey,
+        }, '✅ Cache hit - returning cached prediction');
+        
+        const cachedData = JSON.parse(cached);
+        return res.json({
+          ...cachedData,
+          fromCache: true, // Indica che proviene dalla cache
+        });
+      }
+    } else {
+      logger.info({ 
+        homeTeam: input.homeTeamName, 
+        awayTeam: input.awayTeamName,
+      }, '🔄 Force recalculate requested - bypassing cache');
+    }
     
     logger.info({ homeTeam: input.homeTeamName, awayTeam: input.awayTeamName }, 'Manual prediction request');
     
@@ -606,12 +635,18 @@ router.post('/calculate-by-name', async (req: Request, res: Response, next: Next
     }
     
     // Calcola predizione usando i team ID trovati
-    // Usa un ID temporaneo valido (max INT4: 2147483647)
-    // Range: 1000000000 - 2147483647 (circa 1.1 miliardo di ID possibili)
-    const tempFixtureId = Math.floor(Math.random() * 1147483647) + 1000000000;
+    // Se abbiamo un fixtureId dalla lista partite, usalo. Altrimenti genera un ID temporaneo
+    const fixtureId = input.fixtureId || Math.floor(Math.random() * 1147483647) + 1000000000;
+    
+    logger.info({ 
+      homeTeam: homeTeam.name, 
+      awayTeam: awayTeam.name,
+      fixtureId,
+      isRealFixture: !!input.fixtureId,
+    }, input.fixtureId ? '🎯 Using real fixture ID from frontend' : '🔀 Generated temporary fixture ID');
     
     const predictionResult = await predictionEngine.calculatePrediction({
-      fixtureId: tempFixtureId,
+      fixtureId,
       homeTeamId: homeTeam.apiId,
       awayTeamId: awayTeam.apiId,
       season: input.season,
@@ -636,12 +671,25 @@ router.post('/calculate-by-name', async (req: Request, res: Response, next: Next
       h2hAnalysis: predictionResult.h2hAnalysis ? 'PRESENT' : 'NULL',
     }, '🔍 Response data check before sending to frontend');
     
-    return res.json({
+    // 💾 Prepara risposta da cachare
+    const responseData = {
       success: true,
       homeTeam: homeTeam.name,
       awayTeam: awayTeam.name,
       ...predictionResult,
-    });
+      fromCache: false,
+    };
+    
+    // 💾 Salva in cache (TTL: 6 ore = 21600 secondi)
+    try {
+      await redis.setex(cacheKey, 21600, JSON.stringify(responseData));
+      logger.info({ cacheKey }, '💾 Prediction saved to cache (TTL: 6h)');
+    } catch (cacheError) {
+      logger.error({ cacheError, cacheKey }, '❌ Failed to save to cache');
+      // Non blocchiamo la risposta se la cache fallisce
+    }
+    
+    return res.json(responseData);
     
   } catch (error) {
     logger.error({ error }, 'Error in manual prediction');
