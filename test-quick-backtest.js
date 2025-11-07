@@ -9,19 +9,16 @@ async function quickBacktest() {
   console.log('🧪 ==========================================\n');
   
   console.log('⚙️  Configuration:');
-  console.log('   Period: Last 3 months');
+  console.log('   Period: Sep-Nov 2025 (Season 2025/26)');
   console.log('   Leagues: Europa League (3)');
   console.log('   Limit: 20 fixtures (fast test)');
   console.log('   Expected time: ~2-3 minutes\n');
   
   console.log('🚀 Starting backtest...\n');
   
-  const startDate = new Date();
-  startDate.setMonth(startDate.getMonth() - 3);
-  const endDate = new Date();
-  
-  const startStr = startDate.toISOString().split('T')[0];
-  const endStr = endDate.toISOString().split('T')[0];
+  // Use actual historical dates with REAL finished fixtures
+  const startStr = '2025-09-19';
+  const endStr = '2025-11-02';
   
   const command = `cd api && npx tsx src/scripts/run-backtest.ts --start ${startStr} --end ${endStr} --leagues 3 --limit 20 --output quick-backtest.json`;
   

@@ -23,23 +23,25 @@ export class PoissonEngine {
    * 
    * @param lambdaHome - Goal attesi casa
    * @param lambdaAway - Goal attesi trasferta
-   * @returns RHO ottimale per questo match (-0.20 a -0.05)
+   * @returns RHO ottimale per questo match (0.05 a 0.20 - POSITIVO per RIDURRE 1-1)
    * 
    * Logica:
-   * - Match ad alto punteggio (>3.0 gol attesi): RHO più negativo (-0.15)
+   * - Match ad alto punteggio (>3.0 gol attesi): RHO più alto (0.15)
    *   → Maggiore correzione per evitare sovrastima di punteggi bassi
    * 
-   * - Match a basso punteggio (<2.0 gol attesi): RHO meno negativo (-0.08)
+   * - Match a basso punteggio (<2.0 gol attesi): RHO più basso (0.08)
    *   → Correzione più leggera, i punteggi bassi sono già probabili
    * 
-   * - Match ad altissimo punteggio (>4.0 gol): RHO molto negativo (-0.18)
+   * - Match ad altissimo punteggio (>4.0 gol): RHO molto alto (0.18)
    *   → Forte penalizzazione di 0-0, 1-1 che sono improbabili
    * 
-   * - Match molto difensivi (<1.5 gol): RHO minimo (-0.05)
+   * - Match molto difensivi (<1.5 gol): RHO minimo (0.05)
    *   → Quasi nessuna correzione, la Poisson pura è già accurata
    * 
-   * - Match squilibrati (|λhome - λaway| > 1.5): RHO moderato (-0.12)
+   * - Match squilibrati (|λhome - λaway| > 1.5): RHO moderato (0.12)
    *   → Correzione standard con leggero boost per favorito
+   * 
+   * IMPORTANTE: RHO è POSITIVO perché tau11 = 1 - rho DEVE ridurre 1-1
    */
   private calculateDynamicRho(
     lambdaHome: number, 
@@ -51,36 +53,36 @@ export class PoissonEngine {
     // Match ad altissimo punteggio (>4.0 gol attesi totali)
     // Es: Man City (2.8) vs Brighton (1.5) = 4.3 gol
     if (totalLambda > 4.0) {
-      return -0.18; // Forte penalizzazione 0-0, 1-1
+      return 0.18; // Forte penalizzazione 0-0, 1-1
     }
     
     // Match ad alto punteggio (3.0-4.0 gol attesi)
     // Es: Liverpool (2.2) vs Newcastle (1.2) = 3.4 gol
     if (totalLambda > 3.0) {
-      return -0.15; // Correzione aumentata
+      return 0.15; // Correzione aumentata
     }
     
     // Match molto difensivi (<1.5 gol attesi totali)
     // Es: Atletico Madrid (0.8) vs Getafe (0.6) = 1.4 gol
     if (totalLambda < 1.5) {
-      return -0.05; // Correzione minima, 0-0 è già probabile
+      return 0.05; // Correzione minima, 0-0 è già probabile
     }
     
     // Match a basso punteggio (1.5-2.0 gol attesi)
     // Es: Inter (1.3) vs Milan (0.9) = 2.2 gol
     if (totalLambda < 2.0) {
-      return -0.08; // Correzione leggera
+      return 0.08; // Correzione leggera
     }
     
     // Match molto squilibrati (differenza >1.5 gol)
     // Es: Bayern (2.8) vs Augsburg (0.9) = diff 1.9
     if (lambdaDiff > 1.5) {
-      return -0.12; // Correzione moderata, favorito dominante
+      return 0.12; // Correzione moderata, favorito dominante
     }
     
     // Match equilibrati o standard (2.0-3.0 gol, diff <1.5)
     // Es: Arsenal (1.6) vs Chelsea (1.3) = 2.9 gol
-    return -0.10; // RHO standard (default Dixon-Coles originale)
+    return 0.10; // RHO standard (default Dixon-Coles originale)
   }
 
   /**

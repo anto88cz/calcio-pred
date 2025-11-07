@@ -17,6 +17,7 @@ import { predictionEngine } from '../prediction/engine';
 import { fixturesService } from '../api-football';
 import prisma from '../../lib/prisma';
 import logger from '../../utils/logger';
+import { FixtureStatus } from '@prisma/client';
 
 export interface BacktestConfig {
   startDate: string;      // ISO date
@@ -201,7 +202,7 @@ export class Backtester {
         leagueId: {
           in: config.leagues,
         },
-        status: 'FT', // Solo partite finite
+        status: FixtureStatus.FT, // Usa enum Prisma
         homeGoals: { not: null },
         awayGoals: { not: null },
       },
