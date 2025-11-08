@@ -3,8 +3,6 @@
  */
 
 import { Router } from 'express';
-import { z } from 'zod';
-import { teamsService } from '../services/api-football';
 import prisma from '../lib/prisma';
 import logger from '../utils/logger';
 import { seedCommonTeams } from '../utils/seedTeams';
@@ -39,72 +37,13 @@ router.post('/seed-common', async (_req, res) => {
 /**
  * POST /api/teams/load-by-league
  * Carica tutte le squadre di una lega
+ * NOTE: Currently not implemented for Sportsmonks - use seed-common instead
  */
-router.post('/load-by-league', async (req, res) => {
-  try {
-    const schema = z.object({
-      leagueId: z.number().int().positive(),
-      season: z.number().int().positive(),
-    });
-    
-    const input = schema.parse(req.body);
-    
-    logger.info({ leagueId: input.leagueId, season: input.season }, 'Loading teams for league');
-    
-    // Carica squadre dalla API
-    const teams = await teamsService.getTeamsByLeague(input.leagueId, input.season);
-    
-    logger.info({ count: teams.length }, 'Teams fetched from API');
-    
-    if (!teams || teams.length === 0) {
-      return res.json({
-        success: true,
-        message: 'No teams found for this league/season',
-        teams: [],
-      });
-    }
-    
-    let savedCount = 0;
-    
-    // Salva nel database
-    for (const team of teams) {
-      try {
-        await prisma.team.upsert({
-          where: { apiId: team.id },
-          update: {
-            name: team.name,
-            logo: team.logo || null,
-            country: team.country || 'Unknown',
-          },
-          create: {
-            apiId: team.id,
-            name: team.name,
-            logo: team.logo || null,
-            country: team.country || 'Unknown',
-          },
-        });
-        savedCount++;
-      } catch (dbError) {
-        logger.error({ dbError, team: team.name }, 'Error saving team');
-      }
-    }
-    
-    logger.info({ leagueId: input.leagueId, count: savedCount }, 'Teams loaded successfully');
-    
-    return res.json({
-      success: true,
-      message: `Loaded ${savedCount} teams`,
-      teams: teams.slice(0, 10).map(t => ({ id: t.id, name: t.name })), // Solo primi 10 per non appesantire
-    });
-    
-  } catch (error) {
-    logger.error({ error, message: error instanceof Error ? error.message : 'Unknown' }, 'Error loading teams');
-    return res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      details: error instanceof Error ? error.stack : undefined,
-    });
-  }
+router.post('/load-by-league', async (_req, res) => {
+  return res.status(501).json({
+    success: false,
+    message: 'This endpoint is currently not implemented for Sportsmonks. Use /api/teams/seed-common instead.',
+  });
 });
 
 /**

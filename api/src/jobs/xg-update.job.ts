@@ -3,7 +3,7 @@
  * 
  * Questo job esegue ogni notte alle 3:00 AM per:
  * 1. Trovare partite degli ultimi 30 giorni SENZA dati xG
- * 2. Fetchare xG reali da API-FOOTBALL
+ * 2. Fetchare xG reali da Sportsmonks
  * 3. Salvare nel database per costruire gradualmente la cache
  * 
  * Parte del sistema xG Real Hybrid Cache (+15-20% accuracy)
@@ -11,7 +11,7 @@
 
 import * as cron from 'node-cron';
 import { prisma } from '../lib/prisma';
-import { statisticsService } from '../services/api-football';
+import { statisticsService } from '../services/sportsmonks';
 import logger from '../utils/logger';
 
 /**
@@ -32,7 +32,6 @@ async function updateMissingXG(): Promise<void> {
         date: {
           gte: thirtyDaysAgo
         },
-        // @ts-expect-error - Prisma types not refreshed
         xg_home: null, // xG non ancora fetchato
       },
       include: {
@@ -65,15 +64,26 @@ async function updateMissingXG(): Promise<void> {
 
     for (const fixture of fixturesWithoutXG) {
       try {
-        const success = await statisticsService.fetchAndCacheXG(fixture.apiId);
+        // Fetch xG data from Sportsmonks
+        const xgData = await statisticsService.getExpectedGoals(fixture.apiId);
         
-        if (success) {
+        if (xgData) {
+          // Update fixture with xG data
+          await prisma.fixture.update({
+            where: { id: fixture.id },
+            data: {
+              xg_home: xgData.homeXg,
+              xg_away: xgData.awayXg,
+            },
+          });
+          
           successCount++;
           logger.debug({
             fixtureId: fixture.apiId,
-            // @ts-expect-error - include relations
             match: `${fixture.homeTeam.name} vs ${fixture.awayTeam.name}`,
-            date: fixture.date
+            date: fixture.date,
+            xgHome: xgData.homeXg,
+            xgAway: xgData.awayXg,
           }, 'xG data cached successfully');
         } else {
           failCount++;

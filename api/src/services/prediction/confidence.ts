@@ -3,7 +3,7 @@
  * Calcola confidence basato su qualità dati, recenza, stabilità, lineup, infortuni, xG
  */
 
-import { MatchHistoryData, PlayerInjuryInfo, LineupInfo } from '../api-football';
+import { MatchHistoryData, PlayerInjuryInfo, LineupInfo } from '../sportsmonks';
 import logger from '../../utils/logger';
 import type { ConfidenceFactors, ConfidenceLevel } from '../../types';
 
@@ -132,7 +132,8 @@ export class ConfidenceCalculator {
     let totalRecencyScore = 0;
 
     allMatches.forEach(match => {
-      const daysSince = (now.getTime() - match.date.getTime()) / (1000 * 60 * 60 * 24);
+      const matchDate = match.date instanceof Date ? match.date : new Date(match.date);
+      const daysSince = (now.getTime() - matchDate.getTime()) / (1000 * 60 * 60 * 24);
       
       // Sistema a fasce temporali ottimizzato
       let recencyScore: number;

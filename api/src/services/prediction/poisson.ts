@@ -1,10 +1,10 @@
 /**
  * Motore Poisson con correzione Dixon-Coles + xG Integration
  * Calcolo probabilità basato su distribuzione di Poisson
- * Con calibrazione verso Expected Goals (xG) da API-FOOTBALL
+ * Con calibrazione verso Expected Goals (xG) da Sportsmonks
  */
 
-import { MatchHistoryData } from '../api-football';
+import { MatchHistoryData } from '../sportsmonks';
 import logger from '../../utils/logger';
 import type { PoissonResult } from '../../types';
 
@@ -181,7 +181,8 @@ export class PoissonEngine {
       const goals = match.isHome ? match.homeGoals : match.awayGoals;
       
       // Calcola giorni dalla partita
-      const daysSince = (now.getTime() - match.date.getTime()) / (1000 * 60 * 60 * 24);
+      const matchDate = match.date instanceof Date ? match.date : new Date(match.date);
+      const daysSince = (now.getTime() - matchDate.getTime()) / (1000 * 60 * 60 * 24);
       
       // Peso base in base alla fascia temporale
       let baseWeight: number;

@@ -2,27 +2,12 @@
  * Cron Jobs Scheduler
  * - 06:00: Carica fixtures giornaliere
  * - H-120: Refresh lineup 2h prima
-          
-          // Calcola predizione se non esiste
-          const existingPrediction = await prisma.prediction.findUnique({
-            where: { fixtureId: savedFixture.id }, // Use internal DB id
-          });
-          
-          if (!existingPrediction) {
-            try {
-              void await predictionEngine.calculatePrediction({
-                fixtureId: savedFixture.apiId, // Use API id for calculation
-                homeTeamId: fixture.homeTeamId,
-                awayTeamId: fixture.awayTeamId,
-                season: fixture.season,
-                leagueId: fixture.leagueId,
-              });te finale 30min prima
+ * - H-30: Update finale 30min prima
  */
 
 import cron from 'node-cron';
-import { fixturesService, lineupsService, statisticsService } from '../services/api-football';
+import { fixturesService, lineupsService, statisticsService } from '../services/sportsmonks';
 import { predictionEngine, xgService } from '../services/prediction';
-import { mapAPIFixturesToFlat } from '../utils/fixtureMapper';
 import prisma from '../lib/prisma';
 import logger from '../utils/logger';
 import { withLock } from '../utils/redisLock';
@@ -43,111 +28,100 @@ async function dailyFixturesJob() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    const season = today.getFullYear();
-    const leagueIds = schedulerConfig.leagueIds;
+    const todayStr = today.toISOString().split('T')[0];
     
     let totalFixtures = 0;
     let totalPredictions = 0;
     
-    for (const leagueId of leagueIds) {
-      try {
-        logger.info({ leagueId, season }, 'Fetching fixtures for league');
+    try {
+      logger.info({ date: todayStr }, 'Fetching fixtures for today from Sportsmonks');
+      
+      // Fetch fixtures dalla API Sportsmonks per oggi
+      const apiFixtures = await fixturesService.getFixturesByDate(todayStr);
+      
+      logger.info({ count: apiFixtures.length }, 'Found fixtures for today');
+      
+      // Salva nel DB e calcola predizioni
+      for (const fixture of apiFixtures) {
+        const dateObj = new Date(fixture.date);
         
-        // Fetch fixtures dalla API
-        const apiFixtures = await fixturesService.getFixturesByLeague(leagueId, season);
-        
-        // Converti in formato piatto
-        const fixtures = mapAPIFixturesToFlat(apiFixtures);
-        
-        // Filtra solo oggi e domani
-        const relevantFixtures = fixtures.filter(f => {
-          const fixtureDate = new Date(f.date);
-          return fixtureDate >= today && fixtureDate < tomorrow;
+        // Salva fixture
+        const savedFixture = await prisma.fixture.upsert({
+          where: { apiId: fixture.id },
+          update: {
+            status: fixture.statusShort as any,
+            venue: fixture.venue?.name || null,
+            date: dateObj,
+          },
+          create: {
+            apiId: fixture.id,
+            timestamp: fixture.timestamp,
+            date: dateObj,
+            timezone: 'UTC',
+            leagueId: fixture.league.id,
+            leagueName: fixture.league.name,
+            leagueCountry: fixture.league.country,
+            leagueSeason: fixture.league.season,
+            round: '',
+            homeTeamId: fixture.homeTeam.id,
+            awayTeamId: fixture.awayTeam.id,
+            status: fixture.statusShort as any,
+            venue: fixture.venue?.name || null,
+            referee: null,
+          },
         });
         
-        logger.info({ leagueId, count: relevantFixtures.length }, 'Found fixtures');
+        // Assicura team esistano
+        await prisma.team.upsert({
+          where: { apiId: fixture.homeTeam.id },
+          update: { name: fixture.homeTeam.name },
+          create: {
+            apiId: fixture.homeTeam.id,
+            name: fixture.homeTeam.name,
+            country: fixture.league.country,
+          },
+        });
         
-        // Salva nel DB
-        for (const fixture of relevantFixtures) {
-          void await prisma.fixture.upsert({
-            where: { apiId: fixture.apiId },
-            update: {
-              status: fixture.statusShort as any, // Will be mapped to enum
-              venue: fixture.venue,
-              referee: fixture.referee,
-              date: fixture.date,
-            },
-            create: {
-              apiId: fixture.apiId,
-              timestamp: fixture.timestamp,
-              date: fixture.date,
-              timezone: fixture.timezone,
-              leagueId: fixture.leagueId,
-              leagueName: fixture.leagueName,
-              leagueCountry: fixture.leagueCountry,
-              leagueSeason: fixture.season,
-              round: fixture.round,
-              homeTeamId: fixture.homeTeamId,
-              awayTeamId: fixture.awayTeamId,
-              status: fixture.statusShort as any,
-              venue: fixture.venue,
-              referee: fixture.referee,
-            },
-          });
-          
-          // Assicura team esistano
-          await prisma.team.upsert({
-            where: { apiId: fixture.homeTeamId },
-            update: {},
-            create: {
-              apiId: fixture.homeTeamId,
-              name: `Team ${fixture.homeTeamId}`,
-              country: fixture.leagueCountry,
-            },
-          });
-          
-          await prisma.team.upsert({
-            where: { apiId: fixture.awayTeamId },
-            update: {},
-            create: {
-              apiId: fixture.awayTeamId,
-              name: `Team ${fixture.awayTeamId}`,
-              country: fixture.leagueCountry,
-            },
-          });
-          
-          totalFixtures++;
-          
-          // Calcola predizione se non esiste
-          const existingPrediction = await prisma.prediction.findUnique({
-            where: { fixtureId: fixture.fixtureId },
-          });
-          
-          if (!existingPrediction) {
-            try {
-              void await predictionEngine.calculatePrediction({
-                fixtureId: fixture.fixtureId,
-                homeTeamId: fixture.homeTeamId,
-                awayTeamId: fixture.awayTeamId,
-                season: fixture.season,
-                leagueId: fixture.leagueId,
-              });
-              
-              // Salva predizione (omesso per brevità - vedi predictions.routes.ts)
-              logger.info({ fixtureId: fixture.fixtureId }, 'Prediction calculated');
-              totalPredictions++;
-            } catch (error) {
-              logger.error({ error, fixtureId: fixture.fixtureId }, 'Failed to calculate prediction');
-            }
+        await prisma.team.upsert({
+          where: { apiId: fixture.awayTeam.id },
+          update: { name: fixture.awayTeam.name },
+          create: {
+            apiId: fixture.awayTeam.id,
+            name: fixture.awayTeam.name,
+            country: fixture.league.country,
+          },
+        });
+        
+        totalFixtures++;
+        
+        // Calcola predizione se non esiste
+        const existingPrediction = await prisma.prediction.findUnique({
+          where: { fixtureId: savedFixture.id },
+        });
+        
+        if (!existingPrediction) {
+          try {
+            await predictionEngine.calculatePrediction({
+              fixtureId: savedFixture.apiId,
+              homeTeamId: fixture.homeTeam.id,
+              awayTeamId: fixture.awayTeam.id,
+              season: fixture.league.season,
+              leagueId: fixture.league.id,
+              homeTeamName: fixture.homeTeam.name,
+              awayTeamName: fixture.awayTeam.name,
+              leagueName: fixture.league.name,
+            });
+            
+            logger.info({ fixtureId: savedFixture.apiId }, 'Prediction calculated');
+            totalPredictions++;
+          } catch (error) {
+            logger.error({ error, fixtureId: savedFixture.apiId }, 'Failed to calculate prediction');
           }
         }
-        
-      } catch (error) {
-        logger.error({ error, leagueId }, 'Failed to process league');
       }
+      
+    } catch (error) {
+      logger.error({ error }, 'Failed to fetch fixtures from Sportsmonks');
     }
     
     // Log job
@@ -206,12 +180,12 @@ async function lineupRefreshJob() {
     
     for (const fixture of fixtures) {
       try {
-        // Fetch lineup da API-FOOTBALL
-        const lineups = await lineupsService.getLineupsByFixture(fixture.apiId);
+        // Fetch lineup da Sportsmonks
+        const lineups = await lineupsService.getFixtureLineups(fixture.apiId);
         
-        if (lineups.length === 2) {
+        if (lineups.home && lineups.away && lineups.home.startingXI.length > 0 && lineups.away.startingXI.length > 0) {
           // Ricalcola predizione con lineup aggiornato
-          void await predictionEngine.calculatePrediction({
+          await predictionEngine.calculatePrediction({
             fixtureId: fixture.apiId,
             homeTeamId: fixture.homeTeamId,
             awayTeamId: fixture.awayTeamId,

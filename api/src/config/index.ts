@@ -18,9 +18,9 @@ const configSchema = z.object({
   // CORS
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
   
-  // API-FOOTBALL
-  APIFOOTBALL_BASE: z.string().url(),
-  APIFOOTBALL_KEY: z.string().min(1),
+  // Sportsmonks API
+  SPORTSMONKS_API_KEY: z.string().min(1),
+  SPORTSMONKS_BASE_URL: z.string().url().default('https://api.sportmonks.com/v3/football'),
   
   // The Odds API (Market Calibration)
   ODDS_API_BASE: z.string().url().default('https://api.the-odds-api.com'),
@@ -38,7 +38,7 @@ const configSchema = z.object({
   
   // Parametri Calcolo
   // Parametri Calcolo
-  HISTORY_GAMES: z.string().transform(Number).default('40'), // Aumentato a 40 partite
+  HISTORY_GAMES: z.string().transform(Number).default('5'), // Ridotto a 5 partite per squadra (10 totali) per limitazioni API
   HOME_ADV_GOALS: z.string().transform(Number).default('0.0'), // Fattore casa rimosso
   CONFIDENCE_MIN: z.string().transform(Number).default('0.60'),
   BLEND_EMPIRIC: z.string().transform(Number).default('0.6'),

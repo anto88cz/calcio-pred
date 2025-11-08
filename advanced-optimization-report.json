@@ -1,0 +1,54 @@
+{
+  "bestParams": {
+    "FALLBACK_ATTACK": 1.5,
+    "FALLBACK_DEFENSE": 1.5,
+    "HOME_ADVANTAGE": 1.2,
+    "DIXON_COLES_RHO": -0.13,
+    "TIME_DECAY_RATE": 0.1
+  },
+  "bestValidationAccuracy": 0.2222222222222222,
+  "testAccuracy": 0.3,
+  "history": [
+    {
+      "iteration": 0,
+      "params": {
+        "FALLBACK_ATTACK": 1.5,
+        "FALLBACK_DEFENSE": 1.5,
+        "HOME_ADVANTAGE": 1.2,
+        "DIXON_COLES_RHO": -0.13,
+        "TIME_DECAY_RATE": 0.1
+      },
+      "train": {
+        "total": 90,
+        "accuracy1X2": 0.2111111111111111,
+        "accuracyOver": 0.4444444444444444,
+        "accuracyBTTS": 0.4888888888888889,
+        "avgGoalError": 1.4584799103583057,
+        "homeWins": 31,
+        "draws": 19,
+        "awayWins": 40,
+        "errors": {
+          "homeOverpredicted": 0,
+          "awayOverpredicted": 0,
+          "drawMissed": 0
+        }
+      },
+      "validation": {
+        "total": 9,
+        "accuracy1X2": 0.2222222222222222,
+        "accuracyOver": 0.7777777777777778,
+        "accuracyBTTS": 0.7777777777777778,
+        "avgGoalError": 1.5188671502326485,
+        "homeWins": 7,
+        "draws": 2,
+        "awayWins": 0,
+        "errors": {
+          "homeOverpredicted": 0,
+          "awayOverpredicted": 0,
+          "drawMissed": 0
+        }
+      }
+    }
+  ],
+  "timestamp": "2025-11-08T10:29:26.352Z"
+}

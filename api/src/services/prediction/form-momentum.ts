@@ -8,7 +8,7 @@
  * - Form factor range esteso: 0.65-1.40 (prima: 0.70-1.30)
  */
 
-import { MatchHistoryData } from '../api-football';
+import { MatchHistoryData } from '../sportsmonks';
 import logger from '../../utils/logger';
 
 export interface FormMomentumResult {

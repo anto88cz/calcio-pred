@@ -84,6 +84,11 @@ interface AnalysisData {
       yes: number;
       no: number;
     };
+    oddsDoubleChance?: {
+      '1X': number;
+      'X2': number;
+      '12': number;
+    };
     bookmakerCount: number;
     overround: number;
     lastUpdate?: string;
@@ -348,9 +353,31 @@ export default function AnalysisPage() {
               </div>
             </div>
           </div>
+          
+          {/* ⚠️ WARNING per bassa confidence */}
+          {data.confidence && data.confidence < 0.5 && (
+            <div className="mt-4 bg-yellow-900/30 border border-yellow-600/50 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <div className="text-2xl">⚠️</div>
+                <div className="flex-1">
+                  <div className="font-semibold text-yellow-400 mb-2">
+                    Attenzione: Dati Limitati
+                  </div>
+                  <div className="text-sm text-yellow-200/80 space-y-1">
+                    <p>L'affidabilità di questa predizione è <strong>bassa ({(data.confidence * 100).toFixed(0)}%)</strong> perché:</p>
+                    <ul className="list-disc ml-4 space-y-1">
+                      <li>Dati storici insufficienti per queste squadre</li>
+                      <li>Le raccomandazioni potrebbero essere imprecise</li>
+                      <li>Consigliamo prudenza su questa partita</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* � SEZIONE QUOTE BOOKMAKER (se disponibili) */}
+        {/* 🎲 SEZIONE QUOTE BOOKMAKER (se disponibili) */}
         {data.realOdds && (
           <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg border border-yellow-600/50 p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
@@ -491,24 +518,15 @@ export default function AnalysisPage() {
                   <span className="text-2xl mr-3">⚠️</span>
                   <div className="flex-1">
                     <h3 className="text-orange-300 font-semibold mb-1">
-                      {oddsAttempted ? 'Quote Reali Non Disponibili' : 'Quote Calcolate dal Modello'}
+                      Quote Reali Non Disponibili
                     </h3>
                     <p className="text-sm text-orange-200/80 mb-2">
-                      {oddsAttempted ? (
-                        <>
-                          Abbiamo cercato le quote reali da <strong>API-Football</strong>, ma non sono disponibili per questa partita.
-                          Le quote mostrate sono <strong>stime del modello</strong>.
-                        </>
-                      ) : (
-                        <>
-                          Le quote mostrate sono <strong>stime teoriche</strong> basate sulle probabilità del modello predittivo.
-                        </>
-                      )}
+                      Abbiamo cercato le quote reali da <strong>Sportsmonks</strong>, ma non sono disponibili per questa partita. Le quote mostrate sono <strong>stime del modello</strong>.
                     </p>
                     <div className="bg-orange-800/30 border border-orange-700/50 rounded p-2 text-xs text-orange-100/90">
                       <strong>Perché non vedo le quote reali?</strong>
                       <ul className="list-disc ml-4 mt-1 space-y-1">
-                        <li>API-Football non ha bookmaker disponibili per questa partita</li>
+                        <li>Sportsmonks non ha bookmaker disponibili per questa partita</li>
                         <li>La partita potrebbe essere troppo vecchia, troppo futura, o non ufficiale</li>
                         <li>Prova con partite dalla lista <strong>"Partite Imminenti"</strong> (prossimi 2-7 giorni, leghe top)</li>
                       </ul>

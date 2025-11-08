@@ -69,6 +69,11 @@ export interface AnalysisData {
       yes: number;
       no: number;
     };
+    oddsDoubleChance?: {
+      '1X': number;
+      'X2': number;
+      '12': number;
+    };
     bookmakerCount: number;
     overround: number;
   };
@@ -82,10 +87,24 @@ export function generateRecommendations(data: AnalysisData): BettingRecommendati
   
   const { market1X2, marketUnderOver, marketBTTS, poissonParams, confidence } = data;
   
+  // ⚠️ PROTEZIONE: Se confidence < 40%, limita drasticamente le raccomandazioni
+  // Questo previene consigli errati su squadre con dati insufficienti
+  const MIN_CONFIDENCE = 0.40;
+  const isLowConfidence = confidence < MIN_CONFIDENCE;
+  
+  if (isLowConfidence) {
+    // Con bassa confidence, mostra solo raccomandazioni MOLTO sicure (>70% probabilità)
+    // e aggiungi un warning esplicito
+    console.warn(`⚠️ Low confidence (${(confidence * 100).toFixed(0)}%) - filtering recommendations`);
+  }
+  
   // 1. ANALISI 1X2 (Risultato Finale)
   const highestProb = Math.max(market1X2.final.prob1, market1X2.final.probX, market1X2.final.prob2);
   
-  if (market1X2.final.prob1 === highestProb && market1X2.final.prob1 >= 0.45) {
+  // 🔒 Con bassa confidence, richiedi probabilità più alte (60% invece di 45%)
+  const minProb1X2 = isLowConfidence ? 0.70 : 0.45;
+  
+  if (market1X2.final.prob1 === highestProb && market1X2.final.prob1 >= minProb1X2) {
     const modelOdds = 1 / market1X2.final.prob1;
     const realOdds = data.realOdds?.odds1X2.home;
     const ev = realOdds ? calculateExpectedValue(market1X2.final.prob1, realOdds) : undefined;
@@ -106,7 +125,7 @@ export function generateRecommendations(data: AnalysisData): BettingRecommendati
     });
   }
   
-  if (market1X2.final.prob2 === highestProb && market1X2.final.prob2 >= 0.45) {
+  if (market1X2.final.prob2 === highestProb && market1X2.final.prob2 >= minProb1X2) {
     const modelOdds = 1 / market1X2.final.prob2;
     const realOdds = data.realOdds?.odds1X2.away;
     const ev = realOdds ? calculateExpectedValue(market1X2.final.prob2, realOdds) : undefined;
@@ -136,6 +155,10 @@ export function generateRecommendations(data: AnalysisData): BettingRecommendati
     const bestDC = Math.max(dc1X, dc12, dcX2);
     
     if (dc1X === bestDC && dc1X >= 0.70) {
+      const modelOdds = 1 / dc1X;
+      const realOdds = data.realOdds?.oddsDoubleChance?.['1X'];
+      const ev = realOdds ? calculateExpectedValue(dc1X, realOdds) : undefined;
+      
       recommendations.push({
         type: '1X',
         market: 'Doppia Chance',
@@ -143,14 +166,20 @@ export function generateRecommendations(data: AnalysisData): BettingRecommendati
         probability: dc1X,
         confidence,
         strength: data.marketDoubleChance['1X'].strength,
-        odds: 1 / dc1X,
+        odds: modelOdds,
+        realOdds, // 🆕
+        expectedValue: ev, // 🆕
         valueRating: calculateValueRating(dc1X, confidence, data.marketDoubleChance['1X'].strength),
-        reasoning: `Alta probabilità (${(dc1X * 100).toFixed(0)}%) che la partita non finisca con vittoria esterna.`,
+        reasoning: `Alta probabilità (${(dc1X * 100).toFixed(0)}%) che la partita non finisca con vittoria esterna.${ev !== undefined && ev > 0 ? ` Value bet EV ${(ev * 100).toFixed(1)}%!` : ''}`,
         risk: 'LOW',
       });
     }
     
     if (dc12 === bestDC && dc12 >= 0.70) {
+      const modelOdds = 1 / dc12;
+      const realOdds = data.realOdds?.oddsDoubleChance?.['12'];
+      const ev = realOdds ? calculateExpectedValue(dc12, realOdds) : undefined;
+      
       recommendations.push({
         type: '12',
         market: 'Doppia Chance',
@@ -158,14 +187,20 @@ export function generateRecommendations(data: AnalysisData): BettingRecommendati
         probability: dc12,
         confidence,
         strength: data.marketDoubleChance['12'].strength,
-        odds: 1 / dc12,
+        odds: modelOdds,
+        realOdds, // 🆕
+        expectedValue: ev, // 🆕
         valueRating: calculateValueRating(dc12, confidence, data.marketDoubleChance['12'].strength),
-        reasoning: `Alta probabilità (${(dc12 * 100).toFixed(0)}%) che la partita non finisca in pareggio.`,
+        reasoning: `Alta probabilità (${(dc12 * 100).toFixed(0)}%) che la partita non finisca in pareggio.${ev !== undefined && ev > 0 ? ` Value bet EV ${(ev * 100).toFixed(1)}%!` : ''}`,
         risk: 'LOW',
       });
     }
     
     if (dcX2 === bestDC && dcX2 >= 0.70) {
+      const modelOdds = 1 / dcX2;
+      const realOdds = data.realOdds?.oddsDoubleChance?.['X2'];
+      const ev = realOdds ? calculateExpectedValue(dcX2, realOdds) : undefined;
+      
       recommendations.push({
         type: 'X2',
         market: 'Doppia Chance',
@@ -173,9 +208,11 @@ export function generateRecommendations(data: AnalysisData): BettingRecommendati
         probability: dcX2,
         confidence,
         strength: data.marketDoubleChance['X2'].strength,
-        odds: 1 / dcX2,
+        odds: modelOdds,
+        realOdds, // 🆕
+        expectedValue: ev, // 🆕
         valueRating: calculateValueRating(dcX2, confidence, data.marketDoubleChance['X2'].strength),
-        reasoning: `Alta probabilità (${(dcX2 * 100).toFixed(0)}%) che la partita non finisca con vittoria casalinga.`,
+        reasoning: `Alta probabilità (${(dcX2 * 100).toFixed(0)}%) che la partita non finisca con vittoria casalinga.${ev !== undefined && ev > 0 ? ` Value bet EV ${(ev * 100).toFixed(1)}%!` : ''}`,
         risk: 'LOW',
       });
     }

@@ -599,65 +599,155 @@ router.post('/calculate-by-name', async (req: Request, res: Response, next: Next
     
     logger.info({ homeTeam: input.homeTeamName, awayTeam: input.awayTeamName }, 'Manual prediction request');
     
-    // Cerca le squadre nel database per nome (case-insensitive)
-    const homeTeam = await prisma.team.findFirst({
-      where: {
-        name: {
-          contains: input.homeTeamName,
-          mode: 'insensitive',
+    let homeTeamId: number;
+    let awayTeamId: number;
+    let fixtureId: number;
+    let leagueId: number = input.leagueId;
+    let seasonId: number = input.season;
+    
+    // 🎯 Se abbiamo un fixtureId reale, recupera i dati dal fixture direttamente dall'API
+    if (input.fixtureId) {
+      logger.info({ fixtureId: input.fixtureId }, '🎯 Real fixture ID provided - fetching data from Sportsmonks API');
+      
+      try {
+        const { getSportsmonksClient } = await import('../services/sportsmonks');
+        const client = getSportsmonksClient();
+        
+        logger.info('📞 Calling Sportsmonks API...');
+        const response = await client.get<any>(`/fixtures/${input.fixtureId}`, {
+          include: 'participants;scores;state', // ✅ Aggiunto scores e state per avere risultati e status
+        });
+        
+        logger.info({ hasData: !!response.data }, '📦 Sportsmonks response received');
+        
+        if (!response.data) {
+          return res.status(404).json({
+            error: `Fixture ${input.fixtureId} non trovato su Sportsmonks`,
+          });
+        }
+        
+        const fixture = response.data;
+        logger.info({ 
+          fixtureId: fixture.id, 
+          hasParticipants: !!fixture.participants,
+          participantsCount: fixture.participants?.length 
+        }, '📋 Fixture data structure');
+        
+        // 🎯 Estrai team IDs dall'array participants (participant_home_id/away_id sono NULL)
+        const homeParticipant = fixture.participants?.find((p: any) => p.meta?.location === 'home');
+        const awayParticipant = fixture.participants?.find((p: any) => p.meta?.location === 'away');
+        
+        logger.info({ 
+          homeParticipant: homeParticipant ? { id: homeParticipant.id, name: homeParticipant.name } : null,
+          awayParticipant: awayParticipant ? { id: awayParticipant.id, name: awayParticipant.name } : null
+        }, '👥 Participants found');
+        
+        if (!homeParticipant || !awayParticipant) {
+          logger.error({ fixture }, 'Participants not found in fixture data');
+          return res.status(500).json({
+            error: 'Team IDs non trovati nel fixture',
+          });
+        }
+        
+        homeTeamId = homeParticipant.id;
+        awayTeamId = awayParticipant.id;
+        fixtureId = fixture.id;
+        leagueId = fixture.league_id;
+        seasonId = fixture.season_id;
+        
+        logger.info({
+          fixtureId,
+          homeTeamId,
+          awayTeamId,
+          leagueId,
+          seasonId,
+          homeTeam: input.homeTeamName,
+          awayTeam: input.awayTeamName,
+        }, '✅ Fixture data fetched from Sportsmonks - using API IDs directly');
+        
+      } catch (error: any) {
+        logger.error({ 
+          error: error.message, 
+          stack: error.stack,
+          fixtureId: input.fixtureId 
+        }, '❌ Error fetching fixture from Sportsmonks');
+        return res.status(500).json({
+          error: 'Errore nel recupero dati fixture da Sportsmonks',
+          details: error.message,
+        });
+      }
+    } else {
+      // 🔀 Predizione manuale senza fixture ID - cerca nel database locale
+      logger.info('🔀 No fixture ID - searching teams in local database');
+      
+      const homeTeam = await prisma.team.findFirst({
+        where: {
+          name: {
+            contains: input.homeTeamName,
+            mode: 'insensitive',
+          },
         },
-      },
-    });
-    
-    const awayTeam = await prisma.team.findFirst({
-      where: {
-        name: {
-          contains: input.awayTeamName,
-          mode: 'insensitive',
+      });
+      
+      const awayTeam = await prisma.team.findFirst({
+        where: {
+          name: {
+            contains: input.awayTeamName,
+            mode: 'insensitive',
+          },
         },
-      },
-    });
-    
-    if (!homeTeam) {
-      logger.warn({ searchName: input.homeTeamName }, 'Home team not found');
-      return res.status(404).json({ 
-        error: `Squadra casa "${input.homeTeamName}" non trovata nel database`,
-        suggestion: 'Prova con: Liverpool, Real Madrid, Barcelona, Bayern Munich, Inter, Manchester City, etc.',
       });
-    }
-    
-    if (!awayTeam) {
-      logger.warn({ searchName: input.awayTeamName }, 'Away team not found');
-      return res.status(404).json({ 
-        error: `Squadra trasferta "${input.awayTeamName}" non trovata nel database`,
-        suggestion: 'Prova con: Liverpool, Real Madrid, Barcelona, Bayern Munich, Inter, Manchester City, etc.',
-      });
+      
+      if (!homeTeam) {
+        logger.warn({ searchName: input.homeTeamName }, 'Home team not found');
+        return res.status(404).json({ 
+          error: `Squadra casa "${input.homeTeamName}" non trovata nel database`,
+          suggestion: 'Prova con: Liverpool, Real Madrid, Barcelona, Bayern Munich, Inter, Manchester City, etc.',
+        });
+      }
+      
+      if (!awayTeam) {
+        logger.warn({ searchName: input.awayTeamName }, 'Away team not found');
+        return res.status(404).json({ 
+          error: `Squadra trasferta "${input.awayTeamName}" non trovata nel database`,
+          suggestion: 'Prova con: Liverpool, Real Madrid, Barcelona, Bayern Munich, Inter, Manchester City, etc.',
+        });
+      }
+      
+      homeTeamId = homeTeam.apiId;
+      awayTeamId = awayTeam.apiId;
+      fixtureId = Math.floor(Math.random() * 1147483647) + 1000000000; // Temporary ID
+      
+      logger.info({
+        homeTeam: homeTeam.name,
+        awayTeam: awayTeam.name,
+        homeTeamId,
+        awayTeamId,
+        fixtureId,
+      }, '🔀 Generated temporary fixture ID for manual prediction');
     }
     
     // Calcola predizione usando i team ID trovati
-    // Se abbiamo un fixtureId dalla lista partite, usalo. Altrimenti genera un ID temporaneo
-    const fixtureId = input.fixtureId || Math.floor(Math.random() * 1147483647) + 1000000000;
-    
     logger.info({ 
-      homeTeam: homeTeam.name, 
-      awayTeam: awayTeam.name,
+      homeTeam: input.homeTeamName, 
+      awayTeam: input.awayTeamName,
       fixtureId,
       isRealFixture: !!input.fixtureId,
     }, input.fixtureId ? '🎯 Using real fixture ID from frontend' : '🔀 Generated temporary fixture ID');
     
     const predictionResult = await predictionEngine.calculatePrediction({
       fixtureId,
-      homeTeamId: homeTeam.apiId,
-      awayTeamId: awayTeam.apiId,
-      season: input.season,
-      leagueId: input.leagueId,
-      homeTeamName: homeTeam.name,  // Aggiungi nome per Market Odds
-      awayTeamName: awayTeam.name,  // Aggiungi nome per Market Odds
+      homeTeamId,
+      awayTeamId,
+      season: seasonId,
+      leagueId,
+      homeTeamName: input.homeTeamName,  // Per Market Odds e team mapping
+      awayTeamName: input.awayTeamName,  // Per Market Odds e team mapping
     });
     
     logger.info({ 
-      homeTeam: homeTeam.name, 
-      awayTeam: awayTeam.name,
+      homeTeam: input.homeTeamName, 
+      awayTeam: input.awayTeamName,
       confidence: predictionResult.confidence,
       calibrated: !!predictionResult.marketCalibration,
       hasInjuriesAnalysis: !!predictionResult.injuriesAnalysis,
@@ -674,8 +764,8 @@ router.post('/calculate-by-name', async (req: Request, res: Response, next: Next
     // 💾 Prepara risposta da cachare
     const responseData = {
       success: true,
-      homeTeam: homeTeam.name,
-      awayTeam: awayTeam.name,
+      homeTeam: input.homeTeamName,
+      awayTeam: input.awayTeamName,
       ...predictionResult,
       fromCache: false,
     };

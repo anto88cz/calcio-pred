@@ -11,20 +11,22 @@ import { strengthClassifier } from './strength';
 import { xgService } from './xg-service';
 import { formMomentumCalculator, type FormMomentumResult } from './form-momentum';
 import { getLeagueStrength } from './league-strength';
+import * as mlPredictor from '../ml-prediction.service'; // 🆕 ML Prediction Service
+// 🆕 Sportsmonks services replacing API-Football
 import { 
-  historyService,
+  statisticsService,
   injuriesService,
   lineupsService,
-  statisticsService,
-  h2hService,
   type MatchHistoryData,
   type PlayerInjuryInfo,
   type LineupInfo,
   type ExpectedGoalsData,
-} from '../api-football';
-import apiFootballOdds from '../api-football/odds'; // 🆕 Quote reali da API-Football
-import { oddsService, calibrationService } from '../odds';
+} from '../sportsmonks';
+import * as sportsmonksOdds from '../sportsmonks/odds';
+import { calibrationService } from '../odds';
 import { config as _config, calculationConfig } from '../../config';
+import { isLeagueSupported, hasMinimumDataQuality } from '../../config/supported-leagues';
+import { prisma } from '../../lib/prisma';
 import logger from '../../utils/logger';
 import type { PredictionResponse, DataQuality } from '../../types';
 
@@ -36,6 +38,7 @@ export interface PredictionInput {
   leagueId: number;
   homeTeamName?: string; // Optional for market odds fetch
   awayTeamName?: string; // Optional for market odds fetch
+  leagueName?: string; // 🆕 League name for filtering and league-specific parameters
 }
 
 export class PredictionEngine {
@@ -45,6 +48,16 @@ export class PredictionEngine {
    */
   async calculatePrediction(input: PredictionInput): Promise<PredictionResponse> {
     logger.info({ fixtureId: input.fixtureId }, 'Starting prediction calculation');
+
+    // 🔥 FILTER: Check if league is supported
+    if (input.leagueName && !isLeagueSupported(input.leagueName)) {
+      logger.warn({ 
+        leagueName: input.leagueName,
+        fixtureId: input.fixtureId,
+      }, '🔥 League not supported - returning ND prediction');
+      
+      return this.createNDPrediction(input, [], [], null);
+    }
 
     try {
       // 1. Raccogli dati storici (SEQUENZIALE per rate limit)
@@ -122,9 +135,9 @@ export class PredictionEngine {
       }, '🏠🛫 Form momentum calculated (HOME/AWAY specific)');
 
       // 5. Fetch H2H stats (SEQUENZIALE - ultima API call prima calcoli)
-      logger.debug('Step 5/5: Fetching H2H data');
-      const h2hData = await h2hService.fetchH2H(input.homeTeamId, input.awayTeamId, 10);
-      const h2hStats = this.calculateH2HStats(h2hData.matches, input.homeTeamId, input.awayTeamId);
+      logger.debug('Step 5/5: Fetching H2H data from Sportsmonks');
+      const h2hMatches = await statisticsService.getHeadToHead(input.homeTeamId, input.awayTeamId, 10);
+      const h2hStats = this.calculateH2HStats(h2hMatches, input.homeTeamId, input.awayTeamId);
       
       logger.info({
         h2hMatches: h2hStats.totalMatches,
@@ -203,12 +216,16 @@ export class PredictionEngine {
       }, 'Lambda adjusted with H2H factor');
 
       // 6.7. Applica Injuries Impact factor a lambda
+      // TODO: Implement analyzeMatchInjuriesImpact in Sportsmonks injuries service
+      let injuriesAnalysis = null;
+      /*
       const injuriesAnalysis = await injuriesService.analyzeMatchInjuriesImpact(
         input.homeTeamId,
         input.awayTeamId,
         input.fixtureId,
         input.season
       );
+      */
       
       let lambdaHomeBeforeInjuries = poissonResult.lambdaHome;
       let lambdaAwayBeforeInjuries = poissonResult.lambdaAway;
@@ -279,24 +296,34 @@ export class PredictionEngine {
         calculationConfig.blendPoisson
       );
 
-      // 7.5. Market Odds Calibration con API-Football 🆕
+      // 7.5. Market Odds Calibration con Sportsmonks 🆕
       let marketOdds = null;
       let calibrationResult = null;
       let realOdds = null; // 🆕 Quote reali da mostrare nel frontend
       
-      // PRIORITÀ 1: Prova a recuperare quote reali da API-Football
+      // PRIORITÀ 1: Prova a recuperare quote reali da Sportsmonks usando i nomi delle squadre
       logger.info({ 
         fixtureId: input.fixtureId,
         homeTeam: input.homeTeamName, 
         awayTeam: input.awayTeamName 
-      }, '🎲 Fetching real odds from API-Football');
+      }, '🎲 Fetching real odds from Sportsmonks');
       
       try {
-        // ⚠️ IMPORTANTE: Se fixtureId è undefined/null/0, skip
+        // Try with fixture ID first if available (most reliable)
         if (input.fixtureId && input.fixtureId > 0) {
-          realOdds = await apiFootballOdds.fetchOddsByFixtureId(input.fixtureId);
-        } else {
-          logger.warn('⚠️ Invalid fixtureId - skipping odds fetch by ID');
+          logger.info('🔍 Attempting to fetch odds by Sportsmonks fixture ID...');
+          realOdds = await sportsmonksOdds.fetchOddsByFixtureId(input.fixtureId);
+        }
+        
+        // Fallback: try with team names if fixture ID didn't work
+        if (!realOdds && input.homeTeamName && input.awayTeamName) {
+          logger.info('🔍 Attempting to fetch odds by team names...');
+          realOdds = await sportsmonksOdds.fetchOddsByTeamNames(
+            input.homeTeamName,
+            input.awayTeamName,
+            undefined,
+            input.fixtureId // Pass fixture ID if available to skip mapping
+          );
         }
         
         if (realOdds) {
@@ -306,7 +333,7 @@ export class PredictionEngine {
             home: realOdds.odds1X2.home.toFixed(2),
             draw: realOdds.odds1X2.draw.toFixed(2),
             away: realOdds.odds1X2.away.toFixed(2),
-          }, '✅ Real odds fetched from API-Football');
+          }, '✅ Real odds fetched from Sportsmonks');
           
           // Converti in formato MarketOdds per calibrazione
           marketOdds = {
@@ -450,6 +477,38 @@ export class PredictionEngine {
         xgAdjustment
       );
 
+      // 11.5. 🆕 Calcola ML Prediction usando Dixon-Coles + Time-Weighted Analysis
+      logger.info('🤖 Calculating ML prediction...');
+      const mlPrediction = mlPredictor.predictMatch(
+        homeHistory,
+        awayHistory,
+        h2hMatches,
+        input.homeTeamId,
+        input.awayTeamId,
+        2.7, // League average goals (TODO: make this league-specific)
+        input.leagueName // 🆕 Pass league name for league-specific home advantage
+      );
+      
+      logger.info({
+        mlPrediction: {
+          mostLikely: mlPrediction.mostLikely,
+          probabilities: {
+            home: `${(mlPrediction.homeWinProb * 100).toFixed(1)}%`,
+            draw: `${(mlPrediction.drawProb * 100).toFixed(1)}%`,
+            away: `${(mlPrediction.awayWinProb * 100).toFixed(1)}%`,
+          },
+          expectedGoals: {
+            home: mlPrediction.expectedGoalsHome.toFixed(2),
+            away: mlPrediction.expectedGoalsAway.toFixed(2),
+          },
+          confidence: `${(mlPrediction.confidence * 100).toFixed(0)}%`,
+          topScores: mlPrediction.scorePredictions.slice(0, 3).map(sp => ({
+            score: sp.score,
+            prob: `${(sp.probability * 100).toFixed(1)}%`,
+          })),
+        },
+      }, '🤖 ML Prediction completed');
+
       // 12. Salva xG nel database (solo se NON è un ID temporaneo per analisi manuali)
       const isTemporaryFixture = input.fixtureId >= 1000000000;
       if (xgData && !isTemporaryFixture) {
@@ -480,7 +539,8 @@ export class PredictionEngine {
         h2hStats,
         calibrationResult,
         injuriesAnalysis,
-        realOdds // 🆕 Passa le quote reali
+        realOdds, // 🆕 Passa le quote reali
+        mlPrediction // 🆕 Passa la predizione ML
       );
 
     } catch (error) {
@@ -576,21 +636,24 @@ export class PredictionEngine {
     homeHistory: MatchHistoryData[];
     awayHistory: MatchHistoryData[];
   }> {
-    logger.debug('Fetching historical data (sequential)');
+    logger.debug('Fetching historical data (sequential) from Sportsmonks');
 
     // Fetch SEQUENZIALE (non parallelo) per rate limit
-    const homeHistory = await historyService.getTeamHistoryByVenue(
+    // 🆕 Passa teamName per il mapping ID corretto
+    const homeHistory = await statisticsService.getTeamHistoryByVenue(
       input.homeTeamId,
       input.season,
       true, // home
-      calculationConfig.historyGames
+      calculationConfig.historyGames,
+      input.homeTeamName // 🆕 Pass team name for ID mapping
     );
 
-    const awayHistory = await historyService.getTeamHistoryByVenue(
+    const awayHistory = await statisticsService.getTeamHistoryByVenue(
       input.awayTeamId,
       input.season,
       false, // away
-      calculationConfig.historyGames
+      calculationConfig.historyGames,
+      input.awayTeamName // 🆕 Pass team name for ID mapping
     );
 
     // NUOVO: Popola cache xG per partite storiche (background - non blocca predizione)
@@ -622,8 +685,7 @@ export class PredictionEngine {
       // Limita a max 10 partite per richiesta (evita sovraccarico API)
       const toFetch = fixturesNeedingXG.slice(0, 10);
 
-      // Fetch xG in parallelo (max 3 contemporanee)
-      const { statisticsService } = await import('../api-football');
+      // Fetch xG in parallelo (max 3 contemporanee) usando Sportsmonks
       const chunks = [];
       for (let i = 0; i < toFetch.length; i += 3) {
         const chunk = toFetch.slice(i, i + 3);
@@ -632,10 +694,23 @@ export class PredictionEngine {
 
       for (const chunk of chunks) {
         await Promise.all(
-          chunk.map(match => 
-            statisticsService.fetchAndCacheXG(match.fixtureId)
-              .catch(err => logger.warn({ err, fixtureId: match.fixtureId }, 'Failed to cache xG'))
-          )
+          chunk.map(async match => {
+            try {
+              const xgData = await statisticsService.getExpectedGoals(match.fixtureId);
+              if (xgData) {
+                // Update fixture with xG data
+                await prisma.fixture.update({
+                  where: { apiId: match.fixtureId },
+                  data: {
+                    xg_home: xgData.homeXg,
+                    xg_away: xgData.awayXg,
+                  },
+                }).catch(() => {}); // Ignore errors silently
+              }
+            } catch (err) {
+              logger.warn({ err, fixtureId: match.fixtureId }, 'Failed to cache xG');
+            }
+          })
         );
       }
 
@@ -650,7 +725,8 @@ export class PredictionEngine {
    */
   private async fetchInjuries(fixtureId: number): Promise<PlayerInjuryInfo[]> {
     try {
-      return await injuriesService.getInjuriesByFixture(fixtureId);
+      const injuries = await injuriesService.getFixtureSidelined(fixtureId);
+      return [...injuries.home, ...injuries.away];
     } catch (error) {
       logger.warn({ error, fixtureId }, 'Failed to fetch injuries');
       return [];
@@ -662,7 +738,11 @@ export class PredictionEngine {
    */
   private async fetchLineups(fixtureId: number): Promise<LineupInfo[]> {
     try {
-      return await lineupsService.getLineupsByFixture(fixtureId);
+      const lineups = await lineupsService.getFixtureLineups(fixtureId);
+      const result: LineupInfo[] = [];
+      if (lineups.home) result.push(lineups.home);
+      if (lineups.away) result.push(lineups.away);
+      return result;
     } catch (error) {
       logger.warn({ error, fixtureId }, 'Failed to fetch lineups');
       return [];
@@ -988,7 +1068,8 @@ export class PredictionEngine {
       balanced: boolean;
       impactDescription: string;
     } | null,
-    realOdds?: any // 🆕 Quote reali da API-Football
+    realOdds?: any, // 🆕 Quote reali da API-Football
+    mlPrediction?: ReturnType<typeof mlPredictor.predictMatch> // 🆕 ML Prediction
   ): PredictionResponse {
     const { empiric, poisson, final } = blendedResult;
     
@@ -1208,9 +1289,60 @@ export class PredictionEngine {
               no: realOdds.oddsBTTS.no,
             },
           }),
+          ...(realOdds.oddsDoubleChance && {
+            oddsDoubleChance: {
+              '1X': realOdds.oddsDoubleChance.homeOrDraw,
+              'X2': realOdds.oddsDoubleChance.drawOrAway,
+              '12': realOdds.oddsDoubleChance.homeOrAway,
+            },
+          }),
           bookmakerCount: realOdds.bookmakerCount,
           overround: realOdds.overround,
           lastUpdate: realOdds.lastUpdate,
+        },
+      }),
+      
+      // 🤖 Machine Learning Prediction (Dixon-Coles + Time-Weighted)
+      ...(mlPrediction && {
+        mlPrediction: {
+          probabilities: {
+            home: mlPrediction.homeWinProb,
+            draw: mlPrediction.drawProb,
+            away: mlPrediction.awayWinProb,
+          },
+          expectedGoals: {
+            home: mlPrediction.expectedGoalsHome,
+            away: mlPrediction.expectedGoalsAway,
+            total: mlPrediction.expectedGoalsHome + mlPrediction.expectedGoalsAway,
+          },
+          confidence: mlPrediction.confidence,
+          mostLikely: mlPrediction.mostLikely,
+          topScores: mlPrediction.scorePredictions.slice(0, 5).map(sp => ({
+            score: sp.score,
+            probability: sp.probability,
+          })),
+          impliedOdds: {
+            home: mlPredictor.probabilityToOdds(mlPrediction.homeWinProb),
+            draw: mlPredictor.probabilityToOdds(mlPrediction.drawProb),
+            away: mlPredictor.probabilityToOdds(mlPrediction.awayWinProb),
+          },
+          factors: {
+            homeStrength: {
+              attack: mlPrediction.factors.homeStrength.attack,
+              defense: mlPrediction.factors.homeStrength.defense,
+              form: mlPrediction.factors.homeStrength.form,
+              xgPerformance: mlPrediction.factors.homeStrength.xgPerformance,
+            },
+            awayStrength: {
+              attack: mlPrediction.factors.awayStrength.attack,
+              defense: mlPrediction.factors.awayStrength.defense,
+              form: mlPrediction.factors.awayStrength.form,
+              xgPerformance: mlPrediction.factors.awayStrength.xgPerformance,
+            },
+            homeAdvantage: mlPrediction.factors.homeAdvantage,
+            formDifferential: mlPrediction.factors.formDifferential,
+            h2hAdvantage: mlPrediction.factors.h2hAdvantage,
+          },
         },
       }),
       
@@ -1312,46 +1444,43 @@ export class PredictionEngine {
       poissonParams: {
         lambdaHome: 0,
         lambdaAway: 0,
-        homeAdvantage: 0,
       },
-      
-      formMomentum: {
-        home: {
-          formScore: 0.5,
-          formFactor: 1.0,
-          formLabel: 'UNKNOWN',
-          recentResults: '-',
-        },
-        away: {
-          formScore: 0.5,
-          formFactor: 1.0,
-          formLabel: 'UNKNOWN',
-          recentResults: '-',
-        },
-      },
-      
-      mostProbableScores: [],
       
       teamStats: {
         home: {
           xg: homeXGAvg,
           xga: homeXGAAvg,
+          goalsScored: 0,
+          goalsConceded: 0,
         },
         away: {
           xg: awayXGAvg,
           xga: awayXGAAvg,
+          goalsScored: 0,
+          goalsConceded: 0,
         },
       },
       
-      dataQuality: 'INSUFFICIENT',
-      hasInjuries: false,
-      hasLineup: false,
-      provider: 'API-FOOTBALL',
-      calculatedAt: new Date(),
-      lastUpdate: new Date(),
+      formMomentum: {
+        home: {
+          trend: 'STABLE',
+          score: 0,
+          recentResults: [],
+          confidence: 0,
+        },
+        away: {
+          trend: 'STABLE',
+          score: 0,
+          recentResults: [],
+          confidence: 0,
+        },
+        momentum: 'NEUTRAL',
+      },
+      
+      recommendations: [],
     };
   }
-  
+
   /**
    * Calcola xG/xGA medio dalla storia delle partite
    * HYBRID CACHE: Preferisce xG reali quando disponibili (≥10 partite con xG)

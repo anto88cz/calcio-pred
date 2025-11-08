@@ -21,9 +21,12 @@ const queryClient = new QueryClient({
 interface TodayMatch {
   id: number;
   homeTeam: string;
+  homeTeamLogo?: string;
   awayTeam: string;
+  awayTeamLogo?: string;
   competition: string;
   competitionCode: string;
+  competitionCountry?: string;
   time: string;
   status: string;
 }
@@ -91,6 +94,7 @@ function MainApp() {
   // NUOVI STATI per filtri
   const [selectedDate, setSelectedDate] = useState<string>('today');
   const [selectedLeague, setSelectedLeague] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   
   // STATI per schedina automatica
   const [showBetSlipModal, setShowBetSlipModal] = useState(false);
@@ -123,19 +127,35 @@ function MainApp() {
     setError(null);
     
     try {
+      // Use new Sportsmonks endpoints
       const endpoint = selectedDate === 'today' 
-        ? `${ENV.API_URL}/api/fixtures/today`
-        : `${ENV.API_URL}/api/fixtures/by-date?date=${selectedDate}`;
+        ? `${ENV.API_URL}/api/fixtures/sm/today`
+        : `${ENV.API_URL}/api/fixtures/sm/range?startDate=${selectedDate}&endDate=${selectedDate}`;
       
       const response = await fetch(endpoint);
       const data = await response.json();
       
-      if (data.success) {
-        setMatches(data.matches);
+      // Transform Sportsmonks fixtures to our format
+      if (data.fixtures && data.fixtures.length > 0) {
+        const transformedMatches = data.fixtures.map((fixture: any) => ({
+          id: fixture.id,
+          homeTeam: fixture.homeTeam.name,
+          homeTeamLogo: fixture.homeTeam.logo,
+          awayTeam: fixture.awayTeam.name,
+          awayTeamLogo: fixture.awayTeam.logo,
+          competition: fixture.league.name,
+          competitionCode: fixture.league.country,
+          competitionCountry: fixture.league.country,
+          time: new Date(fixture.date).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
+          status: fixture.statusShort,
+        }));
+        
+        setMatches(transformedMatches);
         setSuccess(`✅ Trovate ${data.count} partite`);
         setTimeout(() => setSuccess(null), 3000);
       } else {
-        setError('Nessuna partita trovata');
+        setMatches([]);
+        setError('Nessuna partita trovata per questa data');
       }
     } catch (err) {
       setError('Errore caricamento partite');
@@ -293,6 +313,25 @@ function MainApp() {
     ? groupedMatches
     : { [selectedLeague]: groupedMatches[selectedLeague] || [] };
 
+  // Filtra per ricerca (nome squadra o competizione)
+  const searchFilteredMatches = Object.entries(filteredGroupedMatches).reduce((acc, [competition, compMatches]) => {
+    if (searchQuery.trim() === '') {
+      acc[competition] = compMatches;
+    } else {
+      const query = searchQuery.toLowerCase();
+      const filtered = compMatches.filter(match => 
+        match.homeTeam.toLowerCase().includes(query) ||
+        match.awayTeam.toLowerCase().includes(query) ||
+        match.competition.toLowerCase().includes(query) ||
+        match.competitionCountry?.toLowerCase().includes(query)
+      );
+      if (filtered.length > 0) {
+        acc[competition] = filtered;
+      }
+    }
+    return acc;
+  }, {} as Record<string, TodayMatch[]>);
+
   // Get available leagues
   const availableLeagues = ['all', ...Object.keys(groupedMatches)];
   const dateOptions = getDateOptions();
@@ -362,6 +401,41 @@ function MainApp() {
             </div>
           </div>
 
+          {/* Campo di Ricerca */}
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-300 mb-2">🔍 Cerca</label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Cerca squadra, competizione o paese..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 pl-10 text-sm text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <svg
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            {searchQuery && (
+              <p className="mt-2 text-xs text-gray-400">
+                {Object.values(searchFilteredMatches).flat().length} partite trovate
+              </p>
+            )}
+          </div>
+
           <div className="mt-4 flex flex-col sm:flex-row gap-3">
             <button
               onClick={loadMatches}
@@ -422,13 +496,15 @@ function MainApp() {
             <div className="inline-block w-8 h-8 border-4 border-blue-600/30 border-t-blue-500 rounded-full animate-spin"></div>
             <p className="text-gray-400 mt-2 text-sm">Caricamento...</p>
           </div>
-        ) : Object.keys(filteredGroupedMatches).length === 0 ? (
+        ) : Object.keys(searchFilteredMatches).length === 0 ? (
           <div className="text-center py-12 bg-gray-800/50 rounded-lg border border-gray-700">
-            <p className="text-gray-400">Nessuna partita trovata</p>
+            <p className="text-gray-400">
+              {searchQuery ? `Nessuna partita trovata per "${searchQuery}"` : 'Nessuna partita trovata'}
+            </p>
           </div>
         ) : (
           <div className="space-y-4">
-            {Object.entries(filteredGroupedMatches).map(([competition, compMatches]) => {
+            {Object.entries(searchFilteredMatches).map(([competition, compMatches]) => {
               const firstMatch = compMatches[0];
               const emoji = getCompetitionEmoji(firstMatch.competitionCode);
               const color = getCompetitionColor(firstMatch.competitionCode);
@@ -439,7 +515,12 @@ function MainApp() {
                   <div className={`bg-gradient-to-r ${color} px-4 py-2.5 flex items-center justify-between`}>
                     <div className="flex items-center space-x-2">
                       <span className="text-lg">{emoji}</span>
-                      <h3 className="font-bold text-white text-sm">{competition}</h3>
+                      <div>
+                        <h3 className="font-bold text-white text-sm">{competition}</h3>
+                        {firstMatch.competitionCountry && (
+                          <p className="text-xs text-white/80">{firstMatch.competitionCountry}</p>
+                        )}
+                      </div>
                     </div>
                     <span className="bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-full text-white text-xs font-medium">
                       {compMatches.length}
@@ -462,10 +543,26 @@ function MainApp() {
                             <div className="space-y-1">
                               <div className="flex items-center space-x-2">
                                 <span className="w-4 text-center text-xs text-blue-400 font-bold">H</span>
+                                {match.homeTeamLogo && (
+                                  <img 
+                                    src={match.homeTeamLogo} 
+                                    alt={match.homeTeam}
+                                    className="w-5 h-5 object-contain"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                  />
+                                )}
                                 <span className="font-medium text-gray-200 text-sm">{match.homeTeam}</span>
                               </div>
                               <div className="flex items-center space-x-2">
                                 <span className="w-4 text-center text-xs text-red-400 font-bold">A</span>
+                                {match.awayTeamLogo && (
+                                  <img 
+                                    src={match.awayTeamLogo} 
+                                    alt={match.awayTeam}
+                                    className="w-5 h-5 object-contain"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                  />
+                                )}
                                 <span className="font-medium text-gray-200 text-sm">{match.awayTeam}</span>
                               </div>
                             </div>

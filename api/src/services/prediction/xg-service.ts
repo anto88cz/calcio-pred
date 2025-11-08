@@ -10,7 +10,7 @@
 
 import { prisma } from '../../lib/prisma';
 import logger from '../../utils/logger';
-import type { ExpectedGoalsData } from '../api-football';
+import type { ExpectedGoalsData } from '../sportsmonks';
 
 export interface XGUpdateData {
   fixtureId: number;

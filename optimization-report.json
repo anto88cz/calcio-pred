@@ -1,0 +1,129 @@
+{
+  "bestAccuracy": 0.3333333333333333,
+  "bestParams": {
+    "FALLBACK_ATTACK": {
+      "current": 2.5,
+      "min": 0.8,
+      "max": 2.5,
+      "step": 0.1
+    },
+    "FALLBACK_DEFENSE": {
+      "current": 1.5,
+      "min": 0.8,
+      "max": 2.5,
+      "step": 0.1
+    },
+    "TIME_DECAY_RATE": {
+      "current": 0.1,
+      "min": 0.05,
+      "max": 0.3,
+      "step": 0.025
+    },
+    "HOME_ADVANTAGE": {
+      "current": 1.2,
+      "min": 1,
+      "max": 1.5,
+      "step": 0.05
+    },
+    "DIXON_COLES_RHO": {
+      "current": 0.18,
+      "min": -0.2,
+      "max": 0,
+      "step": 0.02
+    },
+    "MIN_CONFIDENCE_THRESHOLD": {
+      "current": 0.4,
+      "min": 0.3,
+      "max": 0.6,
+      "step": 0.05
+    },
+    "MIN_PROB_1X2": {
+      "current": 0.45,
+      "min": 0.35,
+      "max": 0.65,
+      "step": 0.05
+    },
+    "MIN_PROB_1X2_LOW_CONF": {
+      "current": 0.7,
+      "min": 0.6,
+      "max": 0.8,
+      "step": 0.05
+    }
+  },
+  "history": [
+    {
+      "iteration": 0,
+      "params": {
+        "FALLBACK_ATTACK": {
+          "current": 2.5,
+          "min": 0.8,
+          "max": 2.5,
+          "step": 0.1
+        },
+        "FALLBACK_DEFENSE": {
+          "current": 1.5,
+          "min": 0.8,
+          "max": 2.5,
+          "step": 0.1
+        },
+        "TIME_DECAY_RATE": {
+          "current": 0.1,
+          "min": 0.05,
+          "max": 0.3,
+          "step": 0.025
+        },
+        "HOME_ADVANTAGE": {
+          "current": 1.2,
+          "min": 1,
+          "max": 1.5,
+          "step": 0.05
+        },
+        "DIXON_COLES_RHO": {
+          "current": 0.18,
+          "min": -0.2,
+          "max": 0,
+          "step": 0.02
+        },
+        "MIN_CONFIDENCE_THRESHOLD": {
+          "current": 0.4,
+          "min": 0.3,
+          "max": 0.6,
+          "step": 0.05
+        },
+        "MIN_PROB_1X2": {
+          "current": 0.45,
+          "min": 0.35,
+          "max": 0.65,
+          "step": 0.05
+        },
+        "MIN_PROB_1X2_LOW_CONF": {
+          "current": 0.7,
+          "min": 0.6,
+          "max": 0.8,
+          "step": 0.05
+        }
+      },
+      "train": {
+        "total": 35,
+        "accuracy1X2": 0.14285714285714285,
+        "accuracyOver": 0.37142857142857144,
+        "accuracyBTTS": 0.4,
+        "avgGoalError": 2.9324857142857126,
+        "homeWins": 19,
+        "draws": 5,
+        "awayWins": 11
+      },
+      "validation": {
+        "total": 6,
+        "accuracy1X2": 0.3333333333333333,
+        "accuracyOver": 0.6666666666666666,
+        "accuracyBTTS": 0.5,
+        "avgGoalError": 1.6940000000000002,
+        "homeWins": 2,
+        "draws": 2,
+        "awayWins": 2
+      }
+    }
+  ],
+  "timestamp": "2025-11-07T23:12:47.929Z"
+}

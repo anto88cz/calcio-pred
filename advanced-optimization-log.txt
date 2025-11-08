@@ -1,0 +1,86 @@
+🚀 ADVANCED AUTO-OPTIMIZATION SYSTEM v2.0
+
+==========================================================================================
+
+📅 Date Ranges:
+   Training:   2025-10-13 to 2025-10-27 (14 days, min confidence 0.25)
+   Validation: 2025-10-28 to 2025-11-02 (5 days, min confidence 0.35)
+   Test:       2025-11-03 to 2025-11-06 (3 days, min confidence 0.4)
+==========================================================================================
+
+📊 PHASE 1: Baseline Analysis
+
+
+BASELINE:
+   Training:   57 matches - Accuracy 21.1%
+   Validation: 22 matches - Accuracy 9.1%
+   Goal Error: 2.90
+   Errors: Draw missed 0, Home overpredicted 0, Away overpredicted 0
+
+
+📊 PHASE 2: Grid Search (coarse tuning)
+
+Testing parameter combinations to find optimal region...
+
+Testing key parameter combinations...
+
+   FALLBACK_ATTACK=1.00, FALLBACK_DEFENSE=1.00: 9.1% (+0.0%)
+   FALLBACK_ATTACK=1.50, FALLBACK_DEFENSE=1.50: 9.1% (+0.0%)
+   FALLBACK_ATTACK=2.00, FALLBACK_DEFENSE=2.00: 9.1% (+0.0%)
+   HOME_ADVANTAGE=1.10: 9.1% (+0.0%)
+   HOME_ADVANTAGE=1.30: 9.1% (+0.0%)
+   DIXON_COLES_RHO=-0.20: 9.1% (+0.0%)
+   DIXON_COLES_RHO=-0.05: 9.1% (+0.0%)
+   DIXON_COLES_RHO=0.00: 9.1% (+0.0%)
+
+
+📊 PHASE 3: Fine Tuning (gradient descent)
+
+
+🔄 Iteration 1/15
+✅ No more improvements found. Stopping.
+
+
+📊 PHASE 4: Final Test (unseen data)
+
+🎯 Final Test Results:
+   Matches analyzed: 22
+   1X2 Accuracy: 22.7%
+   Over/Under Accuracy: 45.5%
+   BTTS Accuracy: 45.5%
+   Avg Goal Error: 2.20
+
+
+==========================================================================================
+🏆 OPTIMIZATION COMPLETE - FINAL REPORT
+==========================================================================================
+
+📊 Best Validation Results (Iteration 0):
+   Accuracy: 9.1%
+   Matches: 22
+   Goal Error: 2.90
+
+🎯 Final Test Results (unseen data):
+   Accuracy: 22.7%
+   Matches: 22
+   Goal Error: 2.20
+
+⚙️ Current Parameters:
+   FALLBACK_ATTACK: 1.500
+   FALLBACK_DEFENSE: 1.500
+   HOME_ADVANTAGE: 1.200
+   DIXON_COLES_RHO: -0.130
+   TIME_DECAY_RATE: 0.100
+
+📈 Optimization Progress:
+   🏆 Iter 0: Val 9.1% (22 matches)
+
+💾 Full report saved to: advanced-optimization-report.json
+
+📝 Recommended Actions:
+   ⚠️ Accuracy below 50%. Consider:
+      - Collecting more historical data
+      - Using xG data when available
+      - League-specific parameters
+
+

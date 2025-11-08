@@ -1,0 +1,217 @@
+🚀 AUTO-OPTIMIZATION SYSTEM STARTED
+
+================================================================================
+
+📊 Configuration:
+   Training period: 10 days
+   Validation period: 4 days
+   Max iterations: 10
+   Target accuracy: 60%
+   Min improvement: 2%
+
+================================================================================
+
+📅 Date Ranges:
+   Training: 2025-10-27 to 2025-11-06
+   Validation: 2025-10-22 to 2025-10-26
+
+📊 ITERATION 0: Baseline (current parameters)
+
+   📊 Testing training set (2025-10-27 to 2025-11-06)...
+   📊 Testing validation set (2025-10-22 to 2025-10-26)...
+
+✅ Baseline Accuracy: 33.3%
+
+================================================================================
+
+
+🔄 ITERATION 1: Optimizing parameters...
+
+💡 Testing 2 parameter change(s):
+   - FALLBACK_ATTACK: 1.500 → 1.700 (High goal error - increase attack baseline)
+   - DIXON_COLES_RHO: -0.130 → 0.000 (Low accuracy - adjust Dixon-Coles for low scores)
+
+   📊 Testing training set (2025-10-27 to 2025-11-06)...
+   📊 Testing validation set (2025-10-22 to 2025-10-26)...
+
+📊 Results:
+   Train Accuracy: 14.3%
+   Validation Accuracy: 33.3%
+   Improvement: +0.0%
+   ❌ Improvement too small. Reverting.
+
+
+🔄 ITERATION 2: Optimizing parameters...
+
+💡 Testing 2 parameter change(s):
+   - FALLBACK_ATTACK: 1.700 → 1.900 (High goal error - increase attack baseline)
+   - DIXON_COLES_RHO: 0.000 → 0.020 (Low accuracy - adjust Dixon-Coles for low scores)
+
+   📊 Testing training set (2025-10-27 to 2025-11-06)...
+   📊 Testing validation set (2025-10-22 to 2025-10-26)...
+
+📊 Results:
+   Train Accuracy: 14.3%
+   Validation Accuracy: 33.3%
+   Improvement: +0.0%
+   ❌ Improvement too small. Reverting.
+
+
+🔄 ITERATION 3: Optimizing parameters...
+
+💡 Testing 2 parameter change(s):
+   - FALLBACK_ATTACK: 1.900 → 2.100 (High goal error - increase attack baseline)
+   - DIXON_COLES_RHO: 0.020 → 0.040 (Low accuracy - adjust Dixon-Coles for low scores)
+
+   📊 Testing training set (2025-10-27 to 2025-11-06)...
+   📊 Testing validation set (2025-10-22 to 2025-10-26)...
+
+📊 Results:
+   Train Accuracy: 14.3%
+   Validation Accuracy: 33.3%
+   Improvement: +0.0%
+   ❌ Improvement too small. Reverting.
+
+
+🔄 ITERATION 4: Optimizing parameters...
+
+💡 Testing 2 parameter change(s):
+   - FALLBACK_ATTACK: 2.100 → 2.300 (High goal error - increase attack baseline)
+   - DIXON_COLES_RHO: 0.040 → 0.060 (Low accuracy - adjust Dixon-Coles for low scores)
+
+   📊 Testing training set (2025-10-27 to 2025-11-06)...
+   📊 Testing validation set (2025-10-22 to 2025-10-26)...
+
+📊 Results:
+   Train Accuracy: 14.3%
+   Validation Accuracy: 33.3%
+   Improvement: +0.0%
+   ❌ Improvement too small. Reverting.
+
+
+🔄 ITERATION 5: Optimizing parameters...
+
+💡 Testing 2 parameter change(s):
+   - FALLBACK_ATTACK: 2.300 → 2.500 (High goal error - increase attack baseline)
+   - DIXON_COLES_RHO: 0.060 → 0.080 (Low accuracy - adjust Dixon-Coles for low scores)
+
+   📊 Testing training set (2025-10-27 to 2025-11-06)...
+   📊 Testing validation set (2025-10-22 to 2025-10-26)...
+
+📊 Results:
+   Train Accuracy: 14.3%
+   Validation Accuracy: 33.3%
+   Improvement: +0.0%
+   ❌ Improvement too small. Reverting.
+
+
+🔄 ITERATION 6: Optimizing parameters...
+
+💡 Testing 2 parameter change(s):
+   - FALLBACK_ATTACK: 2.500 → 2.500 (High goal error - increase attack baseline)
+   - DIXON_COLES_RHO: 0.080 → 0.100 (Low accuracy - adjust Dixon-Coles for low scores)
+
+   📊 Testing training set (2025-10-27 to 2025-11-06)...
+   📊 Testing validation set (2025-10-22 to 2025-10-26)...
+
+📊 Results:
+   Train Accuracy: 14.3%
+   Validation Accuracy: 33.3%
+   Improvement: +0.0%
+   ❌ Improvement too small. Reverting.
+
+
+🔄 ITERATION 7: Optimizing parameters...
+
+💡 Testing 2 parameter change(s):
+   - FALLBACK_ATTACK: 2.500 → 2.500 (High goal error - increase attack baseline)
+   - DIXON_COLES_RHO: 0.100 → 0.120 (Low accuracy - adjust Dixon-Coles for low scores)
+
+   📊 Testing training set (2025-10-27 to 2025-11-06)...
+   📊 Testing validation set (2025-10-22 to 2025-10-26)...
+
+📊 Results:
+   Train Accuracy: 14.3%
+   Validation Accuracy: 33.3%
+   Improvement: +0.0%
+   ❌ Improvement too small. Reverting.
+
+
+🔄 ITERATION 8: Optimizing parameters...
+
+💡 Testing 2 parameter change(s):
+   - FALLBACK_ATTACK: 2.500 → 2.500 (High goal error - increase attack baseline)
+   - DIXON_COLES_RHO: 0.120 → 0.140 (Low accuracy - adjust Dixon-Coles for low scores)
+
+   📊 Testing training set (2025-10-27 to 2025-11-06)...
+   📊 Testing validation set (2025-10-22 to 2025-10-26)...
+
+📊 Results:
+   Train Accuracy: 14.3%
+   Validation Accuracy: 33.3%
+   Improvement: +0.0%
+   ❌ Improvement too small. Reverting.
+
+
+🔄 ITERATION 9: Optimizing parameters...
+
+💡 Testing 2 parameter change(s):
+   - FALLBACK_ATTACK: 2.500 → 2.500 (High goal error - increase attack baseline)
+   - DIXON_COLES_RHO: 0.140 → 0.160 (Low accuracy - adjust Dixon-Coles for low scores)
+
+   📊 Testing training set (2025-10-27 to 2025-11-06)...
+   📊 Testing validation set (2025-10-22 to 2025-10-26)...
+
+📊 Results:
+   Train Accuracy: 14.3%
+   Validation Accuracy: 33.3%
+   Improvement: +0.0%
+   ❌ Improvement too small. Reverting.
+
+
+🔄 ITERATION 10: Optimizing parameters...
+
+💡 Testing 2 parameter change(s):
+   - FALLBACK_ATTACK: 2.500 → 2.500 (High goal error - increase attack baseline)
+   - DIXON_COLES_RHO: 0.160 → 0.180 (Low accuracy - adjust Dixon-Coles for low scores)
+
+   📊 Testing training set (2025-10-27 to 2025-11-06)...
+   📊 Testing validation set (2025-10-22 to 2025-10-26)...
+
+📊 Results:
+   Train Accuracy: 14.3%
+   Validation Accuracy: 33.3%
+   Improvement: +0.0%
+   ❌ Improvement too small. Reverting.
+
+
+================================================================================
+📊 FINAL OPTIMIZATION REPORT
+================================================================================
+
+🏆 Best Results:
+   Validation Accuracy: 33.3%
+   Iterations: 0
+   Improvement: +0.0%
+
+📈 Optimization History:
+   🏆 Iter 0: Train 14.3% | Val 33.3%
+
+⚙️ Optimal Parameters:
+   FALLBACK_ATTACK: 2.500
+   FALLBACK_DEFENSE: 1.500
+   TIME_DECAY_RATE: 0.100
+   HOME_ADVANTAGE: 1.200
+   DIXON_COLES_RHO: 0.180
+   MIN_CONFIDENCE_THRESHOLD: 0.400
+   MIN_PROB_1X2: 0.450
+   MIN_PROB_1X2_LOW_CONF: 0.700
+
+💾 Saving results to optimization-report.json...
+✅ Report saved!
+
+📝 Next Steps:
+   1. Review the optimal parameters above
+   2. Update the code files with these values
+   3. Test on new data to verify improvements
+

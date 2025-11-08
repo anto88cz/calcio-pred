@@ -3,7 +3,7 @@
  * Analizza ultime N partite con time-decay
  */
 
-import { MatchHistoryData } from '../api-football';
+import { MatchHistoryData } from '../sportsmonks';
 import logger from '../../utils/logger';
 import type { EmpiricResult } from '../../types';
 
@@ -73,7 +73,8 @@ export class EmpiricEngine {
     
     return matches.map((match, index) => {
       // Calcola giorni dalla partita
-      const daysSince = (now.getTime() - match.date.getTime()) / (1000 * 60 * 60 * 24);
+      const matchDate = match.date instanceof Date ? match.date : new Date(match.date);
+      const daysSince = (now.getTime() - matchDate.getTime()) / (1000 * 60 * 60 * 24);
       
       // Peso base in base alla fascia temporale
       let baseWeight: number;
@@ -339,7 +340,8 @@ export class EmpiricEngine {
     // Recenza (verifica che i match siano recenti)
     const now = new Date();
     const recentMatches = [...homeHistory, ...awayHistory].filter(match => {
-      const daysSince = (now.getTime() - match.date.getTime()) / (1000 * 60 * 60 * 24);
+      const matchDate = match.date instanceof Date ? match.date : new Date(match.date);
+      const daysSince = (now.getTime() - matchDate.getTime()) / (1000 * 60 * 60 * 24);
       return daysSince <= 365; // Ultimi 12 mesi
     });
     const recency = recentMatches.length / totalCount;
