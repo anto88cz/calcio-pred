@@ -3,10 +3,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import moment from 'moment-timezone';
 import type { MatchPrediction, MarketCalibration, InjuriesAnalysis } from '@/types';
 import { ENV } from '@/config/env';
 import BetSlipModal, { BetSlipConfig } from '@/components/BetSlipModal';
 import BetSlipResult from '@/components/BetSlipResult';
+import SystemBetGenerator from '@/components/SystemBetGenerator';
 import { generateAutomaticBetSlip, formatBetSlipForClipboard, type MatchData, type GeneratedBetSlip } from '@/lib/bet-slip-generator';
 
 const queryClient = new QueryClient({
@@ -22,11 +24,16 @@ interface TodayMatch {
   id: number;
   homeTeam: string;
   homeTeamLogo?: string;
+  homeTeamId?: number;
   awayTeam: string;
   awayTeamLogo?: string;
+  awayTeamId?: number;
   competition: string;
   competitionCode: string;
   competitionCountry?: string;
+  leagueId?: number;
+  seasonId?: number;
+  date?: string; // Data completa ISO
   time: string;
   status: string;
 }
@@ -101,6 +108,9 @@ function MainApp() {
   const [generatingBetSlip, setGeneratingBetSlip] = useState(false);
   const [generatedBetSlip, setGeneratedBetSlip] = useState<GeneratedBetSlip | null>(null);
   const [generationProgress, setGenerationProgress] = useState<string>('');
+  
+  // STATO per generatore sistemi
+  const [showSystemGenerator, setShowSystemGenerator] = useState(false);
 
   // Genera date per i prossimi 3 giorni
   const getDateOptions = () => {
@@ -137,18 +147,41 @@ function MainApp() {
       
       // Transform Sportsmonks fixtures to our format
       if (data.fixtures && data.fixtures.length > 0) {
-        const transformedMatches = data.fixtures.map((fixture: any) => ({
-          id: fixture.id,
-          homeTeam: fixture.homeTeam.name,
-          homeTeamLogo: fixture.homeTeam.logo,
-          awayTeam: fixture.awayTeam.name,
-          awayTeamLogo: fixture.awayTeam.logo,
-          competition: fixture.league.name,
-          competitionCode: fixture.league.country,
-          competitionCountry: fixture.league.country,
-          time: new Date(fixture.date).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
-          status: fixture.statusShort,
-        }));
+        // Debug: log prima fixture per vedere struttura dati
+        console.log('📊 Sample fixture data:', data.fixtures[0]);
+        
+        const transformedMatches = data.fixtures.map((fixture: any) => {
+          const transformed = {
+            id: fixture.id,
+            homeTeam: fixture.homeTeam.name,
+            homeTeamLogo: fixture.homeTeam.logo,
+            homeTeamId: fixture.homeTeam.id,
+            awayTeam: fixture.awayTeam.name,
+            awayTeamLogo: fixture.awayTeam.logo,
+            awayTeamId: fixture.awayTeam.id,
+            competition: fixture.league.name,
+            competitionCode: fixture.league.country,
+            competitionCountry: fixture.league.country,
+            leagueId: fixture.league.id,
+            seasonId: fixture.league.season, // ✅ Corretto: season è in league.season
+            date: fixture.date, // ✅ Data completa ISO per confronto
+            time: moment.utc(fixture.date).tz('Europe/Rome').format('HH:mm'), // ✅ UTC input -> Europe/Rome output
+            status: fixture.statusShort,
+          };
+          
+          // Debug: log dei campi chiave
+          if (data.fixtures.indexOf(fixture) === 0) {
+            console.log('🔍 Transformed match:', {
+              id: transformed.id,
+              homeTeamId: transformed.homeTeamId,
+              awayTeamId: transformed.awayTeamId,
+              seasonId: transformed.seasonId,
+              leagueId: transformed.leagueId,
+            });
+          }
+          
+          return transformed;
+        });
         
         setMatches(transformedMatches);
         setSuccess(`✅ Trovate ${data.count} partite`);
@@ -165,12 +198,39 @@ function MainApp() {
     }
   };
 
-  const analyzeMatch = async (homeTeam: string, awayTeam: string, fixtureId?: number) => {
-    // Naviga alla pagina di analisi dedicata
-    const url = fixtureId 
-      ? `/analysis?home=${encodeURIComponent(homeTeam)}&away=${encodeURIComponent(awayTeam)}&fixtureId=${fixtureId}`
-      : `/analysis?home=${encodeURIComponent(homeTeam)}&away=${encodeURIComponent(awayTeam)}`;
-    router.push(url);
+  const analyzeMatch = async (
+    homeTeam: string, 
+    awayTeam: string, 
+    fixtureId?: number,
+    homeTeamId?: number,
+    awayTeamId?: number,
+    seasonId?: number,
+    leagueId?: number
+  ) => {
+    // Debug: log dei parametri ricevuti
+    console.log('🔍 analyzeMatch called with:', {
+      homeTeam,
+      awayTeam,
+      fixtureId,
+      homeTeamId,
+      awayTeamId,
+      seasonId,
+      leagueId,
+    });
+
+    // Naviga alla nuova pagina di predizione ML
+    if (fixtureId && homeTeamId && awayTeamId && seasonId && leagueId) {
+      console.log('✅ All parameters available - redirecting to /prediction');
+      const url = `/prediction?fixtureId=${fixtureId}&home=${encodeURIComponent(homeTeam)}&away=${encodeURIComponent(awayTeam)}&homeTeamId=${homeTeamId}&awayTeamId=${awayTeamId}&seasonId=${seasonId}&leagueId=${leagueId}`;
+      router.push(url);
+    } else {
+      console.log('⚠️ Missing parameters - fallback to /analysis');
+      // Fallback alla pagina analysis se mancano dati
+      const url = fixtureId 
+        ? `/analysis?home=${encodeURIComponent(homeTeam)}&away=${encodeURIComponent(awayTeam)}&fixtureId=${fixtureId}`
+        : `/analysis?home=${encodeURIComponent(homeTeam)}&away=${encodeURIComponent(awayTeam)}`;
+      router.push(url);
+    }
   };
 
   const handleGenerateBetSlip = async (config: BetSlipConfig) => {
@@ -445,6 +505,15 @@ function MainApp() {
               {loadingMatches ? '⏳ Caricamento...' : '🔄 Aggiorna'}
             </button>
             
+            <button
+              onClick={() => setShowSystemGenerator(!showSystemGenerator)}
+              disabled={matches.length === 0 || loadingMatches}
+              className="flex-1 sm:flex-none px-6 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-sm font-bold rounded-lg hover:from-green-500 hover:to-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg shadow-green-500/20 flex items-center justify-center space-x-2"
+            >
+              <span className="text-lg">🎰</span>
+              <span>{showSystemGenerator ? 'Nascondi' : 'Genera'} Sistema Integrale</span>
+            </button>
+            
             {/* PULSANTE SCHEDINA AUTOMATICA - TEMPORANEAMENTE NASCOSTO */}
             {/* <button
               onClick={() => setShowBetSlipModal(true)}
@@ -487,6 +556,34 @@ function MainApp() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Generatore Sistemi Integrali */}
+        {showSystemGenerator && matches.length > 0 && (
+          <div className="mb-6">
+            <SystemBetGenerator matches={matches
+              // Filtra solo partite non ancora iniziate
+              .filter(m => {
+                if (!m.date) return false;
+                const now = moment().tz('Europe/Rome');
+                const matchTime = moment.utc(m.date).tz('Europe/Rome');
+                return matchTime.isAfter(now);
+              })
+              .map(m => ({
+                id: m.id,
+                homeTeam: m.homeTeam,
+                awayTeam: m.awayTeam,
+                time: m.time,
+                date: m.date,
+                competition: m.competition,
+                homeTeamId: m.homeTeamId,
+                awayTeamId: m.awayTeamId,
+                seasonId: m.seasonId,
+                leagueId: m.leagueId,
+                recommendations: [] // Verrà popolato dinamicamente
+              }))
+            } />
           </div>
         )}
 
@@ -533,7 +630,15 @@ function MainApp() {
                       <div
                         key={match.id}
                         className="p-3 hover:bg-gray-700/30 transition cursor-pointer"
-                        onClick={() => analyzeMatch(match.homeTeam, match.awayTeam, match.id)}
+                        onClick={() => analyzeMatch(
+                          match.homeTeam, 
+                          match.awayTeam, 
+                          match.id,
+                          match.homeTeamId,
+                          match.awayTeamId,
+                          match.seasonId,
+                          match.leagueId
+                        )}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
@@ -570,7 +675,15 @@ function MainApp() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              analyzeMatch(match.homeTeam, match.awayTeam, match.id);
+                              analyzeMatch(
+                                match.homeTeam, 
+                                match.awayTeam, 
+                                match.id,
+                                match.homeTeamId,
+                                match.awayTeamId,
+                                match.seasonId,
+                                match.leagueId
+                              );
                             }}
                             className="px-3 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs font-medium rounded-lg hover:from-blue-700 hover:to-purple-700 transition shadow-lg shadow-blue-500/20"
                           >

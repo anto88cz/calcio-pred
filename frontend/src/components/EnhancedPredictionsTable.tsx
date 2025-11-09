@@ -11,9 +11,64 @@ interface PredictionsTableProps {
   predictions: MatchPrediction[];
 }
 
+// Funzione helper per formattare i goal
+const formatGoals = (goals: number): string => {
+  return goals.toFixed(2);
+};
+
+// Funzione helper per formattare le percentuali
+const formatPercentage = (value: number): string => {
+  return `${(value * 100).toFixed(1)}%`;
+};
+
+// Funzione helper per ottenere il colore in base alla confidence
+const getConfidenceColor = (confidence: number): string => {
+  if (confidence >= 0.7) return 'bg-green-100 text-green-800';
+  if (confidence >= 0.5) return 'bg-yellow-100 text-yellow-800';
+  return 'bg-red-100 text-red-800';
+};
+
+// Componente per mostrare il badge di strength
+const StrengthBadge = ({ strength }: { strength: string }) => {
+  const colors: Record<string, string> = {
+    'FORTE': 'bg-green-500',
+    'MEDIO': 'bg-yellow-500',
+    'DEBOLE': 'bg-red-500'
+  };
+  
+  return (
+    <span className={`px-2 py-1 rounded text-xs font-bold text-white ${colors[strength] || 'bg-gray-500'}`}>
+      {strength}
+    </span>
+  );
+};
+
+// Type for ValueBet
+interface ValueBet {
+  market: string;
+  selection: string;
+  odds: number;
+  modelProb: number;
+  marketProb: number;
+  difference: number;
+  expectedValue: number;
+  marketOdds: number;
+  value?: number;
+  recommend?: boolean;
+  kelly?: number;
+}
+
+// Funzione helper per ottenere il colore del value bet
+const getValueBetColor = (value: number): string => {
+  if (value >= 15) return 'bg-green-100 border-green-300 text-green-800';
+  if (value >= 10) return 'bg-yellow-100 border-yellow-300 text-yellow-800';
+  return 'bg-orange-100 border-orange-300 text-orange-800';
+};
+
 export default function PredictionsTable({ predictions }: PredictionsTableProps) {
   
   return (
+    <div>
     <div className="w-full bg-white rounded-lg shadow-lg overflow-hidden">
       <table className="w-full table-auto border-collapse">
         <thead>
@@ -267,17 +322,17 @@ export default function PredictionsTable({ predictions }: PredictionsTableProps)
                   {prediction.valueBets && prediction.valueBets.length > 0 ? (
                     <div className="space-y-1">
                       {prediction.valueBets.map((vb: ValueBet, idx: number) => (
-                        <div key={idx} className={`text-xs p-1.5 rounded border ${vb.recommend ? getValueBetColor(vb.value) : 'text-gray-400 bg-gray-50'}`}>
+                        <div key={idx} className={`text-xs p-1.5 rounded border ${vb.recommend ? getValueBetColor(vb.value || 0) : 'text-gray-400 bg-gray-50'}`}>
                           <div className="font-semibold">
                             {vb.market}: {vb.selection}
                           </div>
                           <div className="flex justify-between mt-1">
                             <span>Odds: {vb.odds.toFixed(2)}</span>
-                            <span>Value: {vb.value.toFixed(1)}%</span>
+                            <span>Value: {vb.value?.toFixed(1) || '0'}%</span>
                           </div>
                           {vb.recommend && (
                             <div className="text-xs font-semibold text-green-700 mt-1">
-                              💰 Kelly: {vb.kelly.toFixed(1)}%
+                              💰 Kelly: {vb.kelly?.toFixed(1) || '0'}%
                             </div>
                           )}
                         </div>
@@ -301,7 +356,7 @@ export default function PredictionsTable({ predictions }: PredictionsTableProps)
                         {bestValueBet.selection}
                       </div>
                       <div className="text-xs font-semibold text-green-600">
-                        ROI: +{bestValueBet.value.toFixed(1)}%
+                        ROI: +{bestValueBet.value?.toFixed(1) || '0'}%
                       </div>
                     </div>
                   ) : (
@@ -335,6 +390,7 @@ export default function PredictionsTable({ predictions }: PredictionsTableProps)
           </div>
         </div>
       </div>
-    </>
+    </div>
+    </div>
   );
 }

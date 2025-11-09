@@ -1,0 +1,793 @@
+✅ API Key configurata
+
+NaN
+🔍 BACKTEST BETTING RECOMMENDATIONS - SETTIMANA 3-9 NOVEMBRE 2025
+NaN
+
+📅 Recupero partite finite dell'ultima settimana (3-9 novembre 2025)...
+
+🔍 Cercando partite in Premier League...
+   ✅ Premier League: 6 partite finite
+🔍 Cercando partite in Serie A...
+   ✅ Serie A: 7 partite finite
+🔍 Cercando partite in La Liga...
+   ✅ La Liga: 6 partite finite
+🔍 Cercando partite in Bundesliga...
+   ✅ Bundesliga: 4 partite finite
+🔍 Cercando partite in Champions League...
+   ✅ Champions League: 18 partite finite
+
+📊 TOTALE: 41 partite recuperate
+
+
+🎯 Inizio analisi di 41 partite...
+
+NaN
+
+[1/41] ⚽ Premier League
+    Sunderland 1-1 Everton
+    📅 2025-11-03 20:00:00 | Risultato: X
+
+    ❌ LOSS: 1 - Vittoria Casa
+       Quota: 3.17 | 2⭐ | EV: 4.6%
+       Risultato: 1-1 (X)
+
+    ❌ LOSS: Over 1.5 - Più di 1.5 gol
+       Quota: 1.43 | 2⭐ | EV: 1.9%
+       
+
+    ✅ WIN: Multigoal Casa 1-2 - Sunderland
+       Quota: 1.76 | 3⭐ | EV: 0.0%
+       Gol casa: 1 (1-2)
+
+[2/41] ⚽ Premier League
+    Tottenham Hotspur 2-2 Manchester United
+    📅 2025-11-08 12:30:00 | Risultato: X
+
+    ❌ LOSS: Over 2.5 - Più di 2.5 gol
+       Quota: 1.68 | 2⭐ | EV: 0.6%
+       
+
+    ❌ LOSS: 2 - Vittoria Trasferta
+       Quota: 2.39 | 2⭐ | EV: 0.4%
+       Risultato: 2-2 (X)
+
+    ✅ WIN: Multigoal Casa 1-2 - Tottenham Hotspur
+       Quota: 1.7 | 3⭐ | EV: 0.0%
+       Gol casa: 2 (1-2)
+
+[3/41] ⚽ Premier League
+    Everton 2-0 Fulham
+    📅 2025-11-08 15:00:00 | Risultato: 1
+
+    ✅ WIN: 1 - Vittoria Casa
+       Quota: 2.31 | 3⭐ | EV: 8.6%
+       Risultato: 2-0 (1)
+
+    ✅ WIN: Multigoal Casa 1-2 - Everton
+       Quota: 1.71 | 3⭐ | EV: 0.0%
+       Gol casa: 2 (1-2)
+
+    ✅ WIN: No Goal - Almeno Una Non Segna
+       Quota: 1.94 | 1⭐ | EV: -0.2%
+       BTTS: No
+
+[4/41] ⚽ Premier League
+    West Ham United 3-2 Burnley
+    📅 2025-11-08 15:00:00 | Risultato: 1
+
+    ❌ LOSS: 2 - Vittoria Trasferta
+       Quota: 4.01 | 4⭐ | EV: 12.3%
+       Risultato: 3-2 (1)
+
+    ❌ LOSS: Multigoal Casa 1-2 - West Ham United
+       Quota: 1.7 | 3⭐ | EV: 0.0%
+       Gol casa: 3 (1-2)
+
+    ❌ LOSS: Under 2.5 - Meno di 3 gol
+       Quota: 1.88 | 1⭐ | EV: -2.5%
+       
+
+[5/41] ⚽ Premier League
+    Sunderland 2-2 Arsenal
+    📅 2025-11-08 17:30:00 | Risultato: X
+
+    ✅ WIN: Goal - Entrambe Segnano
+       Quota: 2.32 | 5⭐ | EV: 33.8%
+       BTTS: Sì
+
+    ❌ LOSS: Over 2.5 - Più di 2.5 gol
+       Quota: 2.16 | 5⭐ | EV: 29.3%
+       
+
+    ✅ WIN: X - Pareggio
+       Quota: 4.33 | 5⭐ | EV: 16.9%
+       Risultato: 2-2 (X)
+
+[6/41] ⚽ Premier League
+    Chelsea 3-0 Wolverhampton Wanderers
+    📅 2025-11-08 20:00:00 | Risultato: 1
+
+    ❌ LOSS: X - Pareggio
+       Quota: 5.07 | 5⭐ | EV: 16.6%
+       Risultato: 3-0 (1)
+
+    ❌ LOSS: Under 3.5 - Meno di 4 gol
+       Quota: 1.54 | 2⭐ | EV: 3.1%
+       
+
+    ✅ WIN: No Goal - Almeno Una Non Segna
+       Quota: 1.94 | 2⭐ | EV: 0.3%
+       BTTS: No
+
+[7/41] ⚽ Serie A
+    Sassuolo 1-2 Genoa
+    📅 2025-11-03 17:30:00 | Risultato: 2
+
+    ❌ LOSS: Over 1.5 - Più di 1.5 gol
+       Quota: 1.54 | 3⭐ | EV: 6.5%
+       
+
+    ✅ WIN: 2 - Vittoria Trasferta
+       Quota: 3.31 | 3⭐ | EV: 5.9%
+       Risultato: 1-2 (2)
+
+    ✅ WIN: Goal - Entrambe Segnano
+       Quota: 2.15 | 2⭐ | EV: 4.3%
+       BTTS: Sì
+
+[8/41] ⚽ Serie A
+    Lazio 2-0 Cagliari
+    📅 2025-11-03 19:45:00 | Risultato: 1
+
+    ❌ LOSS: 2 - Vittoria Trasferta
+       Quota: 5.87 | 5⭐ | EV: 23.3%
+       Risultato: 2-0 (1)
+
+    ❌ LOSS: Under 2.5 - Meno di 3 gol
+       Quota: 1.75 | 2⭐ | EV: 4.3%
+       
+
+    ✅ WIN: Multigoal Casa 1-2 - Lazio
+       Quota: 1.7 | 3⭐ | EV: 0.0%
+       Gol casa: 2 (1-2)
+
+[9/41] ⚽ Serie A
+    Pisa 1-0 Cremonese
+    📅 2025-11-07 19:45:00 | Risultato: 1
+
+    ❌ LOSS: 2 - Vittoria Trasferta
+       Quota: 3.44 | 4⭐ | EV: 13.5%
+       Risultato: 1-0 (1)
+
+    ✅ WIN: Multigoal Casa 1-2 - Pisa
+       Quota: 1.73 | 3⭐ | EV: 0.0%
+       Gol casa: 1 (1-2)
+
+    ✅ WIN: No Goal - Almeno Una Non Segna
+       Quota: 1.76 | 1⭐ | EV: -1.7%
+       BTTS: No
+
+[10/41] ⚽ Serie A
+    Como 0-0 Cagliari
+    📅 2025-11-08 14:00:00 | Risultato: X
+
+    ✅ WIN: X - Pareggio
+       Quota: 4.01 | 5⭐ | EV: 60.4%
+       Risultato: 0-0 (X)
+
+    ❌ LOSS: Under 2.5 - Meno di 3 gol
+       Quota: 1.84 | 5⭐ | EV: 24.5%
+       
+
+    ✅ WIN: No Goal - Almeno Una Non Segna
+       Quota: 1.75 | 3⭐ | EV: 5.7%
+       BTTS: No
+
+[11/41] ⚽ Serie A
+    Lecce 0-0 Hellas Verona
+    📅 2025-11-08 14:00:00 | Risultato: X
+
+    ❌ LOSS: 2 - Vittoria Trasferta
+       Quota: 3 | 5⭐ | EV: 20.0%
+       Risultato: 0-0 (X)
+
+    ✅ WIN: No Goal - Almeno Una Non Segna
+       Quota: 1.66 | 4⭐ | EV: 11.8%
+       BTTS: No
+
+    ❌ LOSS: Under 2.5 - Meno di 3 gol
+       Quota: 1.42 | 3⭐ | EV: 7.5%
+       
+
+[12/41] ⚽ Serie A
+    Juventus 0-0 Torino
+    📅 2025-11-08 17:00:00 | Risultato: X
+
+    ❌ LOSS: Under 2.5 - Meno di 3 gol
+       Quota: 1.91 | 3⭐ | EV: 8.8%
+       
+
+    ✅ WIN: X - Pareggio
+       Quota: 4.1 | 3⭐ | EV: 6.6%
+       Risultato: 0-0 (X)
+
+    ❌ LOSS: Multigoal Casa 1-2 - Juventus
+       Quota: 1.71 | 3⭐ | EV: 0.0%
+       Gol casa: 0 (1-2)
+
+[13/41] ⚽ Serie A
+    Parma 2-2 Milan
+    📅 2025-11-08 19:45:00 | Risultato: X
+
+    ✅ WIN: Goal - Entrambe Segnano
+       Quota: 2.06 | 2⭐ | EV: 2.0%
+       BTTS: Sì
+
+    ❌ LOSS: Over 2.5 - Più di 2.5 gol
+       Quota: 2.01 | 2⭐ | EV: 1.8%
+       
+
+    ✅ WIN: X - Pareggio
+       Quota: 4.01 | 2⭐ | EV: 0.2%
+       Risultato: 2-2 (X)
+
+[14/41] ⚽ La Liga
+    Real Oviedo 0-0 Osasuna
+    📅 2025-11-03 20:00:00 | Risultato: X
+
+    ❌ LOSS: 2 - Vittoria Trasferta
+       Quota: 2.47 | 4⭐ | EV: 13.6%
+       Risultato: 0-0 (X)
+
+    ❌ LOSS: Multigoal Casa 1-2 - Real Oviedo
+       Quota: 1.88 | 3⭐ | EV: 0.0%
+       Gol casa: 0 (1-2)
+
+    ❌ LOSS: Over 1.5 - Più di 1.5 gol
+       Quota: 1.46 | 1⭐ | EV: -2.3%
+       
+
+[15/41] ⚽ La Liga
+    Elche 1-1 Real Sociedad
+    📅 2025-11-07 20:00:00 | Risultato: X
+
+    ❌ LOSS: 2 - Vittoria Trasferta
+       Quota: 2.5 | 5⭐ | EV: 20.0%
+       Risultato: 1-1 (X)
+
+    ✅ WIN: Multigoal Casa 1-2 - Elche
+       Quota: 1.81 | 3⭐ | EV: 0.0%
+       Gol casa: 1 (1-2)
+
+    ❌ LOSS: Over 1.5 - Più di 1.5 gol
+       Quota: 1.4 | 1⭐ | EV: -0.2%
+       
+
+[16/41] ⚽ La Liga
+    Girona 1-0 Deportivo Alavés
+    📅 2025-11-08 13:00:00 | Risultato: 1
+
+    ❌ LOSS: 2 - Vittoria Trasferta
+       Quota: 3.56 | 5⭐ | EV: 53.1%
+       Risultato: 1-0 (1)
+
+    ✅ WIN: Multigoal Casa 1-2 - Girona
+       Quota: 1.73 | 3⭐ | EV: 0.0%
+       Gol casa: 1 (1-2)
+
+    ❌ LOSS: Over 1.5 - Più di 1.5 gol
+       Quota: 1.37 | 1⭐ | EV: -2.4%
+       
+
+[17/41] ⚽ La Liga
+    Sevilla 1-0 Osasuna
+    📅 2025-11-08 15:15:00 | Risultato: 1
+
+    ❌ LOSS: 2 - Vittoria Trasferta
+       Quota: 3.4 | 5⭐ | EV: 19.0%
+       Risultato: 1-0 (1)
+
+    ✅ WIN: Multigoal Casa 1-2 - Sevilla
+       Quota: 1.71 | 3⭐ | EV: 0.0%
+       Gol casa: 1 (1-2)
+
+    ✅ WIN: No Goal - Almeno Una Non Segna
+       Quota: 1.95 | 1⭐ | EV: -4.1%
+       BTTS: No
+
+[18/41] ⚽ La Liga
+    Atlético Madrid 3-1 Levante
+    📅 2025-11-08 17:30:00 | Risultato: 1
+
+    ❌ LOSS: 2 - Vittoria Trasferta
+       Quota: 12.04 | 5⭐ | EV: 176.9%
+       Risultato: 3-1 (1)
+
+    ❌ LOSS: Under 3.5 - Meno di 4 gol
+       Quota: 1.75 | 4⭐ | EV: 13.3%
+       
+
+    ✅ WIN: Goal - Entrambe Segnano
+       Quota: 1.94 | 4⭐ | EV: 13.2%
+       BTTS: Sì
+
+[19/41] ⚽ La Liga
+    Espanyol 0-2 Villarreal
+    📅 2025-11-08 20:00:00 | Risultato: 2
+
+    ❌ LOSS: X - Pareggio
+       Quota: 3.43 | 3⭐ | EV: 6.3%
+       Risultato: 0-2 (2)
+
+    ❌ LOSS: Over 2.5 - Più di 2.5 gol
+       Quota: 1.89 | 2⭐ | EV: 4.7%
+       
+
+    ❌ LOSS: Multigoal Casa 1-2 - Espanyol
+       Quota: 1.7 | 3⭐ | EV: 0.0%
+       Gol casa: 0 (1-2)
+
+[20/41] ⚽ Bundesliga
+    Paris 0-1 Rennes
+    📅 2025-11-07 19:45:00 | Risultato: 2
+
+    ✅ WIN: 2 - Vittoria Trasferta
+       Quota: 3.03 | 5⭐ | EV: 21.2%
+       Risultato: 0-1 (2)
+
+    ✅ WIN: No Goal - Almeno Una Non Segna
+       Quota: 2.32 | 2⭐ | EV: 0.3%
+       BTTS: No
+
+    ❌ LOSS: Multigoal Casa 1-2 - Paris
+       Quota: 1.7 | 3⭐ | EV: 0.0%
+       Gol casa: 0 (1-2)
+
+[21/41] ⚽ Bundesliga
+    Olympique Marseille 3-0 Brest
+    📅 2025-11-08 16:00:00 | Risultato: 1
+
+    ❌ LOSS: 2 - Vittoria Trasferta
+       Quota: 6.04 | 5⭐ | EV: 63.1%
+       Risultato: 3-0 (1)
+
+    ❌ LOSS: Under 3.5 - Meno di 4 gol
+       Quota: 1.52 | 3⭐ | EV: 5.2%
+       
+
+    ❌ LOSS: Multigoal Casa 1-2 - Olympique Marseille
+       Quota: 1.72 | 3⭐ | EV: 0.0%
+       Gol casa: 3 (1-2)
+
+[22/41] ⚽ Bundesliga
+    Le Havre 1-1 Nantes
+    📅 2025-11-08 18:00:00 | Risultato: X
+
+    ❌ LOSS: 2 - Vittoria Trasferta
+       Quota: 4.52 | 5⭐ | EV: 22.0%
+       Risultato: 1-1 (X)
+
+    ❌ LOSS: Under 2.5 - Meno di 3 gol
+       Quota: 1.71 | 2⭐ | EV: 1.9%
+       
+
+    ✅ WIN: Multigoal Casa 1-2 - Le Havre
+       Quota: 1.73 | 3⭐ | EV: 0.0%
+       Gol casa: 1 (1-2)
+
+[23/41] ⚽ Bundesliga
+    Monaco 1-4 Lens
+    📅 2025-11-08 20:05:00 | Risultato: 2
+
+    ❌ LOSS: X - Pareggio
+       Quota: 3.8 | 5⭐ | EV: 17.8%
+       Risultato: 1-4 (2)
+
+    ❌ LOSS: Under 3.5 - Meno di 4 gol
+       Quota: 1.62 | 2⭐ | EV: 1.2%
+       
+
+    ✅ WIN: Multigoal Casa 1-2 - Monaco
+       Quota: 1.71 | 3⭐ | EV: 0.0%
+       Gol casa: 1 (1-2)
+
+[24/41] ⚽ Champions League
+    Napoli 0-0 Eintracht Frankfurt
+    📅 2025-11-04 17:45:00 | Risultato: X
+
+    ❌ LOSS: Under 2.5 - Meno di 3 gol
+       Quota: 2.27 | 5⭐ | EV: 29.3%
+       
+
+    ❌ LOSS: 2 - Vittoria Trasferta
+       Quota: 5.36 | 5⭐ | EV: 23.3%
+       Risultato: 0-0 (X)
+
+    ✅ WIN: No Goal - Almeno Una Non Segna
+       Quota: 2.14 | 5⭐ | EV: 15.3%
+       BTTS: No
+
+[25/41] ⚽ Champions League
+    Slavia Praha 0-3 Arsenal
+    📅 2025-11-04 17:45:00 | Risultato: 2
+
+    ❌ LOSS: X - Pareggio
+       Quota: 6.33 | 5⭐ | EV: 96.2%
+       Risultato: 0-3 (2)
+
+    ❌ LOSS: Goal - Entrambe Segnano
+       Quota: 2.44 | 5⭐ | EV: 37.1%
+       BTTS: No
+
+    ❌ LOSS: Over 2.5 - Più di 2.5 gol
+       Quota: 1.7 | 3⭐ | EV: 5.4%
+       
+
+[26/41] ⚽ Champions League
+    Atlético Madrid 3-1 Union Saint-Gilloise
+    📅 2025-11-04 20:00:00 | Risultato: 1
+
+    ❌ LOSS: 2 - Vittoria Trasferta
+       Quota: 10.65 | 5⭐ | EV: 123.6%
+       Risultato: 3-1 (1)
+
+    ✅ WIN: Goal - Entrambe Segnano
+       Quota: 1.93 | 5⭐ | EV: 29.6%
+       BTTS: Sì
+
+    ❌ LOSS: Over 3.5 - Più di 3.5 gol
+       Quota: 2.28 | 3⭐ | EV: 5.6%
+       
+
+[27/41] ⚽ Champions League
+    Bodø / Glimt 0-1 Monaco
+    📅 2025-11-04 20:00:00 | Risultato: 2
+
+    ❌ LOSS: Combo: 2 + Over 2.5
+       Quota: 4.199999999999999 | 3⭐ | EV: 8.4%
+       0-1, Tot: 1
+
+    ❌ LOSS: Multigoal Casa 1-2 - Bodø / Glimt
+       Quota: 1.8 | 3⭐ | EV: 0.0%
+       Gol casa: 0 (1-2)
+
+    ❌ LOSS: X2 - Pareggio o Trasferta
+       Quota: 1.63 | 1⭐ | EV: -2.2%
+       Risultato: 0-1 (2)
+
+[28/41] ⚽ Champions League
+    Juventus 1-1 Sporting CP
+    📅 2025-11-04 20:00:00 | Risultato: X
+
+    ✅ WIN: X - Pareggio
+       Quota: 3.51 | 5⭐ | EV: 29.9%
+       Risultato: 1-1 (X)
+
+    ❌ LOSS: Over 2.5 - Più di 2.5 gol
+       Quota: 1.83 | 2⭐ | EV: 1.4%
+       
+
+    ✅ WIN: Multigoal Casa 1-2 - Juventus
+       Quota: 1.7 | 3⭐ | EV: 0.0%
+       Gol casa: 1 (1-2)
+
+[29/41] ⚽ Champions League
+    Liverpool 1-0 Real Madrid
+    📅 2025-11-04 20:00:00 | Risultato: 1
+
+    ❌ LOSS: 2 - Vittoria Trasferta
+       Quota: 2.66 | 5⭐ | EV: 27.7%
+       Risultato: 1-0 (1)
+
+    ❌ LOSS: Combo: 2 + Over 2.5
+       Quota: 3.99 | 4⭐ | EV: 14.7%
+       1-0, Tot: 1
+
+    ❌ LOSS: Under 3.5 - Meno di 4 gol
+       Quota: 1.81 | 4⭐ | EV: 13.1%
+       
+
+[30/41] ⚽ Champions League
+    Olympiacos F.C. 1-1 PSV
+    📅 2025-11-04 20:00:00 | Risultato: X
+
+    ✅ WIN: X - Pareggio
+       Quota: 3.62 | 2⭐ | EV: 1.4%
+       Risultato: 1-1 (X)
+
+    ✅ WIN: Multigoal Casa 1-2 - Olympiacos F.C.
+       Quota: 1.72 | 3⭐ | EV: 0.0%
+       Gol casa: 1 (1-2)
+
+    ❌ LOSS: Over 2.5 - Più di 2.5 gol
+       Quota: 1.51 | 1⭐ | EV: -3.3%
+       
+
+[31/41] ⚽ Champions League
+    Paris Saint Germain 1-2 FC Bayern München
+    📅 2025-11-04 20:00:00 | Risultato: 2
+
+    ✅ WIN: 2 - Vittoria Trasferta
+       Quota: 2.73 | 5⭐ | EV: 52.9%
+       Risultato: 1-2 (2)
+
+    ✅ WIN: Combo: 2 + Over 2.5
+       Quota: 4.095 | 5⭐ | EV: 37.3%
+       1-2, Tot: 3
+
+    ❌ LOSS: Under 3.5 - Meno di 4 gol
+       Quota: 1.79 | 4⭐ | EV: 11.8%
+       
+
+[32/41] ⚽ Champions League
+    Tottenham Hotspur 4-0 FC København
+    📅 2025-11-04 20:00:00 | Risultato: 1
+
+    ❌ LOSS: 2 - Vittoria Trasferta
+       Quota: 6.55 | 5⭐ | EV: 162.0%
+       Risultato: 4-0 (1)
+
+    ❌ LOSS: Combo: 2 + Over 2.5
+       Quota: 9.825 | 5⭐ | EV: 117.7%
+       4-0, Tot: 4
+
+    ❌ LOSS: Goal - Entrambe Segnano
+       Quota: 1.91 | 4⭐ | EV: 11.8%
+       BTTS: No
+
+[33/41] ⚽ Champions League
+    Pafos FC 1-0 Villarreal
+    📅 2025-11-05 17:45:00 | Risultato: 1
+
+    ✅ WIN: 1 - Vittoria Casa
+       Quota: 9.93 | 5⭐ | EV: 227.7%
+       Risultato: 1-0 (1)
+
+    ❌ LOSS: Under 2.5 - Meno di 3 gol
+       Quota: 2.28 | 5⭐ | EV: 35.9%
+       
+
+    ✅ WIN: No Goal - Almeno Una Non Segna
+       Quota: 1.75 | 2⭐ | EV: 0.1%
+       BTTS: No
+
+[34/41] ⚽ Champions League
+    Qarabağ 2-2 Chelsea
+    📅 2025-11-05 17:45:00 | Risultato: X
+
+    ❌ LOSS: 1 - Vittoria Casa
+       Quota: 8.19 | 5⭐ | EV: 80.2%
+       Risultato: 2-2 (X)
+
+    ❌ LOSS: Under 3.5 - Meno di 4 gol
+       Quota: 1.71 | 3⭐ | EV: 6.8%
+       
+
+    ✅ WIN: Multigoal Casa 1-2 - Qarabağ
+       Quota: 1.88 | 3⭐ | EV: 0.0%
+       Gol casa: 2 (1-2)
+
+[35/41] ⚽ Champions League
+    Ajax 0-3 Galatasaray
+    📅 2025-11-05 20:00:00 | Risultato: 2
+
+    ✅ WIN: No Goal - Almeno Una Non Segna
+       Quota: 2.57 | 4⭐ | EV: 10.2%
+       BTTS: No
+
+    ❌ LOSS: Under 3.5 - Meno di 4 gol
+       Quota: 1.61 | 3⭐ | EV: 7.8%
+       
+
+    ✅ WIN: 2 - Vittoria Trasferta
+       Quota: 2.09 | 3⭐ | EV: 6.6%
+       Risultato: 0-3 (2)
+
+[36/41] ⚽ Champions League
+    Benfica 0-1 Bayer 04 Leverkusen
+    📅 2025-11-05 20:00:00 | Risultato: 2
+
+    ✅ WIN: 2 - Vittoria Trasferta
+       Quota: 3.78 | 5⭐ | EV: 32.3%
+       Risultato: 0-1 (2)
+
+    ❌ LOSS: Under 3.5 - Meno di 4 gol
+       Quota: 1.5 | 3⭐ | EV: 7.1%
+       
+
+    ✅ WIN: No Goal - Almeno Una Non Segna
+       Quota: 2.32 | 2⭐ | EV: 4.8%
+       BTTS: No
+
+[37/41] ⚽ Champions League
+    Club Brugge 3-3 FC Barcelona
+    📅 2025-11-05 20:00:00 | Risultato: X
+
+    ✅ WIN: X - Pareggio
+       Quota: 4.98 | 5⭐ | EV: 54.4%
+       Risultato: 3-3 (X)
+
+    ❌ LOSS: Under 3.5 - Meno di 4 gol
+       Quota: 2.03 | 5⭐ | EV: 22.3%
+       
+
+    ❌ LOSS: Multigoal Casa 1-2 - Club Brugge
+       Quota: 1.71 | 3⭐ | EV: 0.0%
+       Gol casa: 3 (1-2)
+
+[38/41] ⚽ Champions League
+    Inter 2-1 Kairat
+    📅 2025-11-05 20:00:00 | Risultato: 1
+
+    ❌ LOSS: X - Pareggio
+       Quota: 18.27 | 5⭐ | EV: 320.2%
+       Risultato: 2-1 (1)
+
+    ❌ LOSS: Under 3.5 - Meno di 4 gol
+       Quota: 2.57 | 5⭐ | EV: 77.8%
+       
+
+    ✅ WIN: Goal - Entrambe Segnano
+       Quota: 3.22 | 5⭐ | EV: 53.3%
+       BTTS: Sì
+
+[39/41] ⚽ Champions League
+    Manchester City 4-1 Borussia Dortmund
+    📅 2025-11-05 20:00:00 | Risultato: 1
+
+    ❌ LOSS: 2 - Vittoria Trasferta
+       Quota: 7.37 | 5⭐ | EV: 76.9%
+       Risultato: 4-1 (1)
+
+    ❌ LOSS: Under 2.5 - Meno di 3 gol
+       Quota: 2.76 | 5⭐ | EV: 43.1%
+       
+
+    ❌ LOSS: No Goal - Almeno Una Non Segna
+       Quota: 2.16 | 2⭐ | EV: 4.1%
+       BTTS: Sì
+
+[40/41] ⚽ Champions League
+    Newcastle United 2-0 Athletic Club
+    📅 2025-11-05 20:00:00 | Risultato: 1
+
+    ❌ LOSS: 2 - Vittoria Trasferta
+       Quota: 9.05 | 5⭐ | EV: 117.2%
+       Risultato: 2-0 (1)
+
+    ❌ LOSS: Goal - Entrambe Segnano
+       Quota: 2.09 | 5⭐ | EV: 16.4%
+       BTTS: No
+
+    ✅ WIN: Multigoal Casa 1-2 - Newcastle United
+       Quota: 1.77 | 3⭐ | EV: 0.0%
+       Gol casa: 2 (1-2)
+
+[41/41] ⚽ Champions League
+    Olympique Marseille 0-1 Atalanta
+    📅 2025-11-05 20:00:00 | Risultato: 2
+
+    ✅ WIN: 2 - Vittoria Trasferta
+       Quota: 3.06 | 5⭐ | EV: 40.8%
+       Risultato: 0-1 (2)
+
+    ✅ WIN: No Goal - Almeno Una Non Segna
+       Quota: 2.31 | 3⭐ | EV: 8.0%
+       BTTS: No
+
+    ❌ LOSS: Combo: 2 + Over 2.5
+       Quota: 4.59 | 3⭐ | EV: 6.9%
+       0-1, Tot: 1
+
+
+NaN
+📊 REPORT FINALE - BACKTEST RACCOMANDAZIONI
+NaN
+
+📈 STATISTICHE GENERALI:
+   Partite recuperate: 41
+   Partite analizzate: 41
+   Partite saltate: 0
+   Raccomandazioni testate: 123
+   Vincenti: 48 (39.0%)
+   Perdenti: 75 (61.0%)
+
+💰 ROI (Return on Investment):
+   Profitto totale: +2.28 unità
+   ROI: +1.86%
+   ✅ PROFITTO
+
+🏆 PERFORMANCE PER COMPETIZIONE:
+   Premier League: 8W/10L (44.4% win rate)
+   Serie A: 11W/10L (52.4% win rate)
+   La Liga: 5W/13L (27.8% win rate)
+   Bundesliga: 4W/8L (33.3% win rate)
+   Champions League: 20W/34L (37.0% win rate)
+
+📋 PERFORMANCE PER TIPO DI SCOMMESSA:
+   Risultato (1X2): 15W/25L (37.5%)
+   Over/Under: 0W/33L (0.0%)
+   Multigoal: 14W/8L (63.6%)
+   Goal/NoGoal: 18W/4L (81.8%)
+   Combo: 1W/4L (20.0%)
+   Doppia Chance: 0W/1L (0.0%)
+
+⭐ PERFORMANCE PER VALUE RATING:
+   1⭐: 3W/6L (33.3% win rate)
+   2⭐: 8W/12L (40.0% win rate)
+   3⭐: 20W/20L (50.0% win rate)
+   4⭐: 3W/8L (27.3% win rate)
+   5⭐: 14W/29L (32.6% win rate)
+
+📊 PERFORMANCE PER EXPECTED VALUE:
+   Positive (EV > 5%): 23W/49L (31.9%)
+   Neutral (EV ±5%): 25W/26L (49.0%)
+
+🏆 TOP 10 RACCOMANDAZIONI VINCENTI:
+   1. Champions League: Pafos FC vs Villarreal (1-0)
+      1 - Vittoria Casa @ 9.93 → 5⭐ | EV: 227.7%
+      Profitto: +8.93 unità
+
+   2. Champions League: Club Brugge vs FC Barcelona (3-3)
+      X - Pareggio @ 4.98 → 5⭐ | EV: 54.4%
+      Profitto: +3.98 unità
+
+   3. Premier League: Sunderland vs Arsenal (2-2)
+      X - Pareggio @ 4.33 → 5⭐ | EV: 16.9%
+      Profitto: +3.33 unità
+
+   4. Serie A: Juventus vs Torino (0-0)
+      X - Pareggio @ 4.1 → 3⭐ | EV: 6.6%
+      Profitto: +3.10 unità
+
+   5. Champions League: Paris Saint Germain vs FC Bayern München (1-2)
+      Combo: 2 + Over 2.5 @ 4.095 → 5⭐ | EV: 37.3%
+      Profitto: +3.09 unità
+
+   6. Serie A: Como vs Cagliari (0-0)
+      X - Pareggio @ 4.01 → 5⭐ | EV: 60.4%
+      Profitto: +3.01 unità
+
+   7. Serie A: Parma vs Milan (2-2)
+      X - Pareggio @ 4.01 → 2⭐ | EV: 0.2%
+      Profitto: +3.01 unità
+
+   8. Champions League: Benfica vs Bayer 04 Leverkusen (0-1)
+      2 - Vittoria Trasferta @ 3.78 → 5⭐ | EV: 32.3%
+      Profitto: +2.78 unità
+
+   9. Champions League: Olympiacos F.C. vs PSV (1-1)
+      X - Pareggio @ 3.62 → 2⭐ | EV: 1.4%
+      Profitto: +2.62 unità
+
+   10. Champions League: Juventus vs Sporting CP (1-1)
+      X - Pareggio @ 3.51 → 5⭐ | EV: 29.9%
+      Profitto: +2.51 unità
+
+
+💸 TOP 5 PERDITE PIÙ PESANTI:
+   1. Premier League: Sunderland vs Everton (1-1)
+      1 - Vittoria Casa @ 3.17 → 2⭐ | EV: 4.6%
+      Perdita: -1.00 unità
+
+   2. Premier League: Sunderland vs Everton (1-1)
+      Over 1.5 - Più di 1.5 gol @ 1.43 → 2⭐ | EV: 1.9%
+      Perdita: -1.00 unità
+
+   3. Premier League: Tottenham Hotspur vs Manchester United (2-2)
+      Over 2.5 - Più di 2.5 gol @ 1.68 → 2⭐ | EV: 0.6%
+      Perdita: -1.00 unità
+
+   4. Premier League: Tottenham Hotspur vs Manchester United (2-2)
+      2 - Vittoria Trasferta @ 2.39 → 2⭐ | EV: 0.4%
+      Perdita: -1.00 unità
+
+   5. Premier League: West Ham United vs Burnley (3-2)
+      2 - Vittoria Trasferta @ 4.01 → 4⭐ | EV: 12.3%
+      Perdita: -1.00 unità
+
+NaN
+✅ Analisi completata!
+NaN
+

@@ -418,7 +418,7 @@ export default function ProfessionalPredictionCard({ predictions }: Props) {
                   </div>
                   <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
                     <p className="text-gray-400 text-xs font-semibold mb-1">U 0.5</p>
-                    <p className="text-xl font-black text-blue-400">{pred.overUnder.under05.toFixed(1)}%</p>
+                    <p className="text-xl font-black text-blue-400">{((1 - pred.overUnder.over05) * 100).toFixed(1)}%</p>
                   </div>
                 </div>
               )}
@@ -432,7 +432,7 @@ export default function ProfessionalPredictionCard({ predictions }: Props) {
                   </div>
                   <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
                     <p className="text-gray-400 text-xs font-semibold mb-1">U 1.5</p>
-                    <p className="text-xl font-black text-blue-400">{pred.overUnder.under15.toFixed(1)}%</p>
+                    <p className="text-xl font-black text-blue-400">{((1 - pred.overUnder.over15) * 100).toFixed(1)}%</p>
                   </div>
                 </div>
               )}
@@ -446,7 +446,7 @@ export default function ProfessionalPredictionCard({ predictions }: Props) {
                   </div>
                   <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
                     <p className="text-gray-400 text-xs font-semibold mb-1">U 2.5</p>
-                    <p className="text-xl font-black text-blue-400">{pred.overUnder.under25.toFixed(1)}%</p>
+                    <p className="text-xl font-black text-blue-400">{((1 - pred.overUnder.over25) * 100).toFixed(1)}%</p>
                   </div>
                 </div>
               )}
@@ -460,7 +460,7 @@ export default function ProfessionalPredictionCard({ predictions }: Props) {
                   </div>
                   <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
                     <p className="text-gray-400 text-xs font-semibold mb-1">U 3.5</p>
-                    <p className="text-xl font-black text-blue-400">{pred.overUnder.under35.toFixed(1)}%</p>
+                    <p className="text-xl font-black text-blue-400">{((1 - pred.overUnder.over35) * 100).toFixed(1)}%</p>
                   </div>
                 </div>
               )}
@@ -468,8 +468,8 @@ export default function ProfessionalPredictionCard({ predictions }: Props) {
           </div>
         )}
 
-        {/* Exact Goals */}
-        {pred.exactGoals && (
+        {/* Exact Goals - Commentato perché non disponibile nel tipo */}
+        {/* {pred.exactGoals && (
           <div className="glass-card p-6">
             <h3 className="text-xl font-bold text-white mb-6 flex items-center">
               <span className="text-2xl mr-3">🎯</span>
@@ -479,7 +479,7 @@ export default function ProfessionalPredictionCard({ predictions }: Props) {
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
               {['0', '1', '2', '3', '4', '5', '6'].map((goals) => {
                 const prob = pred.exactGoals?.[goals];
-                if (prob === undefined || prob < 0.01) return null; // Nascondi probabilità < 1%
+                if (prob === undefined || prob < 0.01) return null;
                 
                 return (
                   <div key={goals} className="p-4 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-xl border border-indigo-500/20 hover:border-indigo-500/40 transition-all">
@@ -490,7 +490,7 @@ export default function ProfessionalPredictionCard({ predictions }: Props) {
               })}
             </div>
           </div>
-        )}
+        )} */}
 
         {/* BTTS */}
         {pred.btts && (
