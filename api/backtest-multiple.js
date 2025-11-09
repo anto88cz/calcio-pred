@@ -58,17 +58,18 @@ async function generateMultipleForDate(date) {
     // Limita a 20 partite per velocizzare (prendi le prime 20)
     const limitedFixtures = finishedFixtures.slice(0, 20);
     
-    // 2. Per ogni partita, carica raccomandazioni IN PARALLELO con Promise.all
+    // 2. Per ogni partita, carica raccomandazioni
     const allEvents = [];
     
-    const fixturePromises = limitedFixtures.map(async (fixture) => {
+    for (const fixture of limitedFixtures) {
+      
       const homeTeamId = fixture.homeTeam?.id;
       const awayTeamId = fixture.awayTeam?.id;
       const leagueId = fixture.league?.id;
       const seasonId = fixture.league?.season;
       
       if (!homeTeamId || !awayTeamId || !leagueId || !seasonId) {
-        return null;
+        continue;
       }
       
       try {
@@ -87,7 +88,7 @@ async function generateMultipleForDate(date) {
         });
         
         if (!recsResponse.ok) {
-          return null;
+          continue;
         }
         
         const recsData = await recsResponse.json();
@@ -112,22 +113,17 @@ async function generateMultipleForDate(date) {
             }))
             .sort((a, b) => b.score - a.score)[0];
           
-          return {
+          allEvents.push({
             fixture,
             recommendation: bestRec,
             actualResult: `${fixture.score.home}-${fixture.score.away}` // formato "2-1"
-          };
+          });
         }
-        return null;
       } catch (error) {
         // Salta partite con errori
-        return null;
+        continue;
       }
-    });
-    
-    // Aspetta tutte le Promise e filtra i risultati nulli
-    const fixtureResults = await Promise.all(fixturePromises);
-    allEvents.push(...fixtureResults.filter(event => event !== null));
+    }
     
     if (allEvents.length === 0) {
       console.log(`  ⚠️  Nessun evento con raccomandazioni valide`);
