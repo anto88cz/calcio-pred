@@ -8,7 +8,7 @@ import type { MatchPrediction, MarketCalibration, InjuriesAnalysis } from '@/typ
 import { ENV } from '@/config/env';
 import BetSlipModal, { BetSlipConfig } from '@/components/BetSlipModal';
 import BetSlipResult from '@/components/BetSlipResult';
-import SystemBetGenerator from '@/components/SystemBetGenerator';
+import BettingSystemsWrapper from '@/components/BettingSystemsWrapper';
 import { generateAutomaticBetSlip, formatBetSlipForClipboard, type MatchData, type GeneratedBetSlip } from '@/lib/bet-slip-generator';
 
 const queryClient = new QueryClient({
@@ -99,7 +99,8 @@ function MainApp() {
   const [success, setSuccess] = useState<string | null>(null);
   
   // NUOVI STATI per filtri
-  const [selectedDate, setSelectedDate] = useState<string>('today');
+  const [startDate, setStartDate] = useState<string>(moment().format('YYYY-MM-DD')); // Data inizio
+  const [endDate, setEndDate] = useState<string>(moment().format('YYYY-MM-DD')); // Data fine
   const [selectedLeague, setSelectedLeague] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   
@@ -112,35 +113,18 @@ function MainApp() {
   // STATO per generatore sistemi
   const [showSystemGenerator, setShowSystemGenerator] = useState(false);
 
-  // Genera date per i prossimi 3 giorni
-  const getDateOptions = () => {
-    const dates = [];
-    const today = new Date();
-    
-    for (let i = 0; i < 4; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      const dateStr = date.toISOString().split('T')[0];
-      const label = i === 0 ? 'Oggi' : i === 1 ? 'Domani' : date.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
-      dates.push({ value: i === 0 ? 'today' : dateStr, label });
-    }
-    return dates;
-  };
-
-  // Carica partite quando cambia la data
+  // Carica partite quando cambiano le date
   useEffect(() => {
     loadMatches();
-  }, [selectedDate]);
+  }, [startDate, endDate]);
 
   const loadMatches = async () => {
     setLoadingMatches(true);
     setError(null);
     
     try {
-      // Use new Sportsmonks endpoints
-      const endpoint = selectedDate === 'today' 
-        ? `${ENV.API_URL}/api/fixtures/sm/today`
-        : `${ENV.API_URL}/api/fixtures/sm/range?startDate=${selectedDate}&endDate=${selectedDate}`;
+      // Usa range endpoint con startDate e endDate
+      const endpoint = `${ENV.API_URL}/api/fixtures/sm/range?startDate=${startDate}&endDate=${endDate}`;
       
       const response = await fetch(endpoint);
       const data = await response.json();
@@ -394,7 +378,6 @@ function MainApp() {
 
   // Get available leagues
   const availableLeagues = ['all', ...Object.keys(groupedMatches)];
-  const dateOptions = getDateOptions();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900">
@@ -428,19 +411,29 @@ function MainApp() {
       <main className="max-w-7xl mx-auto px-4 py-6">
         {/* Filtri Compatti Dark */}
         <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg border border-gray-700 p-4 mb-6 shadow-lg">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Filtro Data */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Data Inizio */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">📅 Data</label>
-              <select
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
+              <label className="block text-sm font-medium text-gray-300 mb-2">📅 Data Da</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                max={endDate}
                 className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {dateOptions.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
+              />
+            </div>
+
+            {/* Data Fine */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">📅 Data A</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                min={startDate}
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
             </div>
 
             {/* Filtro Campionato */}
@@ -459,6 +452,63 @@ function MainApp() {
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* Quick Date Shortcuts */}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              onClick={() => {
+                const today = moment().format('YYYY-MM-DD');
+                setStartDate(today);
+                setEndDate(today);
+              }}
+              className="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors"
+            >
+              Oggi
+            </button>
+            <button
+              onClick={() => {
+                const tomorrow = moment().add(1, 'day').format('YYYY-MM-DD');
+                setStartDate(tomorrow);
+                setEndDate(tomorrow);
+              }}
+              className="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors"
+            >
+              Domani
+            </button>
+            <button
+              onClick={() => {
+                const today = moment().format('YYYY-MM-DD');
+                const nextWeek = moment().add(7, 'days').format('YYYY-MM-DD');
+                setStartDate(today);
+                setEndDate(nextWeek);
+              }}
+              className="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors"
+            >
+              Prossimi 7 giorni
+            </button>
+            <button
+              onClick={() => {
+                const lastWeek = moment().subtract(7, 'days').format('YYYY-MM-DD');
+                const today = moment().format('YYYY-MM-DD');
+                setStartDate(lastWeek);
+                setEndDate(today);
+              }}
+              className="px-3 py-1 text-xs bg-blue-700 hover:bg-blue-600 text-white rounded-lg transition-colors"
+            >
+              📊 Ultimi 7 giorni
+            </button>
+            <button
+              onClick={() => {
+                const lastMonth = moment().subtract(30, 'days').format('YYYY-MM-DD');
+                const today = moment().format('YYYY-MM-DD');
+                setStartDate(lastMonth);
+                setEndDate(today);
+              }}
+              className="px-3 py-1 text-xs bg-blue-700 hover:bg-blue-600 text-white rounded-lg transition-colors"
+            >
+              📊 Ultimo Mese
+            </button>
           </div>
 
           {/* Campo di Ricerca */}
@@ -562,25 +612,19 @@ function MainApp() {
         {/* Generatore Sistemi Integrali */}
         {showSystemGenerator && matches.length > 0 && (
           <div className="mb-6">
-            <SystemBetGenerator matches={matches
-              // Filtra solo partite non ancora iniziate
-              .filter(m => {
-                if (!m.date) return false;
-                const now = moment().tz('Europe/Rome');
-                const matchTime = moment.utc(m.date).tz('Europe/Rome');
-                return matchTime.isAfter(now);
-              })
+            <BettingSystemsWrapper matches={matches
+              .filter(m => m.date && m.homeTeamId && m.awayTeamId && m.seasonId && m.leagueId)
               .map(m => ({
                 id: m.id,
                 homeTeam: m.homeTeam,
                 awayTeam: m.awayTeam,
                 time: m.time,
-                date: m.date,
+                date: m.date!,
                 competition: m.competition,
-                homeTeamId: m.homeTeamId,
-                awayTeamId: m.awayTeamId,
-                seasonId: m.seasonId,
-                leagueId: m.leagueId,
+                homeTeamId: m.homeTeamId!,
+                awayTeamId: m.awayTeamId!,
+                seasonId: m.seasonId!,
+                leagueId: m.leagueId!,
                 recommendations: [] // Verrà popolato dinamicamente
               }))
             } />
