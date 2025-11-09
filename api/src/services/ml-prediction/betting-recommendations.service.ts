@@ -16,6 +16,15 @@ export interface BettingRecommendation {
   modelProbability: number; // Probabilità del nostro modello (%)
   expectedValue: number; // Valore atteso: (modelProb * odds) - 1
   reason: string; // Spiegazione del suggerimento
+  stakeMultiplier?: number; // Moltiplicatore stake intelligente (0.5x - 3.0x)
+  kellyStake?: number; // Kelly Criterion stake percentage (0-1)
+  kellyRecommendation?: 'HIGH' | 'MEDIUM' | 'LOW' | 'AVOID'; // Kelly-based recommendation
+}
+
+export interface FilteredRecommendation {
+  recommendation: BettingRecommendation;
+  filterReason: string; // Motivo per cui è stata scartata
+  filterType: 'ev_too_low' | 'confidence_too_low' | 'rating_too_low' | 'league_specific' | 'type_disabled';
 }
 
 export interface BettingRecommendations {
@@ -25,6 +34,7 @@ export interface BettingRecommendations {
   recommendations: BettingRecommendation[];
   topPicks: BettingRecommendation[]; // Top 3 suggerimenti
   lastUpdated: Date;
+  filteredRecommendations?: FilteredRecommendation[]; // Raccomandazioni scartate (per debug/analisi)
 }
 
 export interface MLPredictionData {
@@ -68,6 +78,53 @@ export interface OddsData {
   btts_no?: number;  // Both Teams To Score - No
 }
 
+/**
+ * Kelly Criterion Calculator per stake sizing ottimale
+ */
+class KellyCriterion {
+  /**
+   * Calcola la frazione ottimale del bankroll da scommettere
+   * @param modelProbability Probabilità stimata dal nostro modello (0-1)
+   * @param odds Quote del bookmaker 
+   * @param kellyFraction Frazione conservativa del Kelly (default: 0.5)
+   * @returns Frazione del bankroll da scommettere (0-1)
+   */
+  static calculateKellyStake(
+    modelProbability: number,
+    odds: number,
+    kellyFraction: number = 0.5
+  ): number {
+    // Formula Kelly: f = (bp - q) / b
+    const b = odds - 1; // Net odds
+    const p = modelProbability;
+    const q = 1 - p;
+    
+    const kellyF = (b * p - q) / b;
+    
+    // Se Kelly negativo, non scommettere
+    if (kellyF <= 0) return 0;
+    
+    // Applica frazione conservativa
+    const fractionalKelly = kellyF * kellyFraction;
+    
+    // Limiti di sicurezza rigorosi
+    const minStake = 0.005; // Min 0.5% del bankroll
+    const maxStake = 0.15;  // Max 15% del bankroll
+    
+    return Math.max(minStake, Math.min(maxStake, fractionalKelly));
+  }
+  
+  /**
+   * Determina la raccomandazione Kelly basata sulla frazione calcolata
+   */
+  static getKellyRecommendation(kellyStake: number): 'HIGH' | 'MEDIUM' | 'LOW' | 'AVOID' {
+    if (kellyStake >= 0.10) return 'HIGH';    // >= 10%
+    if (kellyStake >= 0.05) return 'MEDIUM';  // 5-10%
+    if (kellyStake >= 0.01) return 'LOW';     // 1-5%
+    return 'AVOID';                           // < 1%
+  }
+}
+
 export class BettingRecommendationsService {
   
   /**
@@ -78,7 +135,8 @@ export class BettingRecommendationsService {
     homeTeam: string,
     awayTeam: string,
     mlData: MLPredictionData,
-    odds: OddsData
+    odds: OddsData,
+    league?: string
   ): BettingRecommendations {
     const recommendations: BettingRecommendation[] = [];
     
@@ -88,46 +146,250 @@ export class BettingRecommendationsService {
     // 2. DOPPIA CHANCE
     recommendations.push(...this.generateDoubleChanceRecommendations(mlData, odds, homeTeam, awayTeam));
     
-    // 3. GOAL/NO GOAL (BTTS)
-    recommendations.push(...this.generateGoalNoGoalRecommendations(mlData, odds, homeTeam, awayTeam));
+    // 3. GOAL/NO GOAL (BTTS) - DISABILITATO (25% WR non accettabile)
+    // recommendations.push(...this.generateGoalNoGoalRecommendations(mlData, odds, homeTeam, awayTeam));
     
     // 4. OVER/UNDER
     recommendations.push(...this.generateOverUnderRecommendations(mlData, odds));
     
-    // 5. MULTIGOAL
-    recommendations.push(...this.generateMultigoalRecommendations(mlData, odds, homeTeam, awayTeam));
-    
-    // 6. COMBO (combinazioni)
-    recommendations.push(...this.generateComboRecommendations(mlData, odds, homeTeam, awayTeam));
-    
-    // OTTIMIZZAZIONE: Filtra in base ai risultati backtest
-    // - Goal/NoGoal: 81.8% win rate → priorità massima
-    // - Multigoal: 63.6% win rate → mantieni
-    // - Over/Under: 0% win rate → ELIMINA completamente
-    // - Combo: 20% win rate → solo se EV > 20%
-    // - Risultato: 37.5% → solo se EV > 5%
+    // 5. MULTIGOAL - DISABILITATO (39.9% win rate nel backtest)
+    // recommendations.push(...this.generateMultigoalRecommendations(mlData, odds, homeTeam, awayTeam));
+
+    // 6. COMBO - DISABILITATO (33.3% win rate nel backtest)
+    // recommendations.push(...this.generateComboRecommendations(mlData, odds, homeTeam, awayTeam));
+
+    // OTTIMIZZAZIONE ESTREMA: Focus solo su tipi performanti
+    // - Risultato 1X2: 58.3% win rate → PRIORITÀ MASSIMA
+    // - Doppia Chance: 52.8% win rate → PRIORITÀ ALTA  
+    // - Goal/NoGoal: 48.4% win rate → MANTENERE con soglie più alte
+    // - Multigoal: 39.9% win rate → DISABILITATO
+    // - Over/Under: RIABILITATO con filtri ULTRA-CONSERVATIVI
+    // - Combo: 33.3% win rate → DISABILITATO
+
+    // 🚀 FILTRI OTTIMIZZATI BASATI SU BACKTEST ANALYSIS
+    // Array per tracciare raccomandazioni scartate
+    const filteredOut: FilteredRecommendation[] = [];
     
     let validRecommendations = recommendations.filter(r => {
-      // ELIMINA tutti gli Over/Under (0% win rate)
-      if (r.type === 'over_under') return false;
-      
-      // Goal/NoGoal: sempre validi se confidence > 40%
-      if (r.type === 'goal_nogoal' && r.confidence >= 40) return true;
-      
-      // Multigoal: sempre validi se confidence > 45%
-      if (r.type === 'multigoal' && r.confidence >= 45) return true;
-      
-      // Combo: solo se EV eccezionale > 20%
-      if (r.type === 'combo' && r.expectedValue > 0.20) return true;
-      
-      // Risultato/Doppia: solo se EV > 5% o rating >= 3
-      if ((r.type === 'result' || r.type === 'double_chance') && 
-          (r.expectedValue > 0.05 || r.valueRating >= 3)) return true;
-      
+      // ⚡ OVER/UNDER: Filtri bilanciati per generare più raccomandazioni
+      // EV > 7%, confidence > 50%, max 3⭐
+      if (r.type === 'over_under') {
+        const passes = r.expectedValue > 0.07 && r.valueRating <= 3 && r.confidence >= 50;
+        if (!passes) {
+          let reason = 'Over/Under scartato: ';
+          if (r.expectedValue <= 0.07) reason += `EV troppo basso (${(r.expectedValue * 100).toFixed(2)}% <= 7%)`;
+          else if (r.valueRating > 3) reason += `Rating troppo basso (${r.valueRating}⭐ > 3⭐)`;
+          else if (r.confidence < 50) reason += `Confidence troppo bassa (${r.confidence.toFixed(1)}% < 50%)`;
+          
+          filteredOut.push({
+            recommendation: r,
+            filterReason: reason,
+            filterType: r.expectedValue <= 0.07 ? 'ev_too_low' : r.confidence < 50 ? 'confidence_too_low' : 'rating_too_low'
+          });
+        }
+        return passes;
+      }
+
+      // ELIMINA tutti i Multigoal (39.9% win rate - troppo basso)
+      if (r.type === 'multigoal') {
+        filteredOut.push({
+          recommendation: r,
+          filterReason: 'Multigoal disabilitato: 39.9% WR nel backtest',
+          filterType: 'type_disabled'
+        });
+        return false;
+      }
+
+      // ELIMINA tutti i Combo (33.3% win rate - troppo basso)  
+      if (r.type === 'combo') {
+        filteredOut.push({
+          recommendation: r,
+          filterReason: 'Combo disabilitato: 33.3% WR nel backtest',
+          filterType: 'type_disabled'
+        });
+        return false;
+      }
+
+      // 🚨 ELIMINA 4⭐ ratings (ROI -47.4% nel backtest)
+      if (r.valueRating === 4) {
+        filteredOut.push({
+          recommendation: r,
+          filterReason: '4⭐ scartato: ROI -47.4% nel backtest',
+          filterType: 'rating_too_low'
+        });
+        return false;
+      }
+
+      // 🚨 ELIMINA TUTTE LE 5⭐: Win rate 37.5% troppo basso
+      // ACCURACY FIX: Rimuovi completamente predictions overconfident
+      if (r.valueRating === 5) {
+        filteredOut.push({
+          recommendation: r,
+          filterReason: '5⭐ scartato: WR 37.5% troppo basso',
+          filterType: 'rating_too_low'
+        });
+        return false;
+      }
+
+      // 🎯 DOPPIA CHANCE: Priorità massima (ROI +26.3%)
+      if (r.type === 'double_chance') {
+        // ⚡ CHAMPIONS LEAGUE TACTICAL FIX: Soglie ancora più alte (66.7% → 75%+ win rate)
+        const isChampions = league?.includes('Champions') || league?.includes('Europa') || false;
+        if (isChampions) {
+          // Champions: SOLO confidence >70% (gestisce complessità tattica)
+          const passes = r.expectedValue > 0.15 && r.confidence >= 70;
+          if (!passes) {
+            filteredOut.push({
+              recommendation: r,
+              filterReason: `Double Chance Champions scartato: EV ${(r.expectedValue * 100).toFixed(2)}% (min 15%) o Confidence ${r.confidence.toFixed(1)}% (min 70%)`,
+              filterType: r.expectedValue <= 0.15 ? 'ev_too_low' : 'confidence_too_low'
+            });
+          }
+          return passes;
+        }
+        
+        // 📉 LA LIGA ACCURACY FIX: Soglie ULTRA-conservative (60% → 75%+ win rate)
+        const isLaLiga = league?.includes('La Liga') || false;
+        if (isLaLiga) {
+          // La Liga: SOLO confidence >75% E EV >30% (fix imprevedibilità)
+          const passes = r.expectedValue > 0.30 && r.confidence >= 75;
+          if (!passes) {
+            filteredOut.push({
+              recommendation: r,
+              filterReason: `Double Chance La Liga scartato: EV ${(r.expectedValue * 100).toFixed(2)}% (min 30%) o Confidence ${r.confidence.toFixed(1)}% (min 75%)`,
+              filterType: r.expectedValue <= 0.30 ? 'ev_too_low' : 'confidence_too_low'
+            });
+          }
+          return passes;
+        }
+        // Altri campionati: soglia normale
+        const passes = r.expectedValue > 0.03 && r.confidence >= 40;
+        if (!passes) {
+          filteredOut.push({
+            recommendation: r,
+            filterReason: `Double Chance scartato: EV ${(r.expectedValue * 100).toFixed(2)}% (min 3%) o Confidence ${r.confidence.toFixed(1)}% (min 40%)`,
+            filterType: r.expectedValue <= 0.03 ? 'ev_too_low' : 'confidence_too_low'
+          });
+        }
+        return passes;
+      }
+
+      // 🏆 RISULTATO 1X2: Focus su 2⭐ e 3⭐ (ROI +48% e +26%)
+      if (r.type === 'result') {
+        // ⚡ CHAMPIONS LEAGUE ACCURACY FIX: Evita risultati fissi (66.7% → skip)
+        const isChampions = league?.includes('Champions') || league?.includes('Europa') || false;
+        if (isChampions) {
+          filteredOut.push({
+            recommendation: r,
+            filterReason: 'Risultato 1X2 scartato: Champions/Europa League troppo complesse',
+            filterType: 'league_specific'
+          });
+          return false; // Skip tutti i risultati 1X2 in Champions (troppo complessi)
+        }
+        // Altri campionati: Solo 2⭐ e 3⭐ per risultati
+        const passes = (r.valueRating === 2 || r.valueRating === 3) && 
+               r.expectedValue > 0.05 && r.confidence >= 45;
+        if (!passes) {
+          let reason = 'Risultato 1X2 scartato: ';
+          if (r.valueRating !== 2 && r.valueRating !== 3) reason += `Rating ${r.valueRating}⭐ (solo 2⭐ e 3⭐ ammessi)`;
+          else if (r.expectedValue <= 0.05) reason += `EV ${(r.expectedValue * 100).toFixed(2)}% (min 5%)`;
+          else if (r.confidence < 45) reason += `Confidence ${r.confidence.toFixed(1)}% (min 45%)`;
+          
+          filteredOut.push({
+            recommendation: r,
+            filterReason: reason,
+            filterType: r.expectedValue <= 0.05 ? 'ev_too_low' : r.confidence < 45 ? 'confidence_too_low' : 'rating_too_low'
+          });
+        }
+        return passes;
+      }
+
+      // ⚡ GOAL/NOGOAL: DISABILITATO (25% WR nel backtest mensile)
+      // Richiede revisione completa dell'algoritmo prima di riabilitare
+      if (r.type === 'goal_nogoal') {
+        filteredOut.push({
+          recommendation: r,
+          filterReason: 'Goal/NoGoal disabilitato: 25% WR nel backtest mensile - richiede revisione algoritmo',
+          filterType: 'type_disabled'
+        });
+        return false; // Blocca completamente Goal/NoGoal
+      }
+
+      // Tipo non riconosciuto o non gestito
+      filteredOut.push({
+        recommendation: r,
+        filterReason: `Tipo ${r.type} non gestito dai filtri attuali`,
+        filterType: 'type_disabled'
+      });
       return false;
     });
-    
-    // FILTRO ANTI-CONTRADDIZIONI
+
+    // 🧮 OTTIMIZZAZIONE AVANZATA CON KELLY CRITERION
+    validRecommendations = validRecommendations.map(r => {
+      let adjustedConfidence = r.confidence;
+      let stakeMultiplier = 1.0;
+      
+      // 🚀 BOOST MASSIMO per pattern PERFETTI identificati nel backtest
+      if (r.valueRating === 2) {
+        adjustedConfidence += 20; // +20% per 2⭐ (100% win rate!)
+        stakeMultiplier = 2.0;    // Stake doppio per 2⭐
+      }
+      
+      if (r.valueRating === 3) {
+        adjustedConfidence += 8;  // +8% per 3⭐ (63.3% win rate)
+        // Boost extra per campionati top
+        if (league?.includes('Bundesliga')) {
+          adjustedConfidence += 10; // +10% extra Bundesliga (81.8% win rate)
+          stakeMultiplier = 1.5;
+        }
+        if (league?.includes('Serie A')) {
+          adjustedConfidence += 7;  // +7% extra Serie A (76.5% win rate)  
+          stakeMultiplier = 1.3;
+        }
+      }
+      
+      // 🎯 Boost per tipo scommessa vincente
+      if (r.type === 'double_chance') {
+        adjustedConfidence += 10; // +10% Doppia Chance (68.6% win rate)
+        stakeMultiplier *= 1.2;
+      }
+      
+      if (r.type === 'result') {
+        adjustedConfidence += 15; // +15% Risultato 1X2 (80% win rate)
+        stakeMultiplier *= 1.4;
+      }
+      
+      // ⚡ EV super-alto
+      if (r.expectedValue > 0.50) {
+        adjustedConfidence += 15;    // +15% EV molto alto
+        stakeMultiplier *= 1.4;
+      }
+      if (r.expectedValue > 0.75) {
+        adjustedConfidence += 20;    // +20% EV estremo
+        stakeMultiplier *= 1.6;
+      }
+      
+      // 🚨 Penalità per pattern rischiosi
+      if (r.type === 'goal_nogoal') adjustedConfidence -= 5; // Goal/NoGoal meno performante
+      if (league?.includes('La Liga') && r.expectedValue < 0.20) adjustedConfidence -= 8;
+      if (r.valueRating === 5 && r.expectedValue < 0.75) adjustedConfidence -= 10;
+      
+      // 🎯 KELLY CRITERION CALCULATION
+      const modelProbability = Math.max(0.01, Math.min(0.99, r.modelProbability));
+      const kellyStake = KellyCriterion.calculateKellyStake(modelProbability, r.odds, 0.5);
+      const kellyRecommendation = KellyCriterion.getKellyRecommendation(kellyStake);
+      
+      // 🚀 COMBINA Kelly con stake multiplier esistente
+      const finalStakeMultiplier = Math.min(3.0, stakeMultiplier * (kellyStake * 10)); // Kelly amplifica multiplier
+      
+      return {
+        ...r,
+        confidence: Math.max(0, Math.min(100, adjustedConfidence)),
+        stakeMultiplier: Math.max(0.1, finalStakeMultiplier),
+        kellyStake: kellyStake,
+        kellyRecommendation: kellyRecommendation
+      };
+    });    // FILTRO ANTI-CONTRADDIZIONI
     validRecommendations = this.filterConflictingRecommendations(validRecommendations);
     
     // Ordina per valore atteso decrescente
@@ -136,12 +398,39 @@ export class BettingRecommendationsService {
     // Top 3 picks - diversificati per categoria
     const topPicks = this.selectDiversifiedTopPicks(validRecommendations, 3);
     
+    // 📊 Log raccomandazioni filtrate (solo in development)
+    if (process.env.NODE_ENV !== 'production' && filteredOut.length > 0) {
+      console.log(`\n🔍 [${homeTeam} vs ${awayTeam}] Raccomandazioni scartate: ${filteredOut.length}`);
+      
+      // Raggruppa per motivo
+      const byType: { [key: string]: number } = {};
+      filteredOut.forEach(f => {
+        byType[f.filterType] = (byType[f.filterType] || 0) + 1;
+      });
+      
+      console.log('   Breakdown:');
+      Object.entries(byType).forEach(([type, count]) => {
+        console.log(`   - ${type}: ${count}`);
+      });
+      
+      // Mostra alcune raccomandazioni scartate con dettagli
+      console.log('\n   Top 3 scartate per EV:');
+      filteredOut
+        .filter(f => f.filterType === 'ev_too_low')
+        .sort((a, b) => b.recommendation.expectedValue - a.recommendation.expectedValue)
+        .slice(0, 3)
+        .forEach(f => {
+          console.log(`   - ${f.recommendation.name}: EV ${(f.recommendation.expectedValue * 100).toFixed(2)}%, Conf ${f.recommendation.confidence.toFixed(1)}%, ${f.recommendation.valueRating}⭐`);
+        });
+    }
+    
     return {
       fixtureId,
       homeTeam,
       awayTeam,
       recommendations: validRecommendations,
       topPicks,
+      filteredRecommendations: filteredOut, // Aggiungi raccomandazioni scartate
       lastUpdated: new Date(),
     };
   }
@@ -421,6 +710,12 @@ export class BettingRecommendationsService {
   
   /**
    * Genera raccomandazioni Goal/No Goal (BTTS - Both Teams To Score)
+   * 
+   * FILTRI OTTIMIZZATI dopo backtest:
+   * - EV minimo: 15% (aumentato da 12%)
+   * - Confidence minima: 60% (aumentato da 50%)
+   * - Max 3⭐ rating
+   * - Soglia probabilità: 35% (lowered dopo 81.8% WR discovery)
    */
   private generateGoalNoGoalRecommendations(
     mlData: MLPredictionData,
@@ -487,14 +782,231 @@ export class BettingRecommendationsService {
   
   /**
    * Genera raccomandazioni Over/Under
-   * DISABILITATO: 0% win rate nel backtest
+   * RIABILITATO con filtri BILANCIATI
+   * 
+   * Logica:
+   * - Over 2.5: xG totale > 2.5 E confidence > 50%
+   * - Under 2.5: xG totale < 2.2 E confidence > 50%
+   * - Over 1.5: xG totale > 2.0 E confidence > 60%
+   * - EV minimo: 7% (abbassato da 9.5% per aumentare copertura)
    */
   private generateOverUnderRecommendations(
-    _mlData: MLPredictionData,
-    _odds: OddsData
+    mlData: MLPredictionData,
+    odds: OddsData
   ): BettingRecommendation[] {
-    // ELIMINATO: Over/Under ha avuto 0% di successo nel backtest
-    return [];
+    const recs: BettingRecommendation[] = [];
+    
+    const expectedHome = mlData.expectedScore.home;
+    const expectedAway = mlData.expectedScore.away;
+    const totalExpected = expectedHome + expectedAway;
+    
+    // Helper: calcola probabilità usando Poisson per totale gol
+    const poissonProb = (lambda: number, k: number) => {
+      return Math.exp(-lambda) * Math.pow(lambda, k) / this.factorial(k);
+    };
+    
+    // === OVER/UNDER 0.5 ===
+    if (odds.over05 && odds.under05) {
+      // Over 0.5 (almeno 1 gol)
+      const probUnder05 = poissonProb(totalExpected, 0); // P(0 gol)
+      const probOver05 = 1 - probUnder05;
+      
+      // Over 0.5: solo se xG > 2.0 (molto probabile almeno 1 gol)
+      if (probOver05 > 0.85 && totalExpected > 2.0) {
+        const ev = this.calculateEV(probOver05, odds.over05);
+        if (ev > 0.15) {
+          recs.push({
+            id: 'over_05',
+            type: 'over_under',
+            name: 'Over 0.5 - Almeno 1 Gol',
+            description: 'Almeno un gol nella partita',
+            prediction: 'OVER 0.5',
+            confidence: Math.round(probOver05 * 100),
+            valueRating: this.calculateValueRating(ev),
+            odds: odds.over05,
+            impliedProbability: this.oddsToProb(odds.over05),
+            modelProbability: probOver05 * 100,
+            expectedValue: ev,
+            reason: `xG totale molto alto (${totalExpected.toFixed(2)}) - almeno 1 gol quasi certo`,
+          });
+        }
+      }
+      
+      // Under 0.5 (0-0): solo casi estremi con xG < 1.0
+      if (probUnder05 > 0.20 && totalExpected < 1.0) {
+        const ev = this.calculateEV(probUnder05, odds.under05);
+        if (ev > 0.20) { // Soglia EV più alta per Under 0.5 (più rischioso)
+          recs.push({
+            id: 'under_05',
+            type: 'over_under',
+            name: 'Under 0.5 - Nessun Gol',
+            description: 'Partita finisce 0-0',
+            prediction: 'UNDER 0.5',
+            confidence: Math.round(probUnder05 * 100),
+            valueRating: this.calculateValueRating(ev),
+            odds: odds.under05,
+            impliedProbability: this.oddsToProb(odds.under05),
+            modelProbability: probUnder05 * 100,
+            expectedValue: ev,
+            reason: `xG totale bassissimo (${totalExpected.toFixed(2)}) - possibile 0-0`,
+          });
+        }
+      }
+    }
+    
+    // === OVER/UNDER 1.5 ===
+    if (odds.over15 && odds.under15) {
+      // P(0 gol) + P(1 gol)
+      const probUnder15 = poissonProb(totalExpected, 0) + poissonProb(totalExpected, 1);
+      const probOver15 = 1 - probUnder15;
+      
+      // Over 1.5: almeno 2 gol - xG > 2.0 (bilanciato)
+      if (probOver15 > 0.60 && totalExpected > 2.0) {
+        const ev = this.calculateEV(probOver15, odds.over15);
+        if (ev > 0.07) { // Abbassato da 9.5% a 7%
+          recs.push({
+            id: 'over_15',
+            type: 'over_under',
+            name: 'Over 1.5 - Almeno 2 Gol',
+            description: 'Almeno 2 gol nella partita',
+            prediction: 'OVER 1.5',
+            confidence: Math.round(probOver15 * 100),
+            valueRating: this.calculateValueRating(ev),
+            odds: odds.over15,
+            impliedProbability: this.oddsToProb(odds.over15),
+            modelProbability: probOver15 * 100,
+            expectedValue: ev,
+            reason: `xG totale alto (${totalExpected.toFixed(2)}) - almeno 2 gol molto probabili`,
+          });
+        }
+      }
+      
+      // Under 1.5: max 1 gol - solo se xG < 1.5
+      if (probUnder15 > 0.50 && totalExpected < 1.5) {
+        const ev = this.calculateEV(probUnder15, odds.under15);
+        if (ev > 0.15) {
+          recs.push({
+            id: 'under_15',
+            type: 'over_under',
+            name: 'Under 1.5 - Max 1 Gol',
+            description: 'Massimo 1 gol nella partita',
+            prediction: 'UNDER 1.5',
+            confidence: Math.round(probUnder15 * 100),
+            valueRating: this.calculateValueRating(ev),
+            odds: odds.under15,
+            impliedProbability: this.oddsToProb(odds.under15),
+            modelProbability: probUnder15 * 100,
+            expectedValue: ev,
+            reason: `xG totale basso (${totalExpected.toFixed(2)}) - pochi gol attesi`,
+          });
+        }
+      }
+    }
+    
+    // === OVER/UNDER 2.5 === (IL PIÙ COMUNE)
+    if (odds.over25 && odds.under25) {
+      // P(0) + P(1) + P(2)
+      const probUnder25 = poissonProb(totalExpected, 0) + 
+                         poissonProb(totalExpected, 1) + 
+                         poissonProb(totalExpected, 2);
+      const probOver25 = 1 - probUnder25;
+      
+      // Over 2.5: almeno 3 gol - xG > 2.5 (bilanciato)
+      if (probOver25 > 0.50 && totalExpected > 2.5) {
+        const ev = this.calculateEV(probOver25, odds.over25);
+        if (ev > 0.07) { // Abbassato da 9.5% a 7%
+          recs.push({
+            id: 'over_25',
+            type: 'over_under',
+            name: 'Over 2.5 - Almeno 3 Gol',
+            description: 'Almeno 3 gol nella partita',
+            prediction: 'OVER 2.5',
+            confidence: Math.round(probOver25 * 100),
+            valueRating: this.calculateValueRating(ev),
+            odds: odds.over25,
+            impliedProbability: this.oddsToProb(odds.over25),
+            modelProbability: probOver25 * 100,
+            expectedValue: ev,
+            reason: `xG totale molto alto (${totalExpected.toFixed(2)}) - partita con molti gol attesi`,
+          });
+        }
+      }
+      
+      // Under 2.5: max 2 gol - xG < 2.2 (bilanciato)
+      if (probUnder25 > 0.50 && totalExpected < 2.2) {
+        const ev = this.calculateEV(probUnder25, odds.under25);
+        if (ev > 0.07) { // Abbassato da 9.5% a 7%
+          recs.push({
+            id: 'under_25',
+            type: 'over_under',
+            name: 'Under 2.5 - Max 2 Gol',
+            description: 'Massimo 2 gol nella partita',
+            prediction: 'UNDER 2.5',
+            confidence: Math.round(probUnder25 * 100),
+            valueRating: this.calculateValueRating(ev),
+            odds: odds.under25,
+            impliedProbability: this.oddsToProb(odds.under25),
+            modelProbability: probUnder25 * 100,
+            expectedValue: ev,
+            reason: `xG totale basso (${totalExpected.toFixed(2)}) - partita con pochi gol`,
+          });
+        }
+      }
+    }
+    
+    // === OVER/UNDER 3.5 ===
+    if (odds.over35 && odds.under35) {
+      // P(0) + P(1) + P(2) + P(3)
+      const probUnder35 = poissonProb(totalExpected, 0) + 
+                         poissonProb(totalExpected, 1) + 
+                         poissonProb(totalExpected, 2) +
+                         poissonProb(totalExpected, 3);
+      const probOver35 = 1 - probUnder35;
+      
+      // Over 3.5: almeno 4 gol - SOLO SE xG > 3.8 (molto raro)
+      if (probOver35 > 0.45 && totalExpected > 3.8) {
+        const ev = this.calculateEV(probOver35, odds.over35);
+        if (ev > 0.20) { // Soglia EV più alta per Over 3.5
+          recs.push({
+            id: 'over_35',
+            type: 'over_under',
+            name: 'Over 3.5 - Almeno 4 Gol',
+            description: 'Almeno 4 gol nella partita',
+            prediction: 'OVER 3.5',
+            confidence: Math.round(probOver35 * 100),
+            valueRating: this.calculateValueRating(ev),
+            odds: odds.over35,
+            impliedProbability: this.oddsToProb(odds.over35),
+            modelProbability: probOver35 * 100,
+            expectedValue: ev,
+            reason: `xG totale altissimo (${totalExpected.toFixed(2)}) - partita a valanga di gol`,
+          });
+        }
+      }
+      
+      // Under 3.5: max 3 gol - solo se xG < 2.5
+      if (probUnder35 > 0.60 && totalExpected < 2.5) {
+        const ev = this.calculateEV(probUnder35, odds.under35);
+        if (ev > 0.15) {
+          recs.push({
+            id: 'under_35',
+            type: 'over_under',
+            name: 'Under 3.5 - Max 3 Gol',
+            description: 'Massimo 3 gol nella partita',
+            prediction: 'UNDER 3.5',
+            confidence: Math.round(probUnder35 * 100),
+            valueRating: this.calculateValueRating(ev),
+            odds: odds.under35,
+            impliedProbability: this.oddsToProb(odds.under35),
+            modelProbability: probUnder35 * 100,
+            expectedValue: ev,
+            reason: `xG totale contenuto (${totalExpected.toFixed(2)}) - massimo 3 gol`,
+          });
+        }
+      }
+    }
+    
+    return recs;
   }
   
   /**
