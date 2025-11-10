@@ -48,11 +48,17 @@ export class MLDataFetcherService {
 
   /**
    * Recupera lo storico dei testa a testa tra due squadre
-   * @param referenceDate Data di riferimento (per backtest). Se non specificata, usa data attuale
    */
-  async getHeadToHeadData(homeTeamId: number, awayTeamId: number, referenceDate?: string): Promise<HeadToHeadMatch[]> {
+  async getHeadToHeadData(
+    homeTeamId: number, 
+    awayTeamId: number,
+    maxDate?: Date // 🆕 Optional: max date for backtesting
+  ): Promise<HeadToHeadMatch[]> {
     try {
       console.log(`📊 Fetching head-to-head data for teams ${homeTeamId} vs ${awayTeamId}`);
+      if (maxDate) {
+        console.log(`   🕐 BACKTEST MODE: maxDate=${maxDate.toISOString().split('T')[0]}`);
+      }
       
       const response = await this.client.get<any>(
         `/fixtures/head-to-head/${homeTeamId}/${awayTeamId}`,
@@ -66,13 +72,18 @@ export class MLDataFetcherService {
         return [];
       }
 
-      // Determina la data di cutoff per il backtest
-      const cutoffDate = referenceDate ? new Date(referenceDate) : new Date();
-
       const matches: HeadToHeadMatch[] = response.data
         .filter((fixture: any) => {
-          const fixtureDate = new Date(fixture.starting_at);
-          return fixture.state_id === 5 && fixtureDate < cutoffDate; // Solo partite finite E prima della data di riferimento
+          // Solo partite finite
+          if (fixture.state_id !== 5) return false;
+          
+          // 🆕 BACKTEST FIX: Filtra per maxDate
+          if (maxDate) {
+            const fixtureDate = new Date(fixture.starting_at);
+            if (fixtureDate >= maxDate) return false;
+          }
+          
+          return true;
         })
         .map((fixture: any) => {
           const homeParticipant = fixture.participants?.find((p: any) => p.meta?.location === 'home');
@@ -108,17 +119,10 @@ export class MLDataFetcherService {
 
   /**
    * Recupera le statistiche di una squadra per una stagione specifica
-   * @param referenceDate Data di riferimento (per backtest). Se non specificata, usa data attuale
    */
-  async getTeamSeasonStats(teamId: number, seasonId: number, leagueId?: number, referenceDate?: string): Promise<TeamSeasonStats | null> {
+  async getTeamSeasonStats(teamId: number, seasonId: number, leagueId?: number): Promise<TeamSeasonStats | null> {
     try {
       console.log(`📊 Fetching season stats for team ${teamId}, season ${seasonId}, league ${leagueId}`);
-      
-      // NOTA: Le statistiche stagionali sono aggregate e potrebbero includere partite future alla data di riferimento
-      // Questo è un potenziale data leakage per il backtest
-      if (referenceDate) {
-        console.warn(`⚠️  POTENTIAL DATA LEAKAGE: Season stats may include matches after ${referenceDate}`);
-      }
       
       // Usa l'endpoint statistics/seasons/teams/{teamId} con filtro per seasonId
       // NON filtrare per leagueId perché può causare problemi con l'API
@@ -316,11 +320,18 @@ export class MLDataFetcherService {
 
   /**
    * Recupera le ultime N partite di una squadra con dati xG
-   * @param referenceDate Data di riferimento (per backtest). Se non specificata, usa data attuale
    */
-  async getTeamRecentXGMatches(teamId: number, seasonId: number, limit: number = 10, referenceDate?: string): Promise<FixtureXGData[]> {
+  async getTeamRecentXGMatches(
+    teamId: number, 
+    seasonId: number, 
+    limit: number = 10,
+    maxDate?: Date // 🆕 Optional: max date for backtesting
+  ): Promise<FixtureXGData[]> {
     try {
       console.log(`📊 Fetching recent xG matches for team ${teamId}, season ${seasonId}`);
+      if (maxDate) {
+        console.log(`   🕐 BACKTEST MODE: maxDate=${maxDate.toISOString().split('T')[0]}`);
+      }
       
       // Step 1: Ottieni le ultime partite del team (senza xG, che non è supportato in /teams)
       const response = await this.client.get<any>(
@@ -339,15 +350,19 @@ export class MLDataFetcherService {
 
       const matches = response.data.latest;
       
-      // Determina la data di cutoff per il backtest
-      const cutoffDate = referenceDate ? new Date(referenceDate) : new Date();
-      
-      // Filtra solo partite finite (state_id === 5) E prima della data di riferimento
-      // NOTA: non filtriamo per season_id perché vogliamo gli xG più recenti indipendentemente dalla competizione
+      // Filtra solo partite finite (state_id === 5) + maxDate filter
       const finishedMatches = matches
         .filter((fixture: any) => {
-          const fixtureDate = new Date(fixture.starting_at);
-          return fixture.state_id === 5 && fixtureDate < cutoffDate;
+          // Solo partite finite
+          if (fixture.state_id !== 5) return false;
+          
+          // 🆕 BACKTEST FIX: Filtra per maxDate
+          if (maxDate) {
+            const fixtureDate = new Date(fixture.starting_at);
+            if (fixtureDate >= maxDate) return false;
+          }
+          
+          return true;
         })
         .sort((a: any, b: any) => new Date(b.starting_at).getTime() - new Date(a.starting_at).getTime())
         .slice(0, limit);

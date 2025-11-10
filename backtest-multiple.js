@@ -1,18 +1,19 @@
 const moment = require('moment-timezone');
 
-// Configurazione
-const API_URL = process.env.API_URL || 'http://localhost:3000';
-const INITIAL_CAPITAL = 200; // €200 iniziali
-const STAKE_PERCENTAGE = 0.20; // 20% del capitale
-const TARGET_ODDS = 2.0; // Target quota ottimale (centro del range espanso)
-const MIN_ODDS = 1.5; // Minimo accettabile (range dinamico)
-const MAX_ODDS = 2.5; // Massimo accettabile (range dinamico espanso)
+// Configurazione OTTIMIZZATA per ROI positivo
+const API_URL = process.env.API_URL || 'http://localhost:3001';
+const INITIAL_CAPITAL = 100; // €100 iniziali
+const STAKE_PERCENTAGE = 0.05; // 🆕 5% del capitale (era 20% - troppo rischioso)
+const TARGET_ODDS = 1.8; // 🆕 Target quota ridotto (era 2.0 - con WR 53% serve ~1.88 per break-even)
+const MIN_ODDS = 1.5; // 🆕 Minimo accettabile ridotto
+const MAX_ODDS = 2.2; // 🆕 Massimo ridotto (evita multiple troppo rischiose)
+const BACKTESTING_DAYS = 61; // Ultimo mese
+const MAX_EVENTS = 2; // 🆕 Max 2 eventi per multipla (era 5 - troppo rischioso)
 
-// BACKTESTING ULTIMI 60 GIORNI - STAGIONE 2025/2026
-const BACKTESTING_DAYS = 60; // Test completo 60 giorni per validazione statistica
-const API_DELAY = 1500; // 1.5 secondi tra chiamate API (ottimizzato dopo fix data leakage)
-const FIXTURES_PER_DAY = 3; // Max 3 partite per giorno
-const DAYS_PER_BATCH = 10; // Batch ogni 10 giorni per monitoraggio
+// 🆕 FILTRI QUALITÀ per raccomandazioni
+const MIN_CONFIDENCE = 60; // Minimo 60% confidence
+const MIN_EXPECTED_VALUE = 0.10; // Minimo 10% expected value
+const MIN_VALUE_RATING = 3; // Minimo 3 stelle
 
 // Colori per console
 const colors = {
@@ -40,9 +41,7 @@ async function generateMultipleForDate(date) {
   console.log(`\n${colors.cyan}📅 Elaborazione ${date}...${colors.reset}`);
   
   try {
-    console.log(`  ⏳ Caricamento partite del ${date}...`);
-    
-    // 1. Carica partite del giorno con rate limiting
+    // 1. Carica partite del giorno
     const fixturesResponse = await fetch(`${API_URL}/api/fixtures/sm/range?startDate=${date}&endDate=${date}`);
     const fixturesData = await fixturesResponse.json();
     
@@ -52,10 +51,6 @@ async function generateMultipleForDate(date) {
     }
     
     console.log(`  ✓ ${fixturesData.fixtures.length} partite trovate`);
-    console.log(`  ⏳ Attesa ${API_DELAY/1000}s prima delle raccomandazioni...`);
-    
-    // Rate limiting OBBLIGATORIO dopo ogni chiamata API
-    await new Promise(resolve => setTimeout(resolve, API_DELAY));
     
     // Filtra solo partite finite
     const finishedFixtures = fixturesData.fixtures.filter(f => f.status === 'FT' && f.score);
@@ -66,89 +61,104 @@ async function generateMultipleForDate(date) {
       return null;
     }
     
-    // Limita drasticamente le partite per evitare rate limiting
-    const limitedFixtures = finishedFixtures.slice(0, FIXTURES_PER_DAY);
+    // Limita a 20 partite per velocizzare (prendi le prime 20)
+    const limitedFixtures = finishedFixtures.slice(0, 20);
     
-    console.log(`  🎯 Analizzando ${limitedFixtures.length} partite (max ${FIXTURES_PER_DAY})`);
-    
-    // 2. Per ogni partita, carica raccomandazioni SEQUENZIALMENTE
+    // 2. Per ogni partita, carica raccomandazioni IN CHUNKS per evitare rate limit
     const allEvents = [];
-    let processedCount = 0;
+    const chunkSize = Math.ceil(limitedFixtures.length / 3); // Dividi in 3 chunks
     
-    for (const fixture of limitedFixtures) {
-      processedCount++;
-      console.log(`  ⏳ [${processedCount}/${limitedFixtures.length}] ${fixture.homeTeam?.name} vs ${fixture.awayTeam?.name}`);
+    for (let i = 0; i < limitedFixtures.length; i += chunkSize) {
+      const chunk = limitedFixtures.slice(i, i + chunkSize);
+      console.log(`  📦 Processando chunk ${Math.floor(i / chunkSize) + 1}/3 (${chunk.length} partite)...`);
       
-      const homeTeamId = fixture.homeTeam?.id;
-      const awayTeamId = fixture.awayTeam?.id;
-      const leagueId = fixture.league?.id;
-      const seasonId = fixture.league?.season;
-      
-      if (!homeTeamId || !awayTeamId || !leagueId || !seasonId) {
-        continue;
-      }
-      
-      try {
-        const recsResponse = await fetch(`${API_URL}/api/betting-recommendations`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fixtureId: fixture.id,
-            homeTeamId,
-            awayTeamId,
-            leagueId,
-            seasonId,
-            homeTeamName: fixture.homeTeam.name,
-            awayTeamName: fixture.awayTeam.name,
-            referenceDate: date  // ← AGGIUNTO: Data di riferimento per backtest
-          })
-        });
+      const fixturePromises = chunk.map(async (fixture) => {
+        const homeTeamId = fixture.homeTeam?.id;
+        const awayTeamId = fixture.awayTeam?.id;
+        const leagueId = fixture.league?.id;
+        const seasonId = fixture.league?.season;
         
-        if (!recsResponse.ok) {
-          console.log(`    ❌ Errore HTTP ${recsResponse.status} per ${fixture.homeTeam.name} vs ${fixture.awayTeam.name}`);
-          // Rate limiting anche in caso di errore
-          await new Promise(resolve => setTimeout(resolve, API_DELAY));
-          continue;
+        if (!homeTeamId || !awayTeamId || !leagueId || !seasonId) {
+          return null;
         }
         
-        const recsData = await recsResponse.json();
-        
-        if (recsData.recommendations && recsData.recommendations.length > 0) {
-          // Normalizza confidence e expectedValue
-          const normalizedRecs = recsData.recommendations.map(rec => {
-            const confidence = (rec.confidence || 0) > 1 ? rec.confidence : (rec.confidence || 0) * 100;
-            const expectedValue = (rec.expectedValue || 0) > 1 ? rec.expectedValue : (rec.expectedValue || 0) * 100;
+        try {
+          // 🆕 BACKTEST FIX: Passa la fixture date per evitare look-ahead bias
+          const recsResponse = await fetch(`${API_URL}/api/betting-recommendations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fixtureId: fixture.id,
+              homeTeamId,
+              awayTeamId,
+              leagueId,
+              seasonId,
+              homeTeamName: fixture.homeTeam.name,
+              awayTeamName: fixture.awayTeam.name,
+              fixtureDate: fixture.date // 🆕 CRITICAL: Pass fixture date to prevent using future data
+            })
+          });
+          
+          if (!recsResponse.ok) {
+            return null;
+          }
+          
+          const recsData = await recsResponse.json();
+          
+          if (recsData.recommendations && recsData.recommendations.length > 0) {
+            // Normalizza confidence e expectedValue
+            const normalizedRecs = recsData.recommendations.map(rec => {
+              const confidence = (rec.confidence || 0) > 1 ? rec.confidence : (rec.confidence || 0) * 100;
+              const expectedValue = (rec.expectedValue || 0) > 1 ? rec.expectedValue : (rec.expectedValue || 0) * 100;
+              return {
+                ...rec,
+                confidence,
+                expectedValue
+              };
+            });
+            
+            // 🆕 FILTRA per qualità PRIMA di calcolare score
+            const qualityRecs = normalizedRecs.filter(rec => {
+              return rec.confidence >= MIN_CONFIDENCE &&
+                     rec.expectedValue >= MIN_EXPECTED_VALUE &&
+                     rec.valueRating >= MIN_VALUE_RATING;
+            });
+            
+            // Se nessuna raccomandazione passa i filtri di qualità, salta questa partita
+            if (qualityRecs.length === 0) {
+              return null;
+            }
+            
+            // Calcola score per ogni raccomandazione di qualità e prendi la migliore
+            const bestRec = qualityRecs
+              .map(rec => ({
+                ...rec,
+                score: calculateScore(rec)
+              }))
+              .sort((a, b) => b.score - a.score)[0];
+            
             return {
-              ...rec,
-              confidence,
-              expectedValue
+              fixture,
+              recommendation: bestRec,
+              actualResult: `${fixture.score.home}-${fixture.score.away}` // formato "2-1"
             };
-          });
-          
-          // Calcola score per ogni raccomandazione e prendi la migliore
-          const bestRec = normalizedRecs
-            .map(rec => ({
-              ...rec,
-              score: calculateScore(rec)
-            }))
-            .sort((a, b) => b.score - a.score)[0];
-          
-          allEvents.push({
-            fixture,
-            recommendation: bestRec,
-            actualResult: `${fixture.score.home}-${fixture.score.away}` // formato "2-1"
-          });
-          console.log(`    ✅ Raccomandazione trovata: ${bestRec.prediction} @${bestRec.odds}`);
-        } else {
-          console.log(`    ⚠️  Nessuna raccomandazione valida`);
+          }
+          return null;
+        } catch (error) {
+          // Salta partite con errori
+          return null;
         }
-      } catch (error) {
-        console.log(`    ❌ Errore: ${error.message}`);
-      }
+      });
       
-      // Rate limiting OBBLIGATORIO dopo ogni chiamata (successo o errore)
-      console.log(`    ⏳ Pausa ${API_DELAY/1000}s prima della prossima chiamata...`);
-      await new Promise(resolve => setTimeout(resolve, API_DELAY));
+      // Aspetta il chunk corrente
+      const chunkResults = await Promise.all(fixturePromises);
+      allEvents.push(...chunkResults.filter(event => event !== null));
+      
+      // Pausa tra i chunks (tranne dopo l'ultimo)
+      if (i + chunkSize < limitedFixtures.length) {
+        console.log(`  ⏳ Pausa 1 secondo prima del prossimo chunk...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
     
     if (allEvents.length === 0) {
@@ -161,106 +171,76 @@ async function generateMultipleForDate(date) {
     // 3. Ordina per score e seleziona i migliori
     allEvents.sort((a, b) => b.recommendation.score - a.recommendation.score);
     
-    // 4. STRATEGIA RANGE DINAMICO 1.5-2.0: Preferisce quote più conservative
+    // 4. STRATEGIA FLESSIBILE: Cerca di raggiungere quota target con 1 fino a MAX_EVENTS partite
     let bestMultiple = null;
-    let bestScore = -1; // Usa score invece di diff per ottimizzazione intelligente
+    let bestDiffFromTarget = Infinity;
     
-    // Prova con 1 partita sola - Preferisce eventi di alta qualità nel range
-    for (const event of allEvents) {
-      const odds = event.recommendation.odds;
-      if (odds >= MIN_ODDS && odds <= MAX_ODDS) {
-        // Score composito: favorisce quote vicine a 1.75 + qualità raccomandazione
-        const oddsScore = 1 - Math.abs(odds - TARGET_ODDS) / TARGET_ODDS; // Più vicino a 1.75 = meglio
-        const qualityScore = event.recommendation.score / 100; // Normalizza score
-        const finalScore = oddsScore * 0.6 + qualityScore * 0.4; // 60% odds, 40% qualità
-        
-        if (finalScore > bestScore) {
-          bestScore = finalScore;
-          bestMultiple = {
-            events: [event],
-            odds: odds,
-            score: finalScore
-          };
-        }
-      }
-    }
-    
-    // Prova con 2 partite - Solo se non hai trovato singoli di qualità
-    if (bestScore < 0.7) { // Solo se singolo non è eccellente
-      for (let i = 0; i < Math.min(allEvents.length, 8); i++) {
-        for (let j = i + 1; j < Math.min(allEvents.length, 12); j++) {
-          // Verifica che non siano della stessa partita
-          if (allEvents[i].fixture.id === allEvents[j].fixture.id) continue;
-          
-          const combinedOdds = allEvents[i].recommendation.odds * allEvents[j].recommendation.odds;
-          
-          if (combinedOdds >= MIN_ODDS && combinedOdds <= MAX_ODDS) {
-            // Score per multiple: penalizza rischio aggiuntivo
-            const oddsScore = 1 - Math.abs(combinedOdds - TARGET_ODDS) / TARGET_ODDS;
-            const avgQuality = (allEvents[i].recommendation.score + allEvents[j].recommendation.score) / 200;
-            const riskPenalty = 0.85; // 15% penalità per il rischio aggiunto della multipla
-            const finalScore = (oddsScore * 0.6 + avgQuality * 0.4) * riskPenalty;
-            
-            if (finalScore > bestScore) {
-              bestScore = finalScore;
+    // Genera tutte le combinazioni da 1 a MAX_EVENTS
+    for (let numEvents = 1; numEvents <= MAX_EVENTS; numEvents++) {
+      // Limita il numero di partite da considerare per evitare troppe combinazioni
+      const maxConsider = Math.min(allEvents.length, 15);
+      
+      if (numEvents === 1) {
+        // Prova con 1 partita sola (quota alta)
+        for (const event of allEvents) {
+          const odds = event.recommendation.odds;
+          if (odds >= MIN_ODDS && odds <= MAX_ODDS) {
+            const diff = Math.abs(odds - TARGET_ODDS);
+            if (diff < bestDiffFromTarget) {
+              bestDiffFromTarget = diff;
               bestMultiple = {
-                events: [allEvents[i], allEvents[j]],
-                odds: combinedOdds,
-                score: finalScore
+                events: [event],
+                odds: odds
               };
             }
           }
         }
-      }
-    }
-    
-    // Prova con 3 partite (solo se non abbiamo trovato nulla di molto buono)
-    if (bestScore < 0.6) { // Solo se non hai trovato nulla di decente
-      for (let i = 0; i < Math.min(allEvents.length, 8); i++) {
-        for (let j = i + 1; j < Math.min(allEvents.length, 10); j++) {
-          for (let k = j + 1; k < Math.min(allEvents.length, 12); k++) {
-            // Verifica che non siano della stessa partita
-            if (allEvents[i].fixture.id === allEvents[j].fixture.id ||
-                allEvents[i].fixture.id === allEvents[k].fixture.id ||
-                allEvents[j].fixture.id === allEvents[k].fixture.id) continue;
+      } else {
+        // Genera combinazioni ricorsivamente
+        const generateCombinations = (start, currentCombo, currentOdds) => {
+          if (currentCombo.length === numEvents) {
+            // Verifica che siano tutti di partite diverse
+            const fixtureIds = new Set(currentCombo.map(e => e.fixture.id));
+            if (fixtureIds.size !== currentCombo.length) return;
             
-            const combinedOdds = allEvents[i].recommendation.odds * 
-                                allEvents[j].recommendation.odds * 
-                                allEvents[k].recommendation.odds;
-            
-            if (combinedOdds >= MIN_ODDS && combinedOdds <= MAX_ODDS) {
-              // Score per triple: forte penalità per il rischio elevato
-              const oddsScore = 1 - Math.abs(combinedOdds - TARGET_ODDS) / TARGET_ODDS;
-              const avgQuality = (allEvents[i].recommendation.score + 
-                                allEvents[j].recommendation.score + 
-                                allEvents[k].recommendation.score) / 300;
-              const riskPenalty = 0.7; // 30% penalità per rischio molto alto
-              const finalScore = (oddsScore * 0.6 + avgQuality * 0.4) * riskPenalty;
-              
-              if (finalScore > bestScore) {
-                bestScore = finalScore;
+            if (currentOdds >= MIN_ODDS && currentOdds <= MAX_ODDS) {
+              const diff = Math.abs(currentOdds - TARGET_ODDS);
+              if (diff < bestDiffFromTarget) {
+                bestDiffFromTarget = diff;
                 bestMultiple = {
-                  events: [allEvents[i], allEvents[j], allEvents[k]],
-                  odds: combinedOdds,
-                  score: finalScore
+                  events: [...currentCombo],
+                  odds: currentOdds
                 };
               }
             }
+            return;
           }
-        }
+          
+          for (let i = start; i < maxConsider; i++) {
+            generateCombinations(
+              i + 1,
+              [...currentCombo, allEvents[i]],
+              currentOdds * allEvents[i].recommendation.odds
+            );
+          }
+        };
+        
+        generateCombinations(0, [], 1);
       }
+      
+      // Se abbiamo trovato una buona combinazione, non cercare con più eventi
+      if (bestDiffFromTarget < 0.2) break;
     }
     
     if (!bestMultiple) {
-      console.log(`  ⚠️  Nessuna multipla di qualità trovata nel range ${MIN_ODDS}-${MAX_ODDS}`);
+      console.log(`  ⚠️  Impossibile creare multipla con quota target ${TARGET_ODDS}`);
       return null;
     }
     
     const selectedEvents = bestMultiple.events;
     const finalOdds = bestMultiple.odds;
-    const qualityScore = bestMultiple.score;
     
-    console.log(`  ${colors.bright}📊 Multipla generata: ${selectedEvents.length} eventi, quota ${finalOdds.toFixed(2)} (score: ${(qualityScore*100).toFixed(1)}%)${colors.reset}`);
+    console.log(`  ${colors.bright}📊 Multipla generata: ${selectedEvents.length} eventi, quota ${finalOdds.toFixed(2)}${colors.reset}`);
     
     // 5. Verifica risultato di ogni evento
     const results = selectedEvents.map(event => {
@@ -376,46 +356,32 @@ async function generateMultipleForDate(date) {
 async function runBacktest() {
   console.log(`${colors.bright}${colors.blue}`);
   console.log('╔════════════════════════════════════════════════════════╗');
-  console.log('║      BACKTESTING RANGE 1.5-2.5 - TEST ESPANSO         ║');
+  console.log('║      BACKTESTING MULTIPLE - OTTIMIZZATO (v2)           ║');
   console.log('╚════════════════════════════════════════════════════════╝');
   console.log(colors.reset);
   
   console.log(`💰 Capitale iniziale: €${INITIAL_CAPITAL}`);
-  console.log(`📊 Stake per schedina: ${(STAKE_PERCENTAGE * 100)}% del capitale`);
-  console.log(`🎯 Target quota: ${TARGET_ODDS}x (range dinamico ESPANSO: ${MIN_ODDS}-${MAX_ODDS})`);
-  console.log(`🏆 Eventi per multipla: 1-3 partite (esplorando quote più alte)`);
-  console.log(`📅 Periodo: ULTIMI ${BACKTESTING_DAYS} GIORNI - VALIDAZIONE COMPLETA (Stagione 2025/2026)`);
-  console.log(`⏱️  Rate limiting: ${API_DELAY/1000}s tra ogni chiamata API`);
-  console.log(`🎯 Max partite/giorno: ${FIXTURES_PER_DAY}`);
-  console.log(`📦 Batch processing: ${DAYS_PER_BATCH} giorni per volta\n`);
+  console.log(`📊 Stake per schedina: ${(STAKE_PERCENTAGE * 100)}% del capitale (gestione conservativa)`);
+  console.log(`🎯 Target quota: ${TARGET_ODDS}x (range: ${MIN_ODDS}-${MAX_ODDS})`);
+  console.log(`🏆 Eventi per multipla: 1-${MAX_EVENTS} partite`);
+  console.log(`📅 Periodo: ultimi ${BACKTESTING_DAYS} giorni`);
+  console.log(`\n🔒 FILTRI QUALITÀ:`);
+  console.log(`   - Confidence minima: ${MIN_CONFIDENCE}%`);
+  console.log(`   - Expected Value minimo: ${(MIN_EXPECTED_VALUE * 100)}%`);
+  console.log(`   - Value Rating minimo: ${MIN_VALUE_RATING}⭐\n`);
   
   const results = [];
   let currentCapital = INITIAL_CAPITAL;
   
-  // Genera date degli ultimi 60 giorni (fino a ieri)
+  // Genera date degli ultimi 14 giorni
   const dates = [];
   for (let i = BACKTESTING_DAYS - 1; i >= 0; i--) {
-    const date = moment().subtract(i + 1, 'days').format('YYYY-MM-DD'); // +1 per escludere oggi
+    const date = moment().subtract(i, 'days').format('YYYY-MM-DD');
     dates.push(date);
   }
   
-  const startAnalysisDate = dates[0];
-  const endAnalysisDate = dates[dates.length - 1];
-  
-  console.log(`📊 Totale giorni da analizzare: ${dates.length}`);
-  console.log(`📅 Periodo effettivo: ${startAnalysisDate} → ${endAnalysisDate}`);
-  console.log(`🎯 Stima chiamate API: ~${dates.length * (1 + FIXTURES_PER_DAY)} (circa ${((dates.length * (1 + FIXTURES_PER_DAY) * API_DELAY) / 1000 / 60).toFixed(0)} minuti)`);
-  console.log(`⚡ Tempo stimato completamento: ${new Date(Date.now() + (dates.length * (1 + FIXTURES_PER_DAY) * API_DELAY)).toLocaleTimeString()}\n`);
-  
-  // Elabora ogni giorno con batch processing per monitoraggio
-  let processedDays = 0;
-  
+  // Elabora ogni giorno
   for (const date of dates) {
-    processedDays++;
-    const progress = ((processedDays / dates.length) * 100).toFixed(1);
-    
-    console.log(`\n${colors.bright}[${processedDays}/${dates.length}] Progresso: ${progress}%${colors.reset}`);
-    
     const multiple = await generateMultipleForDate(date);
     
     if (multiple) {
@@ -445,18 +411,9 @@ async function runBacktest() {
       });
     }
     
-    // Salvataggio intermedio ogni 10 giorni
-    if (processedDays % DAYS_PER_BATCH === 0) {
-      const batchWinRate = results.length > 0 ? (results.filter(r => r.won).length / results.length * 100).toFixed(1) : 0;
-      const batchProfit = currentCapital - INITIAL_CAPITAL;
-      console.log(`\n${colors.cyan}📊 BATCH REPORT (${processedDays}/${dates.length} giorni):${colors.reset}`);
-      console.log(`💰 Capitale: €${currentCapital.toFixed(2)} (${batchProfit >= 0 ? '+' : ''}€${batchProfit.toFixed(2)})`);
-      console.log(`🏆 Multiple: ${results.length} | Win Rate: ${batchWinRate}%`);
-      console.log(`⏱️  Tempo stimato rimanente: ${(((dates.length - processedDays) * (1 + FIXTURES_PER_DAY) * API_DELAY) / 1000 / 60).toFixed(0)} minuti\n`);
-    }
-    
-    // Rate limiting tra giorni
-    await new Promise(resolve => setTimeout(resolve, API_DELAY));
+    // Rate limiting - pausa di 2 secondi tra ogni giornata per evitare errore 429
+    console.log(`  ⏳ Attesa 2 secondi prima della prossima giornata...`);
+    await new Promise(resolve => setTimeout(resolve, 2000));
   }
   
   // Genera report finale

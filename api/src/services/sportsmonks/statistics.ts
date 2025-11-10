@@ -82,7 +82,7 @@ export interface MatchHistoryData {
 /**
  * Get statistics for a specific fixture
  */
-export async function getFixtureStatistics(fixtureId: number, referenceDate?: Date): Promise<MatchStatisticsData | null> {
+export async function getFixtureStatistics(fixtureId: number): Promise<MatchStatisticsData | null> {
   const cacheKey = `sportsmonks:stats:${fixtureId}`;
   
   try {
@@ -176,8 +176,8 @@ export async function getFixtureStatistics(fixtureId: number, referenceDate?: Da
  * Get expected goals data for a fixture
  * NOTE: Sportsmonks requires xG add-on package. If not available, estimates xG from shots.
  */
-export async function getExpectedGoals(fixtureId: number, referenceDate?: Date): Promise<ExpectedGoalsData | null> {
-  const stats = await getFixtureStatistics(fixtureId, referenceDate);
+export async function getExpectedGoals(fixtureId: number): Promise<ExpectedGoalsData | null> {
+  const stats = await getFixtureStatistics(fixtureId);
   
   if (!stats) {
     return {
@@ -257,7 +257,7 @@ export async function getTeamHistory(
   seasonId: number,
   limit: number = 20,
   teamName?: string, // Optional: for ID mapping
-  referenceDate?: Date // 🆕 Temporal constraint to prevent data leakage
+  maxDate?: Date // 🆕 Optional: max date for historical data (for backtesting)
 ): Promise<MatchHistoryData[]> {
   const cacheKey = `sportsmonks:history:${teamId}:${seasonId}:${limit}`;
   
@@ -305,11 +305,15 @@ export async function getTeamHistory(
     // E l'endpoint /fixtures/between ha un limite di ~90 giorni per richiesta
     // Dobbiamo fare multiple chiamate per coprire 12 mesi
     
-    const endDate = referenceDate || new Date();
-    const startDate = new Date(endDate); // 🔧 FIX: Calcola startDate DA referenceDate, non da oggi
-    startDate.setMonth(startDate.getMonth() - 12); // Vogliamo 12 mesi di dati PRIMA della referenceDate
+    // 🆕 BACKTESTING FIX: Usa maxDate se fornito (per evitare look-ahead bias)
+    const endDate = maxDate || new Date();
+    const startDate = new Date(endDate);
+    startDate.setMonth(startDate.getMonth() - 12); // Vogliamo 12 mesi di dati
     
     console.log(`📊 Fetching fixtures from ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]} for team ${sportsmonksTeamId}...`);
+    if (maxDate) {
+      console.log(`   🕐 BACKTEST MODE: Using maxDate=${maxDate.toISOString().split('T')[0]} (avoiding look-ahead bias)`);
+    }
     console.log(`⚠️ API limit: max 90 days per request, will split into multiple calls`);
     
     // Dividi in blocchi di 90 giorni (3 mesi)
@@ -436,18 +440,7 @@ export async function getTeamHistory(
     
     console.log(`🏁 Found ${finishedFixtures.length} finished matches (from ${teamFixtures.length} total team fixtures)`);
     
-    // 🆕 TEMPORAL FILTERING: Filter out matches after referenceDate to prevent data leakage
-    let temporallyFilteredFixtures = finishedFixtures;
-    if (referenceDate) {
-      temporallyFilteredFixtures = finishedFixtures.filter((f: any) => {
-        const fixtureDate = new Date(f.starting_at);
-        const isBeforeReference = fixtureDate < referenceDate;
-        return isBeforeReference;
-      });
-      console.log(`⏰ TEMPORAL FILTER: ${temporallyFilteredFixtures.length}/${finishedFixtures.length} matches before ${referenceDate.toISOString().split('T')[0]}`);
-    }
-    
-    const matchHistory = temporallyFilteredFixtures
+    const matchHistory = finishedFixtures
       .sort((a: any, b: any) => new Date(b.starting_at).getTime() - new Date(a.starting_at).getTime()) // Most recent first
       .slice(0, limit > 0 ? limit : undefined)
       .map((f: any): MatchHistoryData => {
@@ -508,8 +501,7 @@ export async function getTeamHistory(
 export async function getHeadToHead(
   homeTeamId: number,
   awayTeamId: number,
-  limit: number = 10,
-  referenceDate?: Date // 🆕 Temporal constraint to prevent data leakage
+  limit: number = 10
 ): Promise<MatchHistoryData[]> {
   const cacheKey = `sportsmonks:h2h:${homeTeamId}:${awayTeamId}:${limit}`;
   
@@ -535,20 +527,8 @@ export async function getHeadToHead(
       return [];
     }
     
-    let filteredFixtures = response.data
-      .filter((f: any) => f.state?.short === 'FT');
-    
-    // 🆕 TEMPORAL FILTERING: Filter out matches after referenceDate to prevent data leakage
-    if (referenceDate) {
-      const beforeReference = filteredFixtures.filter((f: any) => {
-        const fixtureDate = new Date(f.starting_at);
-        return fixtureDate < referenceDate;
-      });
-      console.log(`⏰ H2H TEMPORAL FILTER: ${beforeReference.length}/${filteredFixtures.length} matches before ${referenceDate.toISOString().split('T')[0]}`);
-      filteredFixtures = beforeReference;
-    }
-    
-    const fixtures = filteredFixtures
+    const fixtures = response.data
+      .filter((f: any) => f.state?.short === 'FT')
       .slice(0, limit)
       .map((f: any): MatchHistoryData => {
         const participants = f.participants || [];
@@ -601,13 +581,13 @@ export async function getTeamHistoryByVenue(
   isHome: boolean,
   limit: number = 0,
   teamName?: string, // 🆕 Team name for ID mapping
-  referenceDate?: Date // 🆕 Temporal constraint to prevent data leakage
+  maxDate?: Date // 🆕 Optional: max date for historical data (for backtesting)
 ): Promise<MatchHistoryData[]> {
   try {
     console.log(`🔍 Fetching ${isHome ? 'home' : 'away'} history for team ${teamId} (${teamName || 'no name'}), season ${seasonId}`);
     
-    // Get full team history first (pass teamName for mapping)
-    const allHistory = await getTeamHistory(teamId, seasonId, 0, teamName, referenceDate);
+    // Get full team history first (pass teamName for mapping and maxDate)
+    const allHistory = await getTeamHistory(teamId, seasonId, 0, teamName, maxDate);
     
     // Filter by venue
     const venueHistory = allHistory.filter(match => match.isHome === isHome);

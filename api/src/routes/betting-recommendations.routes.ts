@@ -12,7 +12,7 @@ const router = Router();
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { fixtureId, homeTeamId, awayTeamId, leagueId, seasonId, homeTeamName, awayTeamName, referenceDate } = req.body;
+    const { fixtureId, homeTeamId, awayTeamId, leagueId, seasonId, homeTeamName, awayTeamName, fixtureDate } = req.body;
     
     if (!fixtureId || !homeTeamId || !awayTeamId) {
       return res.status(400).json({
@@ -22,6 +22,12 @@ router.post('/', async (req: Request, res: Response) => {
     
     logger.info(`🎲 Generating betting recommendations for fixture ${fixtureId}`);
     
+    // 🆕 BACKTEST FIX: Parse fixtureDate se fornito
+    const parsedFixtureDate = fixtureDate ? new Date(fixtureDate) : undefined;
+    if (parsedFixtureDate) {
+      logger.info(`   🕐 BACKTEST MODE: fixtureDate=${parsedFixtureDate.toISOString().split('T')[0]}`);
+    }
+    
     // 1. Ottieni predizione ML
     const mlPrediction = await mlPredictionAlgorithm.predictMatch({
       fixtureId,
@@ -29,11 +35,11 @@ router.post('/', async (req: Request, res: Response) => {
       awayTeamId,
       leagueId,
       seasonId,
-      referenceDate, // ← AGGIUNTO: Passa la data di riferimento per backtest
+      fixtureDate: parsedFixtureDate, // 🆕 Pass fixture date for backtesting
     });
     
-    // 2. Fetch fixture data da Sportmonks per validazione temporale
-    logger.info(`📊 Fetching fixture data from Sportmonks for fixture ${fixtureId}`);
+    // 2. Fetch odds da Sportmonks (con include odds.bookmaker)
+    logger.info(`📊 Fetching odds from Sportmonks for fixture ${fixtureId}`);
     const sportsmonksClient = getSportsmonksClient();
     const fixtureResponse = await sportsmonksClient.get<any>(
       `/fixtures/${fixtureId}`,
@@ -42,37 +48,9 @@ router.post('/', async (req: Request, res: Response) => {
       }
     );
     
-    // 3. VALIDAZIONE TEMPORALE CRITICA: Verifica che la partita sia già finita
-    // Per backtesting: la fixture deve essere nel PASSATO rispetto alla referenceDate
-    // Per predizioni live: la fixture può essere futura ma referenceDate = oggi
-    if (referenceDate && fixtureResponse?.data?.starting_at) {
-      const fixtureDate = new Date(fixtureResponse.data.starting_at);
-      const refDate = new Date(referenceDate);
-      const now = new Date();
-      
-      // CASO 1: Fixture nel futuro rispetto a OGGI = impossibile analizzare (non ancora giocata)
-      if (fixtureDate > now) {
-        logger.warn(`🚨 TEMPORAL VIOLATION: Fixture ${fixtureId} (${fixtureDate.toISOString()}) has not been played yet`);
-        return res.status(400).json({
-          error: 'Cannot analyze fixture that has not been played yet',
-          fixtureDate: fixtureDate.toISOString(),
-          currentDate: now.toISOString()
-        });
-      }
-      
-      // CASO 2: Per BACKTESTING - verifica che non usiamo dati futuri rispetto alla referenceDate
-      // Ma la fixture DEVE essere già stata giocata (quindi nel passato rispetto a ora)
-      if (fixtureDate > refDate) {
-        logger.info(`⚠️ Backtesting: Fixture ${fixtureId} (${fixtureDate.toISOString()}) played AFTER reference date (${refDate.toISOString()}), but already finished. Analysis allowed with temporal constraints.`);
-        // NON bloccare - permetti l'analisi ma con vincoli temporali
-      }
-      
-      logger.info(`✅ Temporal validation OK: Fixture ${fixtureId} already played, analyzing with reference date ${referenceDate}`);
-    }
-    
     const odds = fixtureResponse?.data?.odds || [];
     
-    // 4. Calcola medie quote per mercati principali
+    // 3. Calcola medie quote per mercati principali
     const avgOdds = calculateAverageOdds(odds);
     
     logger.info(`💰 Average odds calculated:`, avgOdds);
