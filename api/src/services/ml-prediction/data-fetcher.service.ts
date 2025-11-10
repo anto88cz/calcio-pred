@@ -49,9 +49,16 @@ export class MLDataFetcherService {
   /**
    * Recupera lo storico dei testa a testa tra due squadre
    */
-  async getHeadToHeadData(homeTeamId: number, awayTeamId: number): Promise<HeadToHeadMatch[]> {
+  async getHeadToHeadData(
+    homeTeamId: number, 
+    awayTeamId: number,
+    maxDate?: Date // 🆕 Optional: max date for backtesting
+  ): Promise<HeadToHeadMatch[]> {
     try {
       console.log(`📊 Fetching head-to-head data for teams ${homeTeamId} vs ${awayTeamId}`);
+      if (maxDate) {
+        console.log(`   🕐 BACKTEST MODE: maxDate=${maxDate.toISOString().split('T')[0]}`);
+      }
       
       const response = await this.client.get<any>(
         `/fixtures/head-to-head/${homeTeamId}/${awayTeamId}`,
@@ -66,7 +73,18 @@ export class MLDataFetcherService {
       }
 
       const matches: HeadToHeadMatch[] = response.data
-        .filter((fixture: any) => fixture.state_id === 5) // Solo partite finite
+        .filter((fixture: any) => {
+          // Solo partite finite
+          if (fixture.state_id !== 5) return false;
+          
+          // 🆕 BACKTEST FIX: Filtra per maxDate
+          if (maxDate) {
+            const fixtureDate = new Date(fixture.starting_at);
+            if (fixtureDate >= maxDate) return false;
+          }
+          
+          return true;
+        })
         .map((fixture: any) => {
           const homeParticipant = fixture.participants?.find((p: any) => p.meta?.location === 'home');
           const awayParticipant = fixture.participants?.find((p: any) => p.meta?.location === 'away');
@@ -303,9 +321,17 @@ export class MLDataFetcherService {
   /**
    * Recupera le ultime N partite di una squadra con dati xG
    */
-  async getTeamRecentXGMatches(teamId: number, seasonId: number, limit: number = 10): Promise<FixtureXGData[]> {
+  async getTeamRecentXGMatches(
+    teamId: number, 
+    seasonId: number, 
+    limit: number = 10,
+    maxDate?: Date // 🆕 Optional: max date for backtesting
+  ): Promise<FixtureXGData[]> {
     try {
       console.log(`📊 Fetching recent xG matches for team ${teamId}, season ${seasonId}`);
+      if (maxDate) {
+        console.log(`   🕐 BACKTEST MODE: maxDate=${maxDate.toISOString().split('T')[0]}`);
+      }
       
       // Step 1: Ottieni le ultime partite del team (senza xG, che non è supportato in /teams)
       const response = await this.client.get<any>(
@@ -324,10 +350,20 @@ export class MLDataFetcherService {
 
       const matches = response.data.latest;
       
-      // Filtra solo partite finite (state_id === 5) - NOTA: non filtr iamo per season_id 
-      // perché vogliamo gli xG più recenti indipendentemente dalla competizione
+      // Filtra solo partite finite (state_id === 5) + maxDate filter
       const finishedMatches = matches
-        .filter((fixture: any) => fixture.state_id === 5)
+        .filter((fixture: any) => {
+          // Solo partite finite
+          if (fixture.state_id !== 5) return false;
+          
+          // 🆕 BACKTEST FIX: Filtra per maxDate
+          if (maxDate) {
+            const fixtureDate = new Date(fixture.starting_at);
+            if (fixtureDate >= maxDate) return false;
+          }
+          
+          return true;
+        })
         .sort((a: any, b: any) => new Date(b.starting_at).getTime() - new Date(a.starting_at).getTime())
         .slice(0, limit);
       

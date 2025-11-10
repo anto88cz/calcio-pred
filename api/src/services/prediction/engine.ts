@@ -39,6 +39,7 @@ export interface PredictionInput {
   homeTeamName?: string; // Optional for market odds fetch
   awayTeamName?: string; // Optional for market odds fetch
   leagueName?: string; // 🆕 League name for filtering and league-specific parameters
+  fixtureDate?: Date; // 🆕 Optional: fixture date for backtesting (prevents look-ahead bias)
 }
 
 export class PredictionEngine {
@@ -638,14 +639,26 @@ export class PredictionEngine {
   }> {
     logger.debug('Fetching historical data (sequential) from Sportsmonks');
 
+    // 🆕 BACKTESTING FIX: Calcola maxDate per evitare look-ahead bias
+    // Se fixtureDate è fornito, usa quello come limite superiore
+    const maxDate = input.fixtureDate ? new Date(input.fixtureDate) : undefined;
+    
+    if (maxDate) {
+      logger.info({
+        fixtureId: input.fixtureId,
+        maxDate: maxDate.toISOString().split('T')[0],
+      }, '🕐 BACKTEST MODE: Using maxDate to prevent look-ahead bias');
+    }
+
     // Fetch SEQUENZIALE (non parallelo) per rate limit
-    // 🆕 Passa teamName per il mapping ID corretto
+    // 🆕 Passa teamName per il mapping ID corretto E maxDate per backtesting
     const homeHistory = await statisticsService.getTeamHistoryByVenue(
       input.homeTeamId,
       input.season,
       true, // home
       calculationConfig.historyGames,
-      input.homeTeamName // 🆕 Pass team name for ID mapping
+      input.homeTeamName, // 🆕 Pass team name for ID mapping
+      maxDate // 🆕 Pass maxDate for backtesting
     );
 
     const awayHistory = await statisticsService.getTeamHistoryByVenue(
@@ -653,7 +666,8 @@ export class PredictionEngine {
       input.season,
       false, // away
       calculationConfig.historyGames,
-      input.awayTeamName // 🆕 Pass team name for ID mapping
+      input.awayTeamName, // 🆕 Pass team name for ID mapping
+      maxDate // 🆕 Pass maxDate for backtesting
     );
 
     // NUOVO: Popola cache xG per partite storiche (background - non blocca predizione)

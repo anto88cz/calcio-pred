@@ -256,7 +256,8 @@ export async function getTeamHistory(
   teamId: number,
   seasonId: number,
   limit: number = 20,
-  teamName?: string // Optional: for ID mapping
+  teamName?: string, // Optional: for ID mapping
+  maxDate?: Date // 🆕 Optional: max date for historical data (for backtesting)
 ): Promise<MatchHistoryData[]> {
   const cacheKey = `sportsmonks:history:${teamId}:${seasonId}:${limit}`;
   
@@ -304,11 +305,15 @@ export async function getTeamHistory(
     // E l'endpoint /fixtures/between ha un limite di ~90 giorni per richiesta
     // Dobbiamo fare multiple chiamate per coprire 12 mesi
     
-    const endDate = new Date();
-    const startDate = new Date();
+    // 🆕 BACKTESTING FIX: Usa maxDate se fornito (per evitare look-ahead bias)
+    const endDate = maxDate || new Date();
+    const startDate = new Date(endDate);
     startDate.setMonth(startDate.getMonth() - 12); // Vogliamo 12 mesi di dati
     
     console.log(`📊 Fetching fixtures from ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]} for team ${sportsmonksTeamId}...`);
+    if (maxDate) {
+      console.log(`   🕐 BACKTEST MODE: Using maxDate=${maxDate.toISOString().split('T')[0]} (avoiding look-ahead bias)`);
+    }
     console.log(`⚠️ API limit: max 90 days per request, will split into multiple calls`);
     
     // Dividi in blocchi di 90 giorni (3 mesi)
@@ -575,13 +580,14 @@ export async function getTeamHistoryByVenue(
   seasonId: number,
   isHome: boolean,
   limit: number = 0,
-  teamName?: string // 🆕 Team name for ID mapping
+  teamName?: string, // 🆕 Team name for ID mapping
+  maxDate?: Date // 🆕 Optional: max date for historical data (for backtesting)
 ): Promise<MatchHistoryData[]> {
   try {
     console.log(`🔍 Fetching ${isHome ? 'home' : 'away'} history for team ${teamId} (${teamName || 'no name'}), season ${seasonId}`);
     
-    // Get full team history first (pass teamName for mapping)
-    const allHistory = await getTeamHistory(teamId, seasonId, 0, teamName);
+    // Get full team history first (pass teamName for mapping and maxDate)
+    const allHistory = await getTeamHistory(teamId, seasonId, 0, teamName, maxDate);
     
     // Filter by venue
     const venueHistory = allHistory.filter(match => match.isHome === isHome);

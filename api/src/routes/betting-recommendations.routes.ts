@@ -12,7 +12,7 @@ const router = Router();
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { fixtureId, homeTeamId, awayTeamId, leagueId, seasonId, homeTeamName, awayTeamName } = req.body;
+    const { fixtureId, homeTeamId, awayTeamId, leagueId, seasonId, homeTeamName, awayTeamName, fixtureDate } = req.body;
     
     if (!fixtureId || !homeTeamId || !awayTeamId) {
       return res.status(400).json({
@@ -22,6 +22,12 @@ router.post('/', async (req: Request, res: Response) => {
     
     logger.info(`🎲 Generating betting recommendations for fixture ${fixtureId}`);
     
+    // 🆕 BACKTEST FIX: Parse fixtureDate se fornito
+    const parsedFixtureDate = fixtureDate ? new Date(fixtureDate) : undefined;
+    if (parsedFixtureDate) {
+      logger.info(`   🕐 BACKTEST MODE: fixtureDate=${parsedFixtureDate.toISOString().split('T')[0]}`);
+    }
+    
     // 1. Ottieni predizione ML
     const mlPrediction = await mlPredictionAlgorithm.predictMatch({
       fixtureId,
@@ -29,6 +35,7 @@ router.post('/', async (req: Request, res: Response) => {
       awayTeamId,
       leagueId,
       seasonId,
+      fixtureDate: parsedFixtureDate, // 🆕 Pass fixture date for backtesting
     });
     
     // 2. Fetch odds da Sportmonks (con include odds.bookmaker)
