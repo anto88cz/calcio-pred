@@ -1,0 +1,84 @@
+{
+  "metadata": {
+    "source": "./backtest-report-2025-10-10_to_2025-11-09.json",
+    "analyzedAt": "2025-11-09T19:24:17.612Z"
+  },
+  "coverage": {
+    "current": "46.4%",
+    "target": "70-80%",
+    "gap": "67 matches"
+  },
+  "skipReasons": {
+    "noTeams": 0,
+    "noRecs": 67,
+    "apiError": 0
+  },
+  "recommendations": {
+    "total": 73,
+    "evDistribution": {
+      "veryLow": 5,
+      "low": 15,
+      "medium": 25,
+      "high": 13,
+      "veryHigh": 15
+    },
+    "ratingDistribution": {
+      "r2": 5,
+      "r3": 68,
+      "r4": 0
+    },
+    "oddsDistribution": {
+      "low": 17,
+      "mediumLow": 43,
+      "medium": 12,
+      "high": 1
+    },
+    "byType": {
+      "result": {
+        "count": 5,
+        "wins": 4,
+        "winRate": "80.0%"
+      },
+      "double_chance": {
+        "count": 36,
+        "wins": 28,
+        "winRate": "77.8%"
+      },
+      "over_under": {
+        "count": 28,
+        "wins": 20,
+        "winRate": "71.4%"
+      },
+      "goal_nogoal": {
+        "count": 4,
+        "wins": 1,
+        "winRate": "25.0%"
+      }
+    }
+  },
+  "filters": {
+    "current": {
+      "ev": ">= 10%",
+      "confidence": ">= 50%",
+      "rating": "<= 3⭐"
+    },
+    "proposed": {
+      "tier3": {
+        "ev": ">= 10%",
+        "confidence": ">= 50%",
+        "rating": "<= 3⭐"
+      },
+      "tier4": {
+        "ev": ">= 5-8%",
+        "confidence": ">= 40-50%",
+        "rating": "4⭐"
+      }
+    }
+  },
+  "nextSteps": [
+    "Aggiungi logging per raccomandazioni scartate",
+    "Testa tier 4⭐ con EV >= 5-8% su dati storici",
+    "Monitora WR per diverse soglie EV",
+    "Implementa tier 4⭐ se WR > 60%"
+  ]
+}

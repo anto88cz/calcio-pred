@@ -171,20 +171,25 @@ export class BettingRecommendationsService {
     const filteredOut: FilteredRecommendation[] = [];
     
     let validRecommendations = recommendations.filter(r => {
-      // ⚡ OVER/UNDER: Filtri bilanciati per generare più raccomandazioni
-      // EV > 7%, confidence > 50%, max 3⭐
+      // 🚀 ROI OTTIMIZZATO: Filtri basati su analisi performance
+      
+      // ⚡ OVER/UNDER: Tipi vincenti (OVER 2.5, UNDER 2.5)
+      // EV > 10%, confidence 75-90%, quote 1.6-2.5
       if (r.type === 'over_under') {
-        const passes = r.expectedValue > 0.07 && r.valueRating <= 3 && r.confidence >= 50;
+        const isOptimalOdds = r.odds >= 1.6 && r.odds <= 2.5;
+        const isOptimalConf = r.confidence >= 75 && r.confidence <= 90;
+        const passes = r.expectedValue > 0.10 && r.valueRating <= 3 && isOptimalConf && isOptimalOdds;
         if (!passes) {
-          let reason = 'Over/Under scartato: ';
-          if (r.expectedValue <= 0.07) reason += `EV troppo basso (${(r.expectedValue * 100).toFixed(2)}% <= 7%)`;
+          let reason = 'Over/Under scartato (ROI ottimizzato): ';
+          if (r.expectedValue <= 0.10) reason += `EV troppo basso (${(r.expectedValue * 100).toFixed(2)}% <= 10%)`;
           else if (r.valueRating > 3) reason += `Rating troppo basso (${r.valueRating}⭐ > 3⭐)`;
-          else if (r.confidence < 50) reason += `Confidence troppo bassa (${r.confidence.toFixed(1)}% < 50%)`;
+          else if (!isOptimalConf) reason += `Confidence non ottimale (${r.confidence.toFixed(1)}% fuori range 75-90%)`;
+          else if (!isOptimalOdds) reason += `Quote non ottimali (${r.odds.toFixed(2)} fuori range 1.6-2.5)`;
           
           filteredOut.push({
             recommendation: r,
             filterReason: reason,
-            filterType: r.expectedValue <= 0.07 ? 'ev_too_low' : r.confidence < 50 ? 'confidence_too_low' : 'rating_too_low'
+            filterType: r.expectedValue <= 0.10 ? 'ev_too_low' : !isOptimalConf ? 'confidence_too_low' : 'rating_too_low'
           });
         }
         return passes;

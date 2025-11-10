@@ -1,0 +1,121 @@
+{
+  "metadata": {
+    "period": "2025-11-09 to 2025-11-09",
+    "generatedAt": "2025-11-09T18:08:25.455Z",
+    "totalMatches": 10,
+    "matchesAnalyzed": 2,
+    "matchesSkipped": 8
+  },
+  "summary": {
+    "totalRecommendations": 2,
+    "wins": 2,
+    "losses": 0,
+    "winRate": 100,
+    "totalProfit": 0.71,
+    "roi": 35.5
+  },
+  "byCompetition": [
+    {
+      "competition": "Premier League",
+      "wins": 1,
+      "losses": 0,
+      "total": 1,
+      "winRate": 100
+    },
+    {
+      "competition": "Serie A",
+      "wins": 1,
+      "losses": 0,
+      "total": 1,
+      "winRate": 100
+    }
+  ],
+  "byBetType": [
+    {
+      "type": "double_chance",
+      "wins": 2,
+      "losses": 0,
+      "total": 2,
+      "winRate": 100
+    }
+  ],
+  "byValueRating": [
+    {
+      "rating": 2,
+      "wins": 1,
+      "losses": 0,
+      "total": 1,
+      "winRate": 100
+    },
+    {
+      "rating": 3,
+      "wins": 1,
+      "losses": 0,
+      "total": 1,
+      "winRate": 100
+    }
+  ],
+  "byExpectedValue": [
+    {
+      "category": "positive",
+      "wins": 1,
+      "losses": 0,
+      "total": 1,
+      "winRate": 100
+    },
+    {
+      "category": "neutral",
+      "wins": 1,
+      "losses": 0,
+      "total": 1,
+      "winRate": 100
+    }
+  ],
+  "topWins": [
+    {
+      "competition": "Serie A",
+      "match": "Bologna vs Napoli",
+      "result": "2-0",
+      "recommendation": "12 - Casa o Trasferta",
+      "odds": 1.39,
+      "valueRating": 3,
+      "expectedValue": 5.64,
+      "profit": 0.39
+    },
+    {
+      "competition": "Premier League",
+      "match": "Brentford vs Newcastle United",
+      "result": "3-1",
+      "recommendation": "12 - Casa o Trasferta",
+      "odds": 1.32,
+      "valueRating": 2,
+      "expectedValue": 4.28,
+      "profit": 0.32
+    }
+  ],
+  "topLosses": [],
+  "allRecommendations": [
+    {
+      "competition": "Premier League",
+      "match": "Brentford vs Newcastle United",
+      "result": "3-1",
+      "recommendation": "12 - Casa o Trasferta",
+      "odds": 1.32,
+      "valueRating": 2,
+      "expectedValue": 4.28,
+      "outcome": "WIN",
+      "profit": 0.32
+    },
+    {
+      "competition": "Serie A",
+      "match": "Bologna vs Napoli",
+      "result": "2-0",
+      "recommendation": "12 - Casa o Trasferta",
+      "odds": 1.39,
+      "valueRating": 3,
+      "expectedValue": 5.64,
+      "outcome": "WIN",
+      "profit": 0.39
+    }
+  ]
+}

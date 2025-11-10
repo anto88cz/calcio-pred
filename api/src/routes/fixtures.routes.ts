@@ -154,28 +154,49 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
 /**
  * GET /api/fixtures/today
- * Partite di oggi da Sportsmonks con quote
+ * Partite di oggi da Sportsmonks con quote (solo partite ancora da giocare)
  */
 router.get('/today', async (_req: Request, res: Response) => {
   try {
     logger.info('Fetching today fixtures from Sportsmonks');
     
     const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
     
     // Usa Sportsmonks per ottenere le fixtures con filtro sulle leghe supportate
-    const fixtures = await fixturesService.getFixturesByDate(today, undefined, ALLOWED_LEAGUES);
+    const allFixtures = await fixturesService.getFixturesByDate(today, undefined, ALLOWED_LEAGUES);
+    
+    // 🔥 FILTRO: Solo partite ancora da giocare (escludi finite, in corso, o passate)
+    const upcomingFixtures = allFixtures.filter((fixture: any) => {
+      // Escludi partite finite (FT, AET, PEN, etc.)
+      const finishedStatuses = ['FT', 'AET', 'PEN', 'LIVE', 'HT', 'ET', 'BT', 'P', 'SUSP', 'INT', 'ABD', 'AWA', 'WO', 'CANC'];
+      if (finishedStatuses.includes(fixture.statusShort)) {
+        return false;
+      }
+      
+      // Escludi partite il cui orario di inizio è già passato (con margine di 5 minuti)
+      const fixtureTime = new Date(fixture.date);
+      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+      if (fixtureTime < fiveMinutesAgo) {
+        return false;
+      }
+      
+      return true;
+    });
     
     // Le fixtures sono già filtrate dall'API
     logger.info({ 
-      total: fixtures.length,
-    }, 'Fixtures fetched');
+      total: allFixtures.length,
+      upcoming: upcomingFixtures.length,
+      filtered: allFixtures.length - upcomingFixtures.length,
+    }, 'Fixtures fetched (only upcoming)');
     
     // Fetch odds in parallelo con limite (max 3 contemporanee)
     const batchSize = 3;
     const fixturesWithOdds: any[] = [];
     
-    for (let i = 0; i < fixtures.length; i += batchSize) {
-      const batch = fixtures.slice(i, i + batchSize);
+    for (let i = 0; i < upcomingFixtures.length; i += batchSize) {
+      const batch = upcomingFixtures.slice(i, i + batchSize);
       
       const batchResults = await Promise.all(
         batch.map(async (fixture: any) => {
@@ -417,25 +438,48 @@ router.get('/:fixtureId', async (req: Request, res: Response, next: NextFunction
 
 /**
  * GET /api/fixtures/sm/today
- * Get today's fixtures directly from Sportsmonks (new endpoint)
+ * Get today's fixtures directly from Sportsmonks (only upcoming matches)
  */
 router.get('/sm/today', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
     const leagueId = req.query.leagueId ? parseInt(req.query.leagueId as string) : undefined;
     
     logger.info({ date: today, leagueId }, 'Fetching today fixtures from Sportsmonks');
     
     // Se viene specificato un leagueId, usa quello, altrimenti usa tutte le leghe supportate
-    const fixtures = leagueId 
+    const allFixtures = leagueId 
       ? await fixturesService.getFixturesByDate(today, leagueId)
       : await fixturesService.getFixturesByDate(today, undefined, ALLOWED_LEAGUES);
     
-    logger.info({ total: fixtures.length }, 'Fixtures fetched');
+    // 🔥 FILTRO: Solo partite ancora da giocare (escludi finite, in corso, o passate)
+    const upcomingFixtures = allFixtures.filter((fixture: any) => {
+      // Escludi partite finite o in corso
+      const finishedStatuses = ['FT', 'AET', 'PEN', 'LIVE', 'HT', 'ET', 'BT', 'P', 'SUSP', 'INT', 'ABD', 'AWA', 'WO', 'CANC'];
+      if (finishedStatuses.includes(fixture.statusShort)) {
+        return false;
+      }
+      
+      // Escludi partite il cui orario di inizio è già passato (con margine di 5 minuti)
+      const fixtureTime = new Date(fixture.date);
+      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+      if (fixtureTime < fiveMinutesAgo) {
+        return false;
+      }
+      
+      return true;
+    });
+    
+    logger.info({ 
+      total: allFixtures.length, 
+      upcoming: upcomingFixtures.length,
+      filtered: allFixtures.length - upcomingFixtures.length,
+    }, 'Fixtures fetched (only upcoming)');
     
     return res.json({
-      count: fixtures.length,
-      fixtures: fixtures,
+      count: upcomingFixtures.length,
+      fixtures: upcomingFixtures,
     });
   } catch (error) {
     logger.error({ error }, 'Error fetching today fixtures from Sportsmonks');

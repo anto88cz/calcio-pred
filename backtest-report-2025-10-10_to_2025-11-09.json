@@ -1,40 +1,45 @@
 {
   "metadata": {
-    "period": "2025-10-09 to 2025-11-09",
-    "generatedAt": "2025-11-09T18:05:18.914Z",
+    "period": "2025-10-10 to 2025-11-09",
+    "generatedAt": "2025-11-09T19:14:00.921Z",
     "totalMatches": 125,
-    "matchesAnalyzed": 40,
-    "matchesSkipped": 85
+    "matchesAnalyzed": 58,
+    "matchesSkipped": 67,
+    "skipReasons": {
+      "noTeams": 0,
+      "noRecs": 67,
+      "apiError": 0
+    }
   },
   "summary": {
-    "totalRecommendations": 42,
-    "wins": 33,
-    "losses": 9,
-    "winRate": 78.57,
-    "totalProfit": 14.59,
-    "roi": 34.74
+    "totalRecommendations": 73,
+    "wins": 53,
+    "losses": 20,
+    "winRate": 72.6,
+    "totalProfit": 17.66,
+    "roi": 24.19
   },
   "byCompetition": [
     {
       "competition": "Premier League",
-      "wins": 8,
-      "losses": 3,
-      "total": 11,
-      "winRate": 72.73
+      "wins": 10,
+      "losses": 5,
+      "total": 15,
+      "winRate": 66.67
     },
     {
       "competition": "Serie A",
-      "wins": 8,
-      "losses": 1,
-      "total": 9,
-      "winRate": 88.89
+      "wins": 15,
+      "losses": 6,
+      "total": 21,
+      "winRate": 71.43
     },
     {
       "competition": "La Liga",
-      "wins": 8,
-      "losses": 2,
-      "total": 10,
-      "winRate": 80
+      "wins": 14,
+      "losses": 4,
+      "total": 18,
+      "winRate": 77.78
     },
     {
       "competition": "Bundesliga",
@@ -45,10 +50,10 @@
     },
     {
       "competition": "Champions League",
-      "wins": 4,
-      "losses": 1,
-      "total": 5,
-      "winRate": 80
+      "wins": 9,
+      "losses": 3,
+      "total": 12,
+      "winRate": 75
     }
   ],
   "byBetType": [
@@ -61,41 +66,55 @@
     },
     {
       "type": "double_chance",
-      "wins": 29,
+      "wins": 28,
       "losses": 8,
-      "total": 37,
-      "winRate": 78.38
+      "total": 36,
+      "winRate": 77.78
+    },
+    {
+      "type": "over_under",
+      "wins": 20,
+      "losses": 8,
+      "total": 28,
+      "winRate": 71.43
+    },
+    {
+      "type": "goal_nogoal",
+      "wins": 1,
+      "losses": 3,
+      "total": 4,
+      "winRate": 25
     }
   ],
   "byValueRating": [
     {
       "rating": 2,
-      "wins": 6,
+      "wins": 5,
       "losses": 0,
-      "total": 6,
+      "total": 5,
       "winRate": 100
     },
     {
       "rating": 3,
-      "wins": 27,
-      "losses": 9,
-      "total": 36,
-      "winRate": 75
+      "wins": 48,
+      "losses": 20,
+      "total": 68,
+      "winRate": 70.59
     }
   ],
   "byExpectedValue": [
     {
       "category": "positive",
-      "wins": 27,
-      "losses": 9,
-      "total": 36,
-      "winRate": 75
+      "wins": 48,
+      "losses": 20,
+      "total": 68,
+      "winRate": 70.59
     },
     {
       "category": "neutral",
-      "wins": 6,
+      "wins": 5,
       "losses": 0,
-      "total": 6,
+      "total": 5,
       "winRate": 100
     }
   ],
@@ -121,6 +140,16 @@
       "profit": 1.21
     },
     {
+      "competition": "Serie A",
+      "match": "Sassuolo vs Roma",
+      "result": "0-1",
+      "recommendation": "Over 2.5 - Almeno 3 Gol",
+      "odds": 2.18,
+      "valueRating": 3,
+      "expectedValue": 10.39,
+      "profit": 1.18
+    },
+    {
       "competition": "Premier League",
       "match": "Nottingham Forest vs Chelsea",
       "result": "0-3",
@@ -141,6 +170,26 @@
       "profit": 1.16
     },
     {
+      "competition": "La Liga",
+      "match": "Espanyol vs Elche",
+      "result": "1-0",
+      "recommendation": "Over 2.5 - Almeno 3 Gol",
+      "odds": 2.12,
+      "valueRating": 3,
+      "expectedValue": 22.28,
+      "profit": 1.12
+    },
+    {
+      "competition": "Serie A",
+      "match": "Milan vs Fiorentina",
+      "result": "2-1",
+      "recommendation": "Over 2.5 - Almeno 3 Gol",
+      "odds": 2.1,
+      "valueRating": 3,
+      "expectedValue": 11.41,
+      "profit": 1.1
+    },
+    {
       "competition": "Serie A",
       "match": "Cagliari vs Bologna",
       "result": "0-2",
@@ -151,54 +200,24 @@
       "profit": 1.08
     },
     {
+      "competition": "La Liga",
+      "match": "Levante vs Rayo Vallecano",
+      "result": "0-3",
+      "recommendation": "Over 2.5 - Almeno 3 Gol",
+      "odds": 2.02,
+      "valueRating": 3,
+      "expectedValue": 11.92,
+      "profit": 1.02
+    },
+    {
       "competition": "Premier League",
       "match": "Brentford vs Liverpool",
       "result": "3-2",
       "recommendation": "1X - Casa o Pareggio",
       "odds": 2,
-      "valueRating": 2,
-      "expectedValue": 4,
+      "valueRating": 3,
+      "expectedValue": 8,
       "profit": 1
-    },
-    {
-      "competition": "Serie A",
-      "match": "Atalanta vs Lazio",
-      "result": "0-0",
-      "recommendation": "X2 - Pareggio o Trasferta",
-      "odds": 1.98,
-      "valueRating": 3,
-      "expectedValue": 20.78,
-      "profit": 0.98
-    },
-    {
-      "competition": "Bundesliga",
-      "match": "Rennes vs Auxerre",
-      "result": "2-2",
-      "recommendation": "X2 - Pareggio o Trasferta",
-      "odds": 1.96,
-      "valueRating": 3,
-      "expectedValue": 17.6,
-      "profit": 0.96
-    },
-    {
-      "competition": "La Liga",
-      "match": "Sevilla vs Mallorca",
-      "result": "1-3",
-      "recommendation": "X2 - Pareggio o Trasferta",
-      "odds": 1.93,
-      "valueRating": 3,
-      "expectedValue": 15.8,
-      "profit": 0.93
-    },
-    {
-      "competition": "Premier League",
-      "match": "Wolverhampton Wanderers vs Burnley",
-      "result": "2-3",
-      "recommendation": "X2 - Pareggio o Trasferta",
-      "odds": 1.86,
-      "valueRating": 3,
-      "expectedValue": 11.6,
-      "profit": 0.86
     }
   ],
   "topLosses": [
@@ -214,12 +233,32 @@
     },
     {
       "competition": "Premier League",
+      "match": "Wolverhampton Wanderers vs Burnley",
+      "result": "2-3",
+      "recommendation": "Under 2.5 - Max 2 Gol",
+      "odds": 1.65,
+      "valueRating": 3,
+      "expectedValue": 11.65,
+      "loss": 1
+    },
+    {
+      "competition": "Premier League",
       "match": "Crystal Palace vs Brentford",
       "result": "2-0",
       "recommendation": "X2 - Pareggio o Trasferta",
       "odds": 1.76,
       "valueRating": 3,
       "expectedValue": 9.12,
+      "loss": 1
+    },
+    {
+      "competition": "Premier League",
+      "match": "Fulham vs Wolverhampton Wanderers",
+      "result": "3-0",
+      "recommendation": "Under 2.5 - Max 2 Gol",
+      "odds": 1.87,
+      "valueRating": 3,
+      "expectedValue": 21.48,
       "loss": 1
     },
     {
@@ -243,13 +282,43 @@
       "loss": 1
     },
     {
-      "competition": "La Liga",
-      "match": "Real Madrid vs FC Barcelona",
-      "result": "2-1",
-      "recommendation": "X2 - Pareggio o Trasferta",
-      "odds": 1.91,
+      "competition": "Serie A",
+      "match": "Roma vs Inter",
+      "result": "0-1",
+      "recommendation": "Goal - Entrambe Segnano",
+      "odds": 1.79,
       "valueRating": 3,
-      "expectedValue": 14.6,
+      "expectedValue": 19.92,
+      "loss": 1
+    },
+    {
+      "competition": "Serie A",
+      "match": "Cremonese vs Udinese",
+      "result": "1-1",
+      "recommendation": "Under 2.5 - Max 2 Gol",
+      "odds": 1.65,
+      "valueRating": 3,
+      "expectedValue": 11.65,
+      "loss": 1
+    },
+    {
+      "competition": "Serie A",
+      "match": "Udinese vs Lecce",
+      "result": "3-2",
+      "recommendation": "Under 2.5 - Max 2 Gol",
+      "odds": 1.64,
+      "valueRating": 3,
+      "expectedValue": 10.97,
+      "loss": 1
+    },
+    {
+      "competition": "Serie A",
+      "match": "Cremonese vs Atalanta",
+      "result": "1-1",
+      "recommendation": "Under 3.5 - Max 3 Gol",
+      "odds": 1.48,
+      "valueRating": 3,
+      "expectedValue": 15.25,
       "loss": 1
     }
   ],
@@ -300,6 +369,17 @@
     },
     {
       "competition": "Premier League",
+      "match": "Fulham vs Arsenal",
+      "result": "0-1",
+      "recommendation": "Over 2.5 - Almeno 3 Gol",
+      "odds": 1.93,
+      "valueRating": 3,
+      "expectedValue": 11.32,
+      "outcome": "WIN",
+      "profit": 0.93
+    },
+    {
+      "competition": "Premier League",
       "match": "West Ham United vs Brentford",
       "result": "0-2",
       "recommendation": "X2 - Pareggio o Trasferta",
@@ -326,10 +406,32 @@
       "result": "3-2",
       "recommendation": "1X - Casa o Pareggio",
       "odds": 2,
-      "valueRating": 2,
-      "expectedValue": 4,
+      "valueRating": 3,
+      "expectedValue": 8,
       "outcome": "WIN",
       "profit": 1
+    },
+    {
+      "competition": "Premier League",
+      "match": "Arsenal vs Crystal Palace",
+      "result": "1-0",
+      "recommendation": "Over 2.5 - Almeno 3 Gol",
+      "odds": 1.72,
+      "valueRating": 3,
+      "expectedValue": 16.81,
+      "outcome": "WIN",
+      "profit": 0.72
+    },
+    {
+      "competition": "Premier League",
+      "match": "Wolverhampton Wanderers vs Burnley",
+      "result": "2-3",
+      "recommendation": "Under 2.5 - Max 2 Gol",
+      "odds": 1.65,
+      "valueRating": 3,
+      "expectedValue": 11.65,
+      "outcome": "LOSS",
+      "profit": -1
     },
     {
       "competition": "Premier League",
@@ -368,6 +470,17 @@
       "competition": "Premier League",
       "match": "Fulham vs Wolverhampton Wanderers",
       "result": "3-0",
+      "recommendation": "Under 2.5 - Max 2 Gol",
+      "odds": 1.87,
+      "valueRating": 3,
+      "expectedValue": 21.48,
+      "outcome": "LOSS",
+      "profit": -1
+    },
+    {
+      "competition": "Premier League",
+      "match": "Fulham vs Wolverhampton Wanderers",
+      "result": "3-0",
       "recommendation": "X2 - Pareggio o Trasferta",
       "odds": 1.99,
       "valueRating": 3,
@@ -390,12 +503,34 @@
       "competition": "Serie A",
       "match": "Lecce vs Sassuolo",
       "result": "0-0",
-      "recommendation": "X2 - Pareggio o Trasferta",
-      "odds": 1.41,
+      "recommendation": "No Goal - Almeno Una Non Segna",
+      "odds": 1.88,
       "valueRating": 3,
-      "expectedValue": 11.39,
+      "expectedValue": 15.66,
       "outcome": "WIN",
-      "profit": 0.41
+      "profit": 0.88
+    },
+    {
+      "competition": "Serie A",
+      "match": "Lecce vs Sassuolo",
+      "result": "0-0",
+      "recommendation": "Under 2.5 - Max 2 Gol",
+      "odds": 1.65,
+      "valueRating": 3,
+      "expectedValue": 11.65,
+      "outcome": "WIN",
+      "profit": 0.65
+    },
+    {
+      "competition": "Serie A",
+      "match": "Pisa vs Hellas Verona",
+      "result": "0-0",
+      "recommendation": "Under 2.5 - Max 2 Gol",
+      "odds": 1.53,
+      "valueRating": 3,
+      "expectedValue": 23.75,
+      "outcome": "WIN",
+      "profit": 0.53
     },
     {
       "competition": "Serie A",
@@ -407,6 +542,28 @@
       "expectedValue": 5.12,
       "outcome": "WIN",
       "profit": 0.46
+    },
+    {
+      "competition": "Serie A",
+      "match": "Roma vs Inter",
+      "result": "0-1",
+      "recommendation": "Goal - Entrambe Segnano",
+      "odds": 1.79,
+      "valueRating": 3,
+      "expectedValue": 19.92,
+      "outcome": "LOSS",
+      "profit": -1
+    },
+    {
+      "competition": "Serie A",
+      "match": "Roma vs Inter",
+      "result": "0-1",
+      "recommendation": "Over 1.5 - Almeno 2 Gol",
+      "odds": 1.33,
+      "valueRating": 3,
+      "expectedValue": 16.28,
+      "outcome": "WIN",
+      "profit": 0.33
     },
     {
       "competition": "Serie A",
@@ -443,6 +600,39 @@
     },
     {
       "competition": "Serie A",
+      "match": "Milan vs Fiorentina",
+      "result": "2-1",
+      "recommendation": "Over 2.5 - Almeno 3 Gol",
+      "odds": 2.1,
+      "valueRating": 3,
+      "expectedValue": 11.41,
+      "outcome": "WIN",
+      "profit": 1.1
+    },
+    {
+      "competition": "Serie A",
+      "match": "Cremonese vs Udinese",
+      "result": "1-1",
+      "recommendation": "Under 2.5 - Max 2 Gol",
+      "odds": 1.65,
+      "valueRating": 3,
+      "expectedValue": 11.65,
+      "outcome": "LOSS",
+      "profit": -1
+    },
+    {
+      "competition": "Serie A",
+      "match": "Parma vs Como",
+      "result": "0-0",
+      "recommendation": "Under 2.5 - Max 2 Gol",
+      "odds": 1.66,
+      "valueRating": 3,
+      "expectedValue": 12.33,
+      "outcome": "WIN",
+      "profit": 0.66
+    },
+    {
+      "competition": "Serie A",
       "match": "Parma vs Como",
       "result": "0-0",
       "recommendation": "1X - Casa o Pareggio",
@@ -451,6 +641,17 @@
       "expectedValue": 4.98,
       "outcome": "WIN",
       "profit": 0.81
+    },
+    {
+      "competition": "Serie A",
+      "match": "Udinese vs Lecce",
+      "result": "3-2",
+      "recommendation": "Under 2.5 - Max 2 Gol",
+      "odds": 1.64,
+      "valueRating": 3,
+      "expectedValue": 10.97,
+      "outcome": "LOSS",
+      "profit": -1
     },
     {
       "competition": "Serie A",
@@ -465,6 +666,39 @@
     },
     {
       "competition": "Serie A",
+      "match": "Napoli vs Inter",
+      "result": "3-1",
+      "recommendation": "Over 1.5 - Almeno 2 Gol",
+      "odds": 1.31,
+      "valueRating": 3,
+      "expectedValue": 11.76,
+      "outcome": "WIN",
+      "profit": 0.31
+    },
+    {
+      "competition": "Serie A",
+      "match": "Cremonese vs Atalanta",
+      "result": "1-1",
+      "recommendation": "Under 3.5 - Max 3 Gol",
+      "odds": 1.48,
+      "valueRating": 3,
+      "expectedValue": 15.25,
+      "outcome": "LOSS",
+      "profit": -1
+    },
+    {
+      "competition": "Serie A",
+      "match": "Hellas Verona vs Cagliari",
+      "result": "2-2",
+      "recommendation": "Under 2.5 - Max 2 Gol",
+      "odds": 1.57,
+      "valueRating": 3,
+      "expectedValue": 14.71,
+      "outcome": "LOSS",
+      "profit": -1
+    },
+    {
+      "competition": "Serie A",
       "match": "Hellas Verona vs Cagliari",
       "result": "2-2",
       "recommendation": "X2 - Pareggio o Trasferta",
@@ -473,6 +707,17 @@
       "expectedValue": 3.82,
       "outcome": "WIN",
       "profit": 0.79
+    },
+    {
+      "competition": "Serie A",
+      "match": "Sassuolo vs Roma",
+      "result": "0-1",
+      "recommendation": "Over 2.5 - Almeno 3 Gol",
+      "odds": 2.18,
+      "valueRating": 3,
+      "expectedValue": 10.39,
+      "outcome": "WIN",
+      "profit": 1.18
     },
     {
       "competition": "La Liga",
@@ -520,6 +765,50 @@
     },
     {
       "competition": "La Liga",
+      "match": "Levante vs Rayo Vallecano",
+      "result": "0-3",
+      "recommendation": "Over 2.5 - Almeno 3 Gol",
+      "odds": 2.02,
+      "valueRating": 3,
+      "expectedValue": 11.92,
+      "outcome": "WIN",
+      "profit": 1.02
+    },
+    {
+      "competition": "La Liga",
+      "match": "Getafe vs Real Madrid",
+      "result": "0-1",
+      "recommendation": "Over 2.5 - Almeno 3 Gol",
+      "odds": 1.93,
+      "valueRating": 3,
+      "expectedValue": 11.32,
+      "outcome": "WIN",
+      "profit": 0.93
+    },
+    {
+      "competition": "La Liga",
+      "match": "Deportivo Alavés vs Valencia",
+      "result": "0-0",
+      "recommendation": "Over 2.5 - Almeno 3 Gol",
+      "odds": 2.3,
+      "valueRating": 3,
+      "expectedValue": 16.47,
+      "outcome": "LOSS",
+      "profit": -1
+    },
+    {
+      "competition": "La Liga",
+      "match": "Espanyol vs Elche",
+      "result": "1-0",
+      "recommendation": "Over 2.5 - Almeno 3 Gol",
+      "odds": 2.12,
+      "valueRating": 3,
+      "expectedValue": 22.28,
+      "outcome": "WIN",
+      "profit": 1.12
+    },
+    {
+      "competition": "La Liga",
       "match": "Mallorca vs Levante",
       "result": "1-1",
       "recommendation": "X2 - Pareggio o Trasferta",
@@ -553,6 +842,17 @@
     },
     {
       "competition": "La Liga",
+      "match": "Rayo Vallecano vs Deportivo Alavés",
+      "result": "1-0",
+      "recommendation": "Over 1.5 - Almeno 2 Gol",
+      "odds": 1.51,
+      "valueRating": 3,
+      "expectedValue": 13.45,
+      "outcome": "WIN",
+      "profit": 0.51
+    },
+    {
+      "competition": "La Liga",
       "match": "Real Betis vs Atlético Madrid",
       "result": "0-2",
       "recommendation": "2 - Vittoria Trasferta",
@@ -561,6 +861,17 @@
       "expectedValue": 8,
       "outcome": "WIN",
       "profit": 1.16
+    },
+    {
+      "competition": "La Liga",
+      "match": "Getafe vs Girona",
+      "result": "2-1",
+      "recommendation": "Over 1.5 - Almeno 2 Gol",
+      "odds": 1.51,
+      "valueRating": 3,
+      "expectedValue": 10.62,
+      "outcome": "WIN",
+      "profit": 0.51
     },
     {
       "competition": "La Liga",
@@ -581,6 +892,28 @@
       "odds": 2.13,
       "valueRating": 3,
       "expectedValue": 12.89,
+      "outcome": "LOSS",
+      "profit": -1
+    },
+    {
+      "competition": "La Liga",
+      "match": "Real Sociedad vs Athletic Club",
+      "result": "3-2",
+      "recommendation": "Over 1.5 - Almeno 2 Gol",
+      "odds": 1.48,
+      "valueRating": 3,
+      "expectedValue": 11.2,
+      "outcome": "WIN",
+      "profit": 0.48
+    },
+    {
+      "competition": "La Liga",
+      "match": "Real Madrid vs Valencia",
+      "result": "4-0",
+      "recommendation": "Goal - Entrambe Segnano",
+      "odds": 1.97,
+      "valueRating": 3,
+      "expectedValue": 23.92,
       "outcome": "LOSS",
       "profit": -1
     },
@@ -635,7 +968,7 @@
       "recommendation": "X2 - Pareggio o Trasferta",
       "odds": 1.71,
       "valueRating": 3,
-      "expectedValue": 11.15,
+      "expectedValue": 9.44,
       "outcome": "WIN",
       "profit": 0.71
     },
@@ -665,12 +998,45 @@
       "competition": "Champions League",
       "match": "Kairat vs Pafos FC",
       "result": "0-0",
+      "recommendation": "Under 3.5 - Max 3 Gol",
+      "odds": 1.29,
+      "valueRating": 3,
+      "expectedValue": 22.07,
+      "outcome": "WIN",
+      "profit": 0.29
+    },
+    {
+      "competition": "Champions League",
+      "match": "Kairat vs Pafos FC",
+      "result": "0-0",
       "recommendation": "1X - Casa o Pareggio",
       "odds": 1.56,
       "valueRating": 3,
       "expectedValue": 6.08,
       "outcome": "WIN",
       "profit": 0.56
+    },
+    {
+      "competition": "Champions League",
+      "match": "Arsenal vs Atlético Madrid",
+      "result": "4-0",
+      "recommendation": "Over 2.5 - Almeno 3 Gol",
+      "odds": 1.87,
+      "valueRating": 3,
+      "expectedValue": 23.47,
+      "outcome": "WIN",
+      "profit": 0.87
+    },
+    {
+      "competition": "Champions League",
+      "match": "PSV vs Napoli",
+      "result": "6-2",
+      "recommendation": "Over 2.5 - Almeno 3 Gol",
+      "odds": 1.66,
+      "valueRating": 3,
+      "expectedValue": 12.74,
+      "outcome": "WIN",
+      "profit": 0.66
     },
     {
       "competition": "Champions League",
@@ -685,6 +1051,39 @@
     },
     {
       "competition": "Champions League",
+      "match": "Union Saint-Gilloise vs Inter",
+      "result": "0-4",
+      "recommendation": "Goal - Entrambe Segnano",
+      "odds": 1.82,
+      "valueRating": 3,
+      "expectedValue": 21.93,
+      "outcome": "LOSS",
+      "profit": -1
+    },
+    {
+      "competition": "Champions League",
+      "match": "Union Saint-Gilloise vs Inter",
+      "result": "0-4",
+      "recommendation": "Over 1.5 - Almeno 2 Gol",
+      "odds": 1.28,
+      "valueRating": 3,
+      "expectedValue": 11.91,
+      "outcome": "WIN",
+      "profit": 0.28
+    },
+    {
+      "competition": "Champions League",
+      "match": "Athletic Club vs Qarabağ",
+      "result": "3-1",
+      "recommendation": "Under 3.5 - Max 3 Gol",
+      "odds": 1.56,
+      "valueRating": 3,
+      "expectedValue": 24.7,
+      "outcome": "LOSS",
+      "profit": -1
+    },
+    {
+      "competition": "Champions League",
       "match": "Monaco vs Tottenham Hotspur",
       "result": "0-0",
       "recommendation": "1X - Casa o Pareggio",
@@ -693,6 +1092,17 @@
       "expectedValue": 21.6,
       "outcome": "WIN",
       "profit": 0.6
+    },
+    {
+      "competition": "Champions League",
+      "match": "Napoli vs Eintracht Frankfurt",
+      "result": "0-0",
+      "recommendation": "Under 3.5 - Max 3 Gol",
+      "odds": 1.52,
+      "valueRating": 3,
+      "expectedValue": 21.5,
+      "outcome": "WIN",
+      "profit": 0.52
     },
     {
       "competition": "Champions League",

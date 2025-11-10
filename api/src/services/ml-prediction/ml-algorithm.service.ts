@@ -11,6 +11,7 @@ export interface PredictionInput {
   awayTeamId: number;
   seasonId: number;
   leagueId: number;
+  referenceDate?: string; // Data di riferimento per backtest (formato YYYY-MM-DD)
 }
 
 export interface PredictionResult {
@@ -65,13 +66,13 @@ export class MLPredictionAlgorithm {
   async predictMatch(input: PredictionInput): Promise<PredictionResult> {
     console.log(`🤖 Starting ML prediction for fixture ${input.fixtureId}`);
 
-    // Recupera tutti i dati necessari
+    // Recupera tutti i dati necessari con temporal filtering
     const [h2hMatches, homeStats, awayStats, homeXGMatches, awayXGMatches] = await Promise.all([
-      mlDataFetcher.getHeadToHeadData(input.homeTeamId, input.awayTeamId),
-      mlDataFetcher.getTeamSeasonStats(input.homeTeamId, input.seasonId, input.leagueId),
-      mlDataFetcher.getTeamSeasonStats(input.awayTeamId, input.seasonId, input.leagueId),
-      mlDataFetcher.getTeamRecentXGMatches(input.homeTeamId, input.seasonId, 10),
-      mlDataFetcher.getTeamRecentXGMatches(input.awayTeamId, input.seasonId, 10),
+      mlDataFetcher.getHeadToHeadData(input.homeTeamId, input.awayTeamId, input.referenceDate),
+      mlDataFetcher.getTeamSeasonStats(input.homeTeamId, input.seasonId, input.leagueId, input.referenceDate),
+      mlDataFetcher.getTeamSeasonStats(input.awayTeamId, input.seasonId, input.leagueId, input.referenceDate),
+      mlDataFetcher.getTeamRecentXGMatches(input.homeTeamId, input.seasonId, 10, input.referenceDate),
+      mlDataFetcher.getTeamRecentXGMatches(input.awayTeamId, input.seasonId, 10, input.referenceDate),
     ]);
 
     // Analizza i testa a testa

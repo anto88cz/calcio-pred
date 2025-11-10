@@ -36,24 +36,29 @@ const configSchema = z.object({
   // Redis
   REDIS_URL: z.string().url(),
   
-  // Parametri Calcolo
-  // Parametri Calcolo
-  HISTORY_GAMES: z.string().transform(Number).default('5'), // Ridotto a 5 partite per squadra (10 totali) per limitazioni API
-  HOME_ADV_GOALS: z.string().transform(Number).default('0.0'), // Fattore casa rimosso
-  CONFIDENCE_MIN: z.string().transform(Number).default('0.60'),
-  BLEND_EMPIRIC: z.string().transform(Number).default('0.6'),
-  BLEND_POISSON: z.string().transform(Number).default('0.4'),
+  // Parametri Calcolo - CORRETTI
+  HISTORY_GAMES: z.string().transform(Number).default('7'), // Compromesso ottimale tra stabilità e volume dati
+  HOME_ADV_GOALS: z.string().transform(Number).default('0.15'), // Vantaggio casa calibrato conservativo
+  CONFIDENCE_MIN: z.string().transform(Number).default('0.65'), // Soglia bilanciata per qualità/volume
+  BLEND_EMPIRIC: z.string().transform(Number).default('0.55'), // Riequilibrato
+  BLEND_POISSON: z.string().transform(Number).default('0.45'), // Riequilibrato
   
-  // Time-Weighted Analysis (NEW)
-  TIME_DECAY_FACTOR: z.string().transform(Number).default('0.96'), // Decay esponenziale
+  // Parametri Avanzati - NUOVI
+  MULTIGOAL_MIN_CONFIDENCE: z.string().transform(Number).default('0.75'), // Soglia per Multigoal
+  XG_DIVERGENCE_THRESHOLD_ALT: z.string().transform(Number).default('0.50'), // Soglia xG inconsistenza
+  
+  // Time-Weighted Analysis - OTTIMIZZATO
+  TIME_DECAY_FACTOR: z.string().transform(Number).default('0.95'), // Decay esponenziale ottimizzato
+  TIME_DECAY_RATE: z.string().transform(Number).default('0.95'), // Alias per compatibilità
   TIME_RECENT_DAYS: z.string().transform(Number).default('60'),    // Fascia recente
   TIME_MEDIUM_DAYS: z.string().transform(Number).default('150'),   // Fascia media
   
-  // xG Parameters
-  XG_BLEND_WEIGHT: z.string().transform(Number).default('0.30'), // 30% peso xG, 70% storico
-  XG_DIVERGENCE_THRESHOLD: z.string().transform(Number).default('0.60'), // 60% soglia inconsistenza
-  XG_MIN_TOTAL: z.string().transform(Number).default('2.3'), // Soglia per declassare Over/BTTS
-  XG_HIGH_THRESHOLD: z.string().transform(Number).default('1.8'), // Soglia per aumentare Over
+  // xG Parameters - OTTIMIZZATI
+  XG_BLEND_WEIGHT: z.string().transform(Number).default('0.25'), // 25% peso xG, 75% storico (ridotto per stabilità)
+  XG_WEIGHT: z.string().transform(Number).default('0.25'), // Alias per compatibilità
+  XG_DIVERGENCE_THRESHOLD: z.string().transform(Number).default('0.50'), // 50% soglia inconsistenza (più rigorosa)
+  XG_MIN_TOTAL: z.string().transform(Number).default('2.2'), // Soglia per declassare Over/BTTS (abbassata)
+  XG_HIGH_THRESHOLD: z.string().transform(Number).default('1.7'), // Soglia per aumentare Over (abbassata)
   
   // Timezone
   TZ: z.string().default('Europe/Rome'),

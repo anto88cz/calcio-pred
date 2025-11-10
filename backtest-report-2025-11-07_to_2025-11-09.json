@@ -1,0 +1,367 @@
+{
+  "metadata": {
+    "period": "2025-11-07 to 2025-11-09",
+    "generatedAt": "2025-11-09T18:53:37.452Z",
+    "totalMatches": 33,
+    "matchesAnalyzed": 10,
+    "matchesSkipped": 23
+  },
+  "summary": {
+    "totalRecommendations": 12,
+    "wins": 8,
+    "losses": 4,
+    "winRate": 66.67,
+    "totalProfit": 1.43,
+    "roi": 11.92
+  },
+  "byCompetition": [
+    {
+      "competition": "Premier League",
+      "wins": 3,
+      "losses": 1,
+      "total": 4,
+      "winRate": 75
+    },
+    {
+      "competition": "Serie A",
+      "wins": 3,
+      "losses": 1,
+      "total": 4,
+      "winRate": 75
+    },
+    {
+      "competition": "La Liga",
+      "wins": 0,
+      "losses": 2,
+      "total": 2,
+      "winRate": 0
+    },
+    {
+      "competition": "Bundesliga",
+      "wins": 2,
+      "losses": 0,
+      "total": 2,
+      "winRate": 100
+    }
+  ],
+  "byBetType": [
+    {
+      "type": "result",
+      "wins": 1,
+      "losses": 1,
+      "total": 2,
+      "winRate": 50
+    },
+    {
+      "type": "over_under",
+      "wins": 3,
+      "losses": 0,
+      "total": 3,
+      "winRate": 100
+    },
+    {
+      "type": "double_chance",
+      "wins": 4,
+      "losses": 2,
+      "total": 6,
+      "winRate": 66.67
+    },
+    {
+      "type": "goal_nogoal",
+      "wins": 0,
+      "losses": 1,
+      "total": 1,
+      "winRate": 0
+    }
+  ],
+  "byValueRating": [
+    {
+      "rating": 2,
+      "wins": 2,
+      "losses": 0,
+      "total": 2,
+      "winRate": 100
+    },
+    {
+      "rating": 3,
+      "wins": 6,
+      "losses": 4,
+      "total": 10,
+      "winRate": 60
+    }
+  ],
+  "byExpectedValue": [
+    {
+      "category": "positive",
+      "wins": 6,
+      "losses": 4,
+      "total": 10,
+      "winRate": 60
+    },
+    {
+      "category": "neutral",
+      "wins": 2,
+      "losses": 0,
+      "total": 2,
+      "winRate": 100
+    }
+  ],
+  "topWins": [
+    {
+      "competition": "Premier League",
+      "match": "Everton vs Fulham",
+      "result": "2-0",
+      "recommendation": "1 - Vittoria Casa",
+      "odds": 2.31,
+      "valueRating": 3,
+      "expectedValue": 8.57,
+      "profit": 1.31
+    },
+    {
+      "competition": "Bundesliga",
+      "match": "Le Havre vs Nantes",
+      "result": "1-1",
+      "recommendation": "X2 - Pareggio o Trasferta",
+      "odds": 1.92,
+      "valueRating": 2,
+      "expectedValue": 3.68,
+      "profit": 0.92
+    },
+    {
+      "competition": "Serie A",
+      "match": "Como vs Cagliari",
+      "result": "0-0",
+      "recommendation": "Under 2.5 - Max 2 Gol",
+      "odds": 1.84,
+      "valueRating": 3,
+      "expectedValue": 24.51,
+      "profit": 0.84
+    },
+    {
+      "competition": "Bundesliga",
+      "match": "Monaco vs Lens",
+      "result": "1-4",
+      "recommendation": "X2 - Pareggio o Trasferta",
+      "odds": 1.79,
+      "valueRating": 3,
+      "expectedValue": 16.35,
+      "profit": 0.79
+    },
+    {
+      "competition": "Serie A",
+      "match": "Bologna vs Napoli",
+      "result": "2-0",
+      "recommendation": "Over 1.5 - Almeno 2 Gol",
+      "odds": 1.5,
+      "valueRating": 3,
+      "expectedValue": 20.13,
+      "profit": 0.5
+    },
+    {
+      "competition": "Serie A",
+      "match": "Bologna vs Napoli",
+      "result": "2-0",
+      "recommendation": "12 - Casa o Trasferta",
+      "odds": 1.39,
+      "valueRating": 3,
+      "expectedValue": 5.64,
+      "profit": 0.39
+    },
+    {
+      "competition": "Premier League",
+      "match": "Sunderland vs Arsenal",
+      "result": "2-2",
+      "recommendation": "Over 1.5 - Almeno 2 Gol",
+      "odds": 1.36,
+      "valueRating": 3,
+      "expectedValue": 10.88,
+      "profit": 0.36
+    },
+    {
+      "competition": "Premier League",
+      "match": "Brentford vs Newcastle United",
+      "result": "3-1",
+      "recommendation": "12 - Casa o Trasferta",
+      "odds": 1.32,
+      "valueRating": 2,
+      "expectedValue": 4.28,
+      "profit": 0.32
+    }
+  ],
+  "topLosses": [
+    {
+      "competition": "Premier League",
+      "match": "Manchester City vs Liverpool",
+      "result": "3-0",
+      "recommendation": "X2 - Pareggio o Trasferta",
+      "odds": 1.88,
+      "valueRating": 3,
+      "expectedValue": 7.16,
+      "loss": 1
+    },
+    {
+      "competition": "Serie A",
+      "match": "Bologna vs Napoli",
+      "result": "2-0",
+      "recommendation": "Goal - Entrambe Segnano",
+      "odds": 2.05,
+      "valueRating": 3,
+      "expectedValue": 23.27,
+      "loss": 1
+    },
+    {
+      "competition": "La Liga",
+      "match": "Elche vs Real Sociedad",
+      "result": "1-1",
+      "recommendation": "2 - Vittoria Trasferta",
+      "odds": 2.5,
+      "valueRating": 3,
+      "expectedValue": 20,
+      "loss": 1
+    },
+    {
+      "competition": "La Liga",
+      "match": "Girona vs Deportivo Alavés",
+      "result": "1-0",
+      "recommendation": "X2 - Pareggio o Trasferta",
+      "odds": 1.7,
+      "valueRating": 3,
+      "expectedValue": 17.3,
+      "loss": 1
+    }
+  ],
+  "allRecommendations": [
+    {
+      "competition": "Premier League",
+      "match": "Everton vs Fulham",
+      "result": "2-0",
+      "recommendation": "1 - Vittoria Casa",
+      "odds": 2.31,
+      "valueRating": 3,
+      "expectedValue": 8.57,
+      "outcome": "WIN",
+      "profit": 1.31
+    },
+    {
+      "competition": "Premier League",
+      "match": "Sunderland vs Arsenal",
+      "result": "2-2",
+      "recommendation": "Over 1.5 - Almeno 2 Gol",
+      "odds": 1.36,
+      "valueRating": 3,
+      "expectedValue": 10.88,
+      "outcome": "WIN",
+      "profit": 0.36
+    },
+    {
+      "competition": "Premier League",
+      "match": "Brentford vs Newcastle United",
+      "result": "3-1",
+      "recommendation": "12 - Casa o Trasferta",
+      "odds": 1.32,
+      "valueRating": 2,
+      "expectedValue": 4.28,
+      "outcome": "WIN",
+      "profit": 0.32
+    },
+    {
+      "competition": "Premier League",
+      "match": "Manchester City vs Liverpool",
+      "result": "3-0",
+      "recommendation": "X2 - Pareggio o Trasferta",
+      "odds": 1.88,
+      "valueRating": 3,
+      "expectedValue": 7.16,
+      "outcome": "LOSS",
+      "profit": -1
+    },
+    {
+      "competition": "Serie A",
+      "match": "Como vs Cagliari",
+      "result": "0-0",
+      "recommendation": "Under 2.5 - Max 2 Gol",
+      "odds": 1.84,
+      "valueRating": 3,
+      "expectedValue": 24.51,
+      "outcome": "WIN",
+      "profit": 0.84
+    },
+    {
+      "competition": "Serie A",
+      "match": "Bologna vs Napoli",
+      "result": "2-0",
+      "recommendation": "Goal - Entrambe Segnano",
+      "odds": 2.05,
+      "valueRating": 3,
+      "expectedValue": 23.27,
+      "outcome": "LOSS",
+      "profit": -1
+    },
+    {
+      "competition": "Serie A",
+      "match": "Bologna vs Napoli",
+      "result": "2-0",
+      "recommendation": "Over 1.5 - Almeno 2 Gol",
+      "odds": 1.5,
+      "valueRating": 3,
+      "expectedValue": 20.13,
+      "outcome": "WIN",
+      "profit": 0.5
+    },
+    {
+      "competition": "Serie A",
+      "match": "Bologna vs Napoli",
+      "result": "2-0",
+      "recommendation": "12 - Casa o Trasferta",
+      "odds": 1.39,
+      "valueRating": 3,
+      "expectedValue": 5.64,
+      "outcome": "WIN",
+      "profit": 0.39
+    },
+    {
+      "competition": "La Liga",
+      "match": "Elche vs Real Sociedad",
+      "result": "1-1",
+      "recommendation": "2 - Vittoria Trasferta",
+      "odds": 2.5,
+      "valueRating": 3,
+      "expectedValue": 20,
+      "outcome": "LOSS",
+      "profit": -1
+    },
+    {
+      "competition": "La Liga",
+      "match": "Girona vs Deportivo Alavés",
+      "result": "1-0",
+      "recommendation": "X2 - Pareggio o Trasferta",
+      "odds": 1.7,
+      "valueRating": 3,
+      "expectedValue": 17.3,
+      "outcome": "LOSS",
+      "profit": -1
+    },
+    {
+      "competition": "Bundesliga",
+      "match": "Le Havre vs Nantes",
+      "result": "1-1",
+      "recommendation": "X2 - Pareggio o Trasferta",
+      "odds": 1.92,
+      "valueRating": 2,
+      "expectedValue": 3.68,
+      "outcome": "WIN",
+      "profit": 0.92
+    },
+    {
+      "competition": "Bundesliga",
+      "match": "Monaco vs Lens",
+      "result": "1-4",
+      "recommendation": "X2 - Pareggio o Trasferta",
+      "odds": 1.79,
+      "valueRating": 3,
+      "expectedValue": 16.35,
+      "outcome": "WIN",
+      "profit": 0.79
+    }
+  ]
+}

@@ -682,7 +682,7 @@ export default function PredictionContent() {
             </h2>
 
             {/* Top 3 Picks */}
-            {recommendations.topPicks && recommendations.topPicks.length > 0 && (
+            {recommendations.topPicks && recommendations.topPicks.length > 0 ? (
               <div className="mb-8">
                 <h3 className="text-xl font-bold mb-4 text-yellow-400">⭐ Top 3 Raccomandazioni</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -744,6 +744,54 @@ export default function PredictionContent() {
                       )}
                     </div>
                   ))}
+                </div>
+              </div>
+            ) : (
+              <div className="mb-8 bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-xl p-8 border border-slate-700/50">
+                <div className="text-center">
+                  <div className="text-6xl mb-4">🚫</div>
+                  <h3 className="text-2xl font-bold text-gray-300 mb-3">Nessuna Raccomandazione Disponibile</h3>
+                  <div className="max-w-2xl mx-auto">
+                    <p className="text-gray-400 mb-4">
+                      Il sistema ML ha analizzato questa partita ma non ha generato raccomandazioni perché:
+                    </p>
+                    <div className="bg-slate-900/50 rounded-lg p-6 text-left space-y-3">
+                      <div className="flex items-start gap-3">
+                        <span className="text-yellow-500 text-xl">•</span>
+                        <div>
+                          <span className="font-semibold text-gray-300">Confidence troppo bassa:</span>
+                          <span className="text-gray-400 ml-1">Le probabilità calcolate non superano la soglia minima di affidabilità (60-70%)</span>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <span className="text-yellow-500 text-xl">•</span>
+                        <div>
+                          <span className="font-semibold text-gray-300">Expected Value negativo:</span>
+                          <span className="text-gray-400 ml-1">Le quote offerte non rappresentano valore rispetto alle probabilità calcolate</span>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <span className="text-yellow-500 text-xl">•</span>
+                        <div>
+                          <span className="font-semibold text-gray-300">Filtri di sicurezza attivi:</span>
+                          <span className="text-gray-400 ml-1">Per alcuni campionati (La Liga, Champions) i filtri sono più restrittivi (&gt;75% confidence, &gt;30% EV)</span>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <span className="text-yellow-500 text-xl">•</span>
+                        <div>
+                          <span className="font-semibold text-gray-300">Partita troppo incerta:</span>
+                          <span className="text-gray-400 ml-1">L'equilibrio tra le squadre rende difficile una previsione affidabile</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-6 p-4 bg-blue-900/20 border border-blue-600/30 rounded-lg">
+                      <p className="text-blue-300 text-sm">
+                        💡 <strong>Nota:</strong> È meglio non scommettere che fare una scommessa a basso valore. 
+                        Il sistema è ultra-selettivo per proteggere il tuo bankroll.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

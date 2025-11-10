@@ -1,0 +1,63 @@
+{
+  "metadata": {
+    "source": "./backtest-report-2025-10-10_to_2025-11-09.json",
+    "analyzedAt": "2025-11-09T19:22:01.461Z"
+  },
+  "statistics": {
+    "totalMatches": 125,
+    "matchesAnalyzed": 58,
+    "matchesSkipped": 67,
+    "skipReasons": {
+      "noTeams": 0,
+      "noRecs": 67,
+      "apiError": 0
+    }
+  },
+  "recommendations": {
+    "total": 73,
+    "evDistribution": {
+      "negative": 0,
+      "low": 0,
+      "medium": 0,
+      "high": 73
+    },
+    "confidenceDistribution": {
+      "low": 0,
+      "medium": 0,
+      "high": 0
+    },
+    "ratingDistribution": {
+      "r1": 0,
+      "r2": 5,
+      "r3": 68,
+      "r4": 0
+    },
+    "byType": {
+      "result": [],
+      "double_chance": [],
+      "over_under": [],
+      "goal_nogoal": []
+    }
+  },
+  "thresholds": {
+    "expectedValue": {
+      "min": 3.18,
+      "avg": 13.590547945205486,
+      "max": 24.7
+    },
+    "confidence": {
+      "min": null,
+      "avg": null,
+      "max": null
+    },
+    "odds": {
+      "min": 1.28,
+      "avg": 1.7421917808219176,
+      "max": 2.64
+    }
+  },
+  "coverage": {
+    "currentCoverage": "46.4%",
+    "potentialIncrease": "Stimato +15-25% allentando filtri a EV >= 8% e Confidence >= 45%"
+  }
+}

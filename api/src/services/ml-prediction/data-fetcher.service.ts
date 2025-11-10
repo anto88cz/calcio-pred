@@ -48,8 +48,9 @@ export class MLDataFetcherService {
 
   /**
    * Recupera lo storico dei testa a testa tra due squadre
+   * @param referenceDate Data di riferimento (per backtest). Se non specificata, usa data attuale
    */
-  async getHeadToHeadData(homeTeamId: number, awayTeamId: number): Promise<HeadToHeadMatch[]> {
+  async getHeadToHeadData(homeTeamId: number, awayTeamId: number, referenceDate?: string): Promise<HeadToHeadMatch[]> {
     try {
       console.log(`📊 Fetching head-to-head data for teams ${homeTeamId} vs ${awayTeamId}`);
       
@@ -65,8 +66,14 @@ export class MLDataFetcherService {
         return [];
       }
 
+      // Determina la data di cutoff per il backtest
+      const cutoffDate = referenceDate ? new Date(referenceDate) : new Date();
+
       const matches: HeadToHeadMatch[] = response.data
-        .filter((fixture: any) => fixture.state_id === 5) // Solo partite finite
+        .filter((fixture: any) => {
+          const fixtureDate = new Date(fixture.starting_at);
+          return fixture.state_id === 5 && fixtureDate < cutoffDate; // Solo partite finite E prima della data di riferimento
+        })
         .map((fixture: any) => {
           const homeParticipant = fixture.participants?.find((p: any) => p.meta?.location === 'home');
           const awayParticipant = fixture.participants?.find((p: any) => p.meta?.location === 'away');
@@ -101,10 +108,17 @@ export class MLDataFetcherService {
 
   /**
    * Recupera le statistiche di una squadra per una stagione specifica
+   * @param referenceDate Data di riferimento (per backtest). Se non specificata, usa data attuale
    */
-  async getTeamSeasonStats(teamId: number, seasonId: number, leagueId?: number): Promise<TeamSeasonStats | null> {
+  async getTeamSeasonStats(teamId: number, seasonId: number, leagueId?: number, referenceDate?: string): Promise<TeamSeasonStats | null> {
     try {
       console.log(`📊 Fetching season stats for team ${teamId}, season ${seasonId}, league ${leagueId}`);
+      
+      // NOTA: Le statistiche stagionali sono aggregate e potrebbero includere partite future alla data di riferimento
+      // Questo è un potenziale data leakage per il backtest
+      if (referenceDate) {
+        console.warn(`⚠️  POTENTIAL DATA LEAKAGE: Season stats may include matches after ${referenceDate}`);
+      }
       
       // Usa l'endpoint statistics/seasons/teams/{teamId} con filtro per seasonId
       // NON filtrare per leagueId perché può causare problemi con l'API
@@ -302,8 +316,9 @@ export class MLDataFetcherService {
 
   /**
    * Recupera le ultime N partite di una squadra con dati xG
+   * @param referenceDate Data di riferimento (per backtest). Se non specificata, usa data attuale
    */
-  async getTeamRecentXGMatches(teamId: number, seasonId: number, limit: number = 10): Promise<FixtureXGData[]> {
+  async getTeamRecentXGMatches(teamId: number, seasonId: number, limit: number = 10, referenceDate?: string): Promise<FixtureXGData[]> {
     try {
       console.log(`📊 Fetching recent xG matches for team ${teamId}, season ${seasonId}`);
       
@@ -324,10 +339,16 @@ export class MLDataFetcherService {
 
       const matches = response.data.latest;
       
-      // Filtra solo partite finite (state_id === 5) - NOTA: non filtr iamo per season_id 
-      // perché vogliamo gli xG più recenti indipendentemente dalla competizione
+      // Determina la data di cutoff per il backtest
+      const cutoffDate = referenceDate ? new Date(referenceDate) : new Date();
+      
+      // Filtra solo partite finite (state_id === 5) E prima della data di riferimento
+      // NOTA: non filtriamo per season_id perché vogliamo gli xG più recenti indipendentemente dalla competizione
       const finishedMatches = matches
-        .filter((fixture: any) => fixture.state_id === 5)
+        .filter((fixture: any) => {
+          const fixtureDate = new Date(fixture.starting_at);
+          return fixture.state_id === 5 && fixtureDate < cutoffDate;
+        })
         .sort((a: any, b: any) => new Date(b.starting_at).getTime() - new Date(a.starting_at).getTime())
         .slice(0, limit);
       

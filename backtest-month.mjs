@@ -1,7 +1,7 @@
 /**
- * BACKTEST BETTING RECOMMENDATIONS - 7-8-9 NOVEMBRE 2025
+ * BACKTEST BETTING RECOMMENDATIONS - MENSILE (10 OTTOBRE - 9 NOVEMBRE 2025)
  * 
- * Recupera tutte le partite finite del 7, 8 e 9 novembre 2025,
+ * Recupera tutte le partite finite in 1 mese,
  * genera predizioni come se dovessero ancora giocare,
  * confronta con i risultati effettivi.
  * 
@@ -17,8 +17,8 @@ const LOCAL_API = 'http://localhost:3001/api';
 
 console.log(`✅ API Key configurata\n`);
 
-// Date: 7-8-9 novembre 2025 (3 giorni)
-const START_DATE = '2025-11-07';
+// Date: 10 ottobre - 9 novembre 2025 (1 mese)
+const START_DATE = '2025-10-10';
 const END_DATE = '2025-11-09';
 
 // Campionati e competizioni da analizzare
@@ -31,14 +31,14 @@ const COMPETITIONS = [
 ];
 
 /**
- * Recupera tutte le partite finite del 7-8-9 novembre 2025 da Sportmonks
+ * Recupera tutte le partite finite del mese da Sportmonks
  */
 async function getFinishedMatches() {
-  console.log('\n📅 Recupero partite finite del 7-8-9 novembre 2025...\n');
+  console.log(`\n📅 Recupero partite finite dal ${START_DATE} al ${END_DATE}...\n`);
   
   const allMatches = [];
   
-  console.log(`📊 Periodo: ${START_DATE} → ${END_DATE}\n`);
+  console.log(`📊 Periodo: ${START_DATE} → ${END_DATE} (1 MESE)\n`);
   
   for (const comp of COMPETITIONS) {
     try {
@@ -56,19 +56,19 @@ async function getFinishedMatches() {
       
       if (response.data?.data) {
         // Filtra solo partite finite (state_id = 5 = FT)
-        const weekMatches = response.data.data.filter(match => 
+        const monthMatches = response.data.data.filter(match => 
           match.state_id === 5 && match.league_id === comp.id
         );
         
         // Aggiungi info sulla competizione
-        weekMatches.forEach(m => {
+        monthMatches.forEach(m => {
           m.competition = comp.name;
           m.season_id = comp.season;
           m.league_id = comp.id;
         });
         
-        console.log(`   ✅ ${comp.name}: ${weekMatches.length} partite finite`);
-        allMatches.push(...weekMatches);
+        console.log(`   ✅ ${comp.name}: ${monthMatches.length} partite finite`);
+        allMatches.push(...monthMatches);
       }
       
       // Rate limiting Sportmonks
@@ -99,46 +99,41 @@ async function getRecommendations(match) {
       fixtureId: match.id,
       homeTeamId: homeTeam.id,
       awayTeamId: awayTeam.id,
-      seasonId: match.season_id,
       leagueId: match.league_id,
-      homeTeamName: homeTeam.name,
-      awayTeamName: awayTeam.name,
+      seasonId: match.season_id,
+    }, {
+      timeout: 30000,
     });
     
     return response.data;
   } catch (error) {
+    console.error(`      ❌ Errore API locale: ${error.message}`);
     return null;
   }
 }
 
 /**
- * Estrae i punteggi dal match
+ * Ottieni i punteggi finali
  */
 function getMatchScores(match) {
-  const scores = match.scores || [];
+  const homeScore = match.scores?.find(s => s.description === 'CURRENT' && s.participant_id === match.participants?.find(p => p.meta?.location === 'home')?.id);
+  const awayScore = match.scores?.find(s => s.description === 'CURRENT' && s.participant_id === match.participants?.find(p => p.meta?.location === 'away')?.id);
   
-  const homeScore = scores.find(s => 
-    s.description === 'CURRENT' && 
-    s.score?.participant === 'home'
-  )?.score?.goals || 0;
-  
-  const awayScore = scores.find(s => 
-    s.description === 'CURRENT' && 
-    s.score?.participant === 'away'
-  )?.score?.goals || 0;
-  
-  return { homeScore, awayScore };
+  return {
+    homeScore: homeScore?.score?.goals || 0,
+    awayScore: awayScore?.score?.goals || 0
+  };
 }
 
 /**
- * Verifica se una raccomandazione è vincente
+ * Verifica se la raccomandazione è vincente
  */
 function checkRecommendation(recommendation, homeScore, awayScore) {
-  const totalGoals = homeScore + awayScore;
-  const result = homeScore > awayScore ? '1' : homeScore < awayScore ? '2' : 'X';
-  
   let isWin = false;
   let description = '';
+  
+  const result = homeScore > awayScore ? '1' : homeScore < awayScore ? '2' : 'X';
+  const totalGoals = homeScore + awayScore;
   
   switch (recommendation.type) {
     case 'result':
@@ -173,45 +168,6 @@ function checkRecommendation(recommendation, homeScore, awayScore) {
         description = `Gol: ${totalGoals} (${isWin ? '<' : '>='} ${threshold})`;
       }
       break;
-      
-    case 'multigoal':
-      if (recommendation.prediction.includes('CASA')) {
-        const match = recommendation.prediction.match(/(\d+)-(\d+)/);
-        if (match) {
-          const [_, min, max] = match;
-          isWin = homeScore >= parseInt(min) && homeScore <= parseInt(max);
-          description = `Gol casa: ${homeScore} (${min}-${max})`;
-        }
-      } else if (recommendation.prediction.includes('TRASFERTA')) {
-        const match = recommendation.prediction.match(/(\d+)-(\d+)/);
-        if (match) {
-          const [_, min, max] = match;
-          isWin = awayScore >= parseInt(min) && awayScore <= parseInt(max);
-          description = `Gol trasferta: ${awayScore} (${min}-${max})`;
-        }
-      }
-      break;
-      
-    case 'combo':
-      const conditions = recommendation.prediction.split(' + ');
-      let comboWin = true;
-      
-      conditions.forEach(cond => {
-        if (cond === '1' && result !== '1') comboWin = false;
-        if (cond === '2' && result !== '2') comboWin = false;
-        if (cond === 'X' && result !== 'X') comboWin = false;
-        if (cond === '1X' && result === '2') comboWin = false;
-        if (cond === 'X2' && result === '1') comboWin = false;
-        if (cond.includes('OVER')) {
-          const threshold = parseFloat(cond.match(/[\d.]+/)?.[0] || 0);
-          if (totalGoals <= threshold) comboWin = false;
-        }
-        if (cond.includes('GOAL') && !(homeScore > 0 && awayScore > 0)) comboWin = false;
-      });
-      
-      isWin = comboWin;
-      description = `${homeScore}-${awayScore}, Tot: ${totalGoals}`;
-      break;
   }
   
   return { isWin, description };
@@ -222,10 +178,10 @@ function checkRecommendation(recommendation, homeScore, awayScore) {
  */
 async function analyzeRecommendations() {
   console.log('='*80);
-  console.log(`🔍 BACKTEST BETTING RECOMMENDATIONS - 7-8-9 NOVEMBRE 2025`);
+  console.log(`🔍 BACKTEST MENSILE - ${START_DATE} → ${END_DATE}`);
   console.log('='*80);
   
-  // 1. Ottieni tutte le partite finite del 7-8-9 novembre 2025
+  // 1. Ottieni tutte le partite finite del mese
   const matches = await getFinishedMatches();
   
   if (matches.length === 0) {
@@ -280,7 +236,7 @@ async function analyzeRecommendations() {
       results.matchesSkipped++;
       skipReasons.noRecs++;
       counter++;
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       continue;
     }
     
@@ -347,8 +303,8 @@ async function analyzeRecommendations() {
     
     counter++;
     
-    // Rate limiting per non sovraccaricare il backend
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Rate limiting per non sovraccaricare il backend (più veloce del weekly)
+    await new Promise(resolve => setTimeout(resolve, 1000));
   }
   
   // ============================================
@@ -356,7 +312,7 @@ async function analyzeRecommendations() {
   // ============================================
   
   console.log('\n' + '='*80);
-  console.log('📊 REPORT FINALE - BACKTEST RACCOMANDAZIONI');
+  console.log(`📊 REPORT FINALE - BACKTEST MENSILE`);
   console.log('='*80 + '\n');
   
   console.log(`📈 STATISTICHE GENERALI:`);
@@ -375,7 +331,7 @@ async function analyzeRecommendations() {
   console.log(`\n💰 ROI (Return on Investment):`);
   console.log(`   Profitto totale: ${totalProfit > 0 ? '+' : ''}${totalProfit.toFixed(2)} unità`);
   console.log(`   ROI: ${roi > 0 ? '+' : ''}${roi.toFixed(2)}%`);
-  console.log(`   ${roi > 0 ? '✅ PROFITTO' : roi < 0 ? '❌ PERDITA' : '⚖️  BREAK-EVEN'}`);
+  console.log(`   ${roi > 0 ? '✅ PROFITTO' : roi < 0 ? '❌ PERDITA' : '➖ BREAK-EVEN'}`);
   
   // Per competizione
   console.log(`\n🏆 PERFORMANCE PER COMPETIZIONE:`);
@@ -440,11 +396,11 @@ async function analyzeRecommendations() {
   });
   
   // Top perdite
-  console.log(`\n💸 TOP 5 PERDITE PIÙ PESANTI:`);
+  console.log(`\n💸 TOP 10 PERDITE PIÙ PESANTI:`);
   const topLosses = results.details
     .filter(d => d.outcome === 'LOSS')
     .sort((a, b) => a.profit - b.profit)
-    .slice(0, 5);
+    .slice(0, 10);
   
   topLosses.forEach((d, i) => {
     console.log(`   ${i+1}. ${d.competition}: ${d.match} (${d.result})`);
@@ -452,14 +408,11 @@ async function analyzeRecommendations() {
     console.log(`      Perdita: ${d.profit.toFixed(2)} unità\n`);
   });
   
-  console.log('='*80);
+  console.log('\n' + '='*80);
   console.log('✅ Analisi completata!');
   console.log('='*80 + '\n');
   
-  // ============================================
-  // GENERA REPORT JSON
-  // ============================================
-  
+  // Salva report JSON
   const report = {
     metadata: {
       period: `${START_DATE} to ${END_DATE}`,
@@ -467,6 +420,7 @@ async function analyzeRecommendations() {
       totalMatches: matches.length,
       matchesAnalyzed: results.matchesAnalyzed,
       matchesSkipped: results.matchesSkipped,
+      skipReasons,
     },
     summary: {
       totalRecommendations: results.total,
@@ -474,39 +428,39 @@ async function analyzeRecommendations() {
       losses: results.losses,
       winRate: parseFloat((results.wins/results.total*100).toFixed(2)),
       totalProfit: parseFloat(totalProfit.toFixed(2)),
-      roi: parseFloat(roi.toFixed(2)),
+      roi: parseFloat(roi.toFixed(2))
     },
-    byCompetition: Object.entries(results.byCompetition).map(([name, stats]) => ({
-      competition: name,
+    byCompetition: Object.entries(results.byCompetition).map(([competition, stats]) => ({
+      competition,
       wins: stats.wins,
       losses: stats.losses,
       total: stats.wins + stats.losses,
-      winRate: parseFloat((stats.wins / (stats.wins + stats.losses) * 100).toFixed(2)),
+      winRate: parseFloat((stats.wins / (stats.wins + stats.losses) * 100).toFixed(2))
     })),
     byBetType: Object.entries(results.byType).map(([type, stats]) => ({
       type,
       wins: stats.wins,
       losses: stats.losses,
       total: stats.wins + stats.losses,
-      winRate: parseFloat((stats.wins / (stats.wins + stats.losses) * 100).toFixed(2)),
+      winRate: parseFloat((stats.wins / (stats.wins + stats.losses) * 100).toFixed(2))
     })),
     byValueRating: Object.entries(results.byValueRating)
-      .filter(([_, stats]) => stats.w + stats.l > 0)
+      .filter(([_, stats]) => (stats.w + stats.l) > 0)
       .map(([rating, stats]) => ({
         rating: parseInt(rating),
         wins: stats.w,
         losses: stats.l,
         total: stats.w + stats.l,
-        winRate: parseFloat((stats.w / (stats.w + stats.l) * 100).toFixed(2)),
+        winRate: parseFloat((stats.w / (stats.w + stats.l) * 100).toFixed(2))
       })),
     byExpectedValue: Object.entries(results.byEV)
-      .filter(([_, stats]) => stats.w + stats.l > 0)
+      .filter(([_, stats]) => (stats.w + stats.l) > 0)
       .map(([category, stats]) => ({
         category,
         wins: stats.w,
         losses: stats.l,
         total: stats.w + stats.l,
-        winRate: parseFloat((stats.w / (stats.w + stats.l) * 100).toFixed(2)),
+        winRate: parseFloat((stats.w / (stats.w + stats.l) * 100).toFixed(2))
       })),
     topWins: topWins.map(d => ({
       competition: d.competition,
@@ -516,7 +470,7 @@ async function analyzeRecommendations() {
       odds: d.odds,
       valueRating: d.valueRating,
       expectedValue: parseFloat((d.expectedValue * 100).toFixed(2)),
-      profit: parseFloat(d.profit.toFixed(2)),
+      profit: parseFloat(d.profit.toFixed(2))
     })),
     topLosses: topLosses.map(d => ({
       competition: d.competition,
@@ -526,27 +480,28 @@ async function analyzeRecommendations() {
       odds: d.odds,
       valueRating: d.valueRating,
       expectedValue: parseFloat((d.expectedValue * 100).toFixed(2)),
-      loss: parseFloat(Math.abs(d.profit).toFixed(2)),
+      loss: parseFloat(Math.abs(d.profit).toFixed(2))
     })),
     allRecommendations: results.details.map(d => ({
       competition: d.competition,
       match: d.match,
       result: d.result,
       recommendation: d.recommendation,
-      type: d.type,
       odds: d.odds,
       valueRating: d.valueRating,
       expectedValue: parseFloat((d.expectedValue * 100).toFixed(2)),
       outcome: d.outcome,
-      profit: parseFloat(d.profit.toFixed(2)),
-    })),
+      profit: parseFloat(d.profit.toFixed(2))
+    }))
   };
   
-  // Salva report JSON
-  const reportPath = `backtest-report-${START_DATE}_to_${END_DATE}.json`;
-  fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
-  console.log(`\n📄 Report salvato in: ${reportPath}\n`);
+  const reportFilename = `backtest-report-${START_DATE}_to_${END_DATE}.json`;
+  fs.writeFileSync(reportFilename, JSON.stringify(report, null, 2));
+  console.log(`\n📄 Report salvato in: ${reportFilename}\n`);
 }
 
-// Esegui l'analisi
-analyzeRecommendations().catch(console.error);
+// Esegui analisi
+analyzeRecommendations().catch(error => {
+  console.error('\n❌ Errore fatale:', error);
+  process.exit(1);
+});

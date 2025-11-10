@@ -2,7 +2,7 @@ const moment = require('moment-timezone');
 
 // Configurazione
 const API_URL = process.env.API_URL || 'http://localhost:3001';
-const INITIAL_CAPITAL = 100; // €100 iniziali
+const INITIAL_CAPITAL = 200; // €200 iniziali
 const STAKE_PERCENTAGE = 0.20; // 20% del capitale
 const TARGET_ODDS = 2.0; // Target quota per raddoppio
 const MIN_ODDS = 1.8; // Minimo accettabile (90% del target)
