@@ -39,6 +39,7 @@ export interface PredictionInput {
   homeTeamName?: string; // Optional for market odds fetch
   awayTeamName?: string; // Optional for market odds fetch
   leagueName?: string; // 🆕 League name for filtering and league-specific parameters
+  referenceDate?: Date; // 🆕 Temporal constraint to prevent data leakage
 }
 
 export class PredictionEngine {
@@ -87,7 +88,7 @@ export class PredictionEngine {
 
       // 2. Fetch xG data (priorità alta - necessario per lambda calibration)
       logger.debug('Step 2/5: Fetching xG data');
-      const xgData = await this.fetchExpectedGoals(input.fixtureId);
+      const xgData = await this.fetchExpectedGoals(input.fixtureId, input.referenceDate);
 
       // 3. Raccogli infortuni e lineup (opzionali - possono fallire)
       logger.debug('Step 3/5: Fetching injuries and lineups');
@@ -136,7 +137,7 @@ export class PredictionEngine {
 
       // 5. Fetch H2H stats (SEQUENZIALE - ultima API call prima calcoli)
       logger.debug('Step 5/5: Fetching H2H data from Sportsmonks');
-      const h2hMatches = await statisticsService.getHeadToHead(input.homeTeamId, input.awayTeamId, 10);
+      const h2hMatches = await statisticsService.getHeadToHead(input.homeTeamId, input.awayTeamId, 10, input.referenceDate);
       const h2hStats = this.calculateH2HStats(h2hMatches, input.homeTeamId, input.awayTeamId);
       
       logger.info({
@@ -552,10 +553,10 @@ export class PredictionEngine {
   /**
    * Fetch Expected Goals data from API-FOOTBALL
    */
-  private async fetchExpectedGoals(fixtureId: number): Promise<ExpectedGoalsData | null> {
+  private async fetchExpectedGoals(fixtureId: number, referenceDate?: Date): Promise<ExpectedGoalsData | null> {
     try {
       logger.debug({ fixtureId }, 'Fetching xG data from API-FOOTBALL');
-      const xgData = await statisticsService.getExpectedGoals(fixtureId);
+      const xgData = await statisticsService.getExpectedGoals(fixtureId, referenceDate);
       
       if (xgData.missingXg) {
         logger.warn({ fixtureId }, 'xG data missing or incomplete');
@@ -640,20 +641,21 @@ export class PredictionEngine {
 
     // Fetch SEQUENZIALE (non parallelo) per rate limit
     // 🆕 Passa teamName per il mapping ID corretto
-    const homeHistory = await statisticsService.getTeamHistoryByVenue(
+    // 🔧 FIX: Usa getTeamHistory invece di getTeamHistoryByVenue per analizzare TUTTE le partite
+    const homeHistory = await statisticsService.getTeamHistory(
       input.homeTeamId,
       input.season,
-      true, // home
       calculationConfig.historyGames,
-      input.homeTeamName // 🆕 Pass team name for ID mapping
+      input.homeTeamName, // 🆕 Pass team name for ID mapping
+      input.referenceDate // 🆕 Temporal constraint to prevent data leakage
     );
 
-    const awayHistory = await statisticsService.getTeamHistoryByVenue(
+    const awayHistory = await statisticsService.getTeamHistory(
       input.awayTeamId,
       input.season,
-      false, // away
       calculationConfig.historyGames,
-      input.awayTeamName // 🆕 Pass team name for ID mapping
+      input.awayTeamName, // 🆕 Pass team name for ID mapping
+      input.referenceDate // 🆕 Temporal constraint to prevent data leakage
     );
 
     // NUOVO: Popola cache xG per partite storiche (background - non blocca predizione)

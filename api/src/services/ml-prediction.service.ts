@@ -46,10 +46,10 @@ interface MatchPrediction {
  * Calculate time-weighted average with exponential decay
  * More recent matches have higher weight
  */
-function timeWeightedAverage(values: number[], dates: (Date | string)[]): number {
+function timeWeightedAverage(values: number[], dates: (Date | string)[], referenceDate?: Date): number {
   if (values.length === 0) return 0;
   
-  const now = Date.now();
+  const now = referenceDate ? referenceDate.getTime() : Date.now();
   const decayRate = 0.1; // Decay rate per month
   
   let weightedSum = 0;
@@ -74,7 +74,8 @@ function timeWeightedAverage(values: number[], dates: (Date | string)[]): number
 export function calculateTeamStrength(
   matches: MatchHistoryData[],
   teamId: number,
-  isHome: boolean
+  isHome: boolean,
+  referenceDate?: Date // 🆕 Temporal constraint to prevent data leakage
 ): TeamStrength {
   // 🔧 FALLBACK MIGLIORATO per piano Free (senza dati storici)
   // Usiamo valori più realistici basati su medie statistiche del calcio
@@ -103,8 +104,8 @@ export function calculateTeamStrength(
     const dates = matches.map(m => m.date);
     
     return {
-      attack: Math.max(0.5, timeWeightedAverage(allGoalsScored, dates)) || FALLBACK_ATTACK,
-      defense: Math.max(0.5, timeWeightedAverage(allGoalsConceded, dates)) || FALLBACK_DEFENSE,
+      attack: Math.max(0.5, timeWeightedAverage(allGoalsScored, dates, referenceDate)) || FALLBACK_ATTACK,
+      defense: Math.max(0.5, timeWeightedAverage(allGoalsConceded, dates, referenceDate)) || FALLBACK_DEFENSE,
       form: 0.5,
       xgPerformance: 1.0,
     };
@@ -115,13 +116,13 @@ export function calculateTeamStrength(
     m.isHome ? m.homeGoals : m.awayGoals
   );
   const dates = relevantMatches.map(m => m.date);
-  const attack = timeWeightedAverage(goalsScored, dates);
+  const attack = timeWeightedAverage(goalsScored, dates, referenceDate);
 
   // Calculate defense strength (goals conceded per match)
   const goalsConceded = relevantMatches.map(m => 
     m.isHome ? m.awayGoals : m.homeGoals
   );
-  const defense = timeWeightedAverage(goalsConceded, dates);
+  const defense = timeWeightedAverage(goalsConceded, dates, referenceDate);
 
   // Calculate form (recent 5 matches)
   const recentMatches = relevantMatches.slice(0, 5);
