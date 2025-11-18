@@ -336,8 +336,12 @@ function MainApp() {
       '2': 'from-blue-600 to-indigo-600',     // Champions League
       '3': 'from-orange-500 to-amber-500',    // Europa League
       '39': 'from-purple-600 to-pink-600',    // Premier League
+      '8': 'from-purple-600 to-pink-600',     // Premier League (Sportsmonks ID)
+      '9': 'from-violet-600 to-purple-600',   // Championship 🆕
       '140': 'from-red-600 to-rose-600',      // La Liga
       '135': 'from-sky-600 to-blue-600',      // Serie A
+      '384': 'from-sky-600 to-blue-600',      // Serie A (Sportsmonks ID)
+      '387': 'from-teal-600 to-cyan-600',     // Serie B 🆕
       '78': 'from-red-600 to-gray-900',       // Bundesliga
       '61': 'from-blue-500 to-cyan-500',      // Ligue 1
     };

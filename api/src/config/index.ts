@@ -37,7 +37,7 @@ const configSchema = z.object({
   REDIS_URL: z.string().url(),
   
   // Parametri Calcolo - CORRETTI
-  HISTORY_GAMES: z.string().transform(Number).default('7'), // Compromesso ottimale tra stabilità e volume dati
+  HISTORY_GAMES: z.string().transform(Number).default('10'), // Compromesso ottimale tra stabilità e volume dati
   HOME_ADV_GOALS: z.string().transform(Number).default('0.15'), // Vantaggio casa calibrato conservativo
   CONFIDENCE_MIN: z.string().transform(Number).default('0.65'), // Soglia bilanciata per qualità/volume
   BLEND_EMPIRIC: z.string().transform(Number).default('0.55'), // Riequilibrato

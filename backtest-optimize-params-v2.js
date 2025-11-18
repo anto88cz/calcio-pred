@@ -1,30 +1,35 @@
 const moment = require('moment-timezone');
 
-// Configurazione OTTIMIZZATA - STRATEGIA STABILE (basata su analisi Set-Ott)
+// ============================================================================
+// 🔬 BACKTEST PARAMETER OPTIMIZER V2 (BASED ON WORKING backtest-multiple.js)
+// ============================================================================
+// Testa TUTTE le combinazioni di parametri in parallelo usando la logica 
+// FUNZIONANTE di backtest-multiple.js
+// ============================================================================
+
 const API_URL = process.env.API_URL || 'http://localhost:3001';
 const INITIAL_CAPITAL = 100; // €100 iniziali
-const STAKE_PERCENTAGE = 0.1; // 30% del capitale per bet più frequenti
-const TARGET_ODDS = 1.7; // 🎯 OTTIMIZZATO: Target quota moderata 1.6
-const MIN_ODDS = 1.2; // 🎯 OTTIMIZZATO: Minimo 1.4 (range migliore: 1.5-2.0 con 85.7% accuracy)
-const MAX_ODDS = 3; // 🎯 OTTIMIZZATO: Massimo 2.0 (quote alte hanno solo 50% accuracy)
-const START_DATE = '2025-09-01'; // Data inizio backtest (formato YYYY-MM-DD)
-const END_DATE = '2025-11-09'; // Data fine backtest (formato YYYY-MM-DD)
-const MAX_EVENTS = 2; // 🎯 OTTIMIZZATO: Max 2 eventi per win rate 60-70%
-const PREFERRED_EVENTS = 1; // 🎯 OTTIMIZZATO: Preferisci doppie invece di 5-7 eventi
 
-// 🎯 GOAL/NOGOAL SETTINGS
-const ENABLE_GG_NG = true; // Abilita supporto per raccomandazioni Goal/NoGoal
-const GG_NG_BONUS = 0; // 🎯 NO BONUS - Trattati come tutti gli altri mercati
-const MIN_GG_NG_CONFIDENCE = 60; // Stessa confidence degli altri mercati
+// 🎯 DATE RANGE (FISSO - stesso del backtest funzionante)
+const START_DATE = '2025-09-01';
+const END_DATE = '2025-11-09';
 
-// FILTRI QUALITÀ per raccomandazioni
-const MIN_CONFIDENCE = 65; // 🔧 Q1 FIX: Aumentato da 60% a 65%
-const MIN_EXPECTED_VALUE = 0.12; // 🔧 Q1 FIX: Aumentato da 10% a 12%
-const MIN_VALUE_RATING = 3; // Minimo 3 stelle
+// �️ PARAMETRI DA TESTARE
+const PARAM_GRID = {
+  stake_percentage: [0.05, 0.1, 0.15, 0.2, 0.3], // 5%, 10%, 15%, 20%, 30%
+  target_odds: [1.5, 1.6, 1.7, 1.8, 2.0], // Target quote
+  min_odds: [1.2, 1.3, 1.4, 1.5], // Quote minime
+  max_odds: [2.0, 2.5, 3.0, 3.5, 4.0], // Quote massime
+  max_events: [1, 2, 3, 4, 5], // Numero massimo eventi
+  preferred_events: [1, 2, 3], // Numero preferito eventi
+};
 
-// 🔧 Q1 FIX: FILTRO QUOTE BASSE PER EVITARE PAREGGI
-const MIN_ODDS_SINGLE_EVENT = 1.42; // Evita quote troppo basse (< 1.42) per singoli eventi
-const ENABLE_LOW_ODDS_FILTER = true; // Abilita filtro quote basse
+// 🔧 FILTRI QUALITÀ (fissi - stessi del backtest funzionante)
+const MIN_CONFIDENCE = 65;
+const MIN_EXPECTED_VALUE = 0.12;
+const MIN_VALUE_RATING = 3;
+const MIN_ODDS_SINGLE_EVENT = 1.42;
+const ENABLE_LOW_ODDS_FILTER = true;
 
 // Colori per console
 const colors = {
@@ -103,9 +108,8 @@ function calculateScore(rec) {
   return valueRating * 0.4 + confidence * 0.3 + expectedValue * 0.2 + oddsBonus;
 }
 
-// Funzione per generare multipla automatica
-async function generateMultipleForDate(date) {
-  console.log(`\n${colors.cyan}📅 Elaborazione ${date}...${colors.reset}`);
+// Funzione per generare multipla automatica (CON PARAMETRI)
+async function generateMultipleForDate(date, params) {
   
   try {
     // 1. Carica partite del giorno
@@ -283,14 +287,14 @@ async function generateMultipleForDate(date) {
     allEvents.sort((a, b) => b.recommendation.score - a.recommendation.score);
     
     // 4. STRATEGIA FLESSIBILE: Cerca di raggiungere quota target con 1 fino a MAX_EVENTS partite
-    // 🎯 STEP 1: Inizia da 2 eventi (preferito) poi prova 1 e 3
+    // 🎯 STEP 1: Inizia da preferred_events poi prova altri
     let bestMultiple = null;
     let bestDiffFromTarget = Infinity;
     
-    // Genera tutte le combinazioni, dando priorità a PREFERRED_EVENTS
-    const eventSequence = [PREFERRED_EVENTS];
-    for (let i = 1; i <= MAX_EVENTS; i++) {
-      if (i !== PREFERRED_EVENTS) eventSequence.push(i);
+    // Genera tutte le combinazioni, dando priorità a params.preferred_events
+    const eventSequence = [params.preferred_events];
+    for (let i = 1; i <= params.max_events; i++) {
+      if (i !== params.preferred_events) eventSequence.push(i);
     }
     
     for (const numEvents of eventSequence) {
@@ -307,8 +311,8 @@ async function generateMultipleForDate(date) {
             continue; // Skip quote basse per eventi singoli
           }
           
-          if (odds >= MIN_ODDS && odds <= MAX_ODDS) {
-            const diff = Math.abs(odds - TARGET_ODDS);
+          if (odds >= params.min_odds && odds <= params.max_odds) {
+            const diff = Math.abs(odds - params.target_odds);
             if (diff < bestDiffFromTarget) {
               bestDiffFromTarget = diff;
               bestMultiple = {
@@ -326,8 +330,8 @@ async function generateMultipleForDate(date) {
             const fixtureIds = new Set(currentCombo.map(e => e.fixture.id));
             if (fixtureIds.size !== currentCombo.length) return;
             
-            if (currentOdds >= MIN_ODDS && currentOdds <= MAX_ODDS) {
-              const diff = Math.abs(currentOdds - TARGET_ODDS);
+            if (currentOdds >= params.min_odds && currentOdds <= params.max_odds) {
+              const diff = Math.abs(currentOdds - params.target_odds);
               
               // 🎯 Nessuna preferenza per GG/NG - tutti i mercati competono alla pari
               if (diff < bestDiffFromTarget) {
@@ -353,14 +357,13 @@ async function generateMultipleForDate(date) {
         generateCombinations(0, [], 1);
       }
       
-      // 🎯 STEP 1: Se abbiamo trovato una buona combinazione con PREFERRED_EVENTS, non cercare altro
-      if (numEvents === PREFERRED_EVENTS && bestDiffFromTarget < 0.3) break;
+      // 🎯 STEP 1: Se abbiamo trovato una buona combinazione con preferred_events, non cercare altro
+      if (numEvents === params.preferred_events && bestDiffFromTarget < 0.3) break;
       // Altrimenti, se abbiamo una combinazione decente, esci
       if (bestDiffFromTarget < 0.2) break;
     }
     
     if (!bestMultiple) {
-      console.log(`  ⚠️  Impossibile creare multipla con quota target ${TARGET_ODDS}`);
       return null;
     }
     
@@ -480,38 +483,8 @@ async function generateMultipleForDate(date) {
   }
 }
 
-// Funzione principale di backtesting
-async function runBacktest() {
-  console.log(`${colors.bright}${colors.blue}`);
-  console.log('╔════════════════════════════════════════════════════════╗');
-  console.log('║    BACKTESTING MULTIPLE - STEP 1 OTTIMIZZAZIONE        ║');
-  console.log('╚════════════════════════════════════════════════════════╝');
-  console.log(colors.reset);
-  
-  console.log(`💰 Capitale iniziale: €${INITIAL_CAPITAL}`);
-  console.log(`📊 Stake per schedina: ${(STAKE_PERCENTAGE * 100)}% del capitale`);
-  console.log(`🎯 Target quota: ${TARGET_ODDS}x (range: ${MIN_ODDS}-${MAX_ODDS})`);
-  console.log(`🏆 Eventi per multipla: 1-${MAX_EVENTS} (preferito: ${PREFERRED_EVENTS})`);
-  console.log(`📅 Periodo: dal ${START_DATE} al ${END_DATE}`);
-  console.log(`\n🔒 FILTRI QUALITÀ:`);
-  console.log(`   - Confidence minima: ${MIN_CONFIDENCE}% 🔧 Q1 FIX`);
-  console.log(`   - Expected Value minimo: ${(MIN_EXPECTED_VALUE * 100)}% 🔧 Q1 FIX`);
-  console.log(`   - Value Rating minimo: ${MIN_VALUE_RATING}⭐`);
-  if (ENABLE_LOW_ODDS_FILTER) {
-    console.log(`\n⚠️  FILTRO ANTI-PAREGGIO: 🔧 Q1 FIX`);
-    console.log(`   - Quote singole minime: ${MIN_ODDS_SINGLE_EVENT} (evita equilibri)`);
-  }
-  if (ENABLE_GG_NG) {
-    console.log(`\n⚽ GOAL/NOGOAL:`);
-    console.log(`   - Supporto abilitato: ✅`);
-    console.log(`   - Trattamento: Alla pari con altri mercati (no bonus)`);
-  }
-  console.log('');
-  
-  const results = [];
-  let currentCapital = INITIAL_CAPITAL;
-  
-  // Genera date dal range specificato
+// Funzione per testare una singola configurazione
+async function testConfiguration(params) {
   const dates = [];
   const startMoment = moment(START_DATE);
   const endMoment = moment(END_DATE);
@@ -522,138 +495,146 @@ async function runBacktest() {
     currentDate.add(1, 'days');
   }
   
-  console.log(`📊 Totale giorni da analizzare: ${dates.length}\n`);
+  // 🚀 PARALLEL: Fetch tutte le date in parallelo
+  const multiplePromises = dates.map(date => generateMultipleForDate(date, params));
+  const allMultiples = await Promise.all(multiplePromises);
   
-  // Elabora ogni giorno
-  for (const date of dates) {
-    const multiple = await generateMultipleForDate(date);
-    
+  // Calcola capitale simulando sequenza temporale
+  let currentCapital = INITIAL_CAPITAL;
+  const results = [];
+  
+  for (const multiple of allMultiples) {
     if (multiple) {
-      const stake = currentCapital * STAKE_PERCENTAGE;
-      const potentialWin = stake * multiple.totalOdds;
-      const profit = multiple.won ? potentialWin - stake : -stake;
+      const stake = currentCapital * params.stake_percentage;
+      const payout = multiple.won ? stake * multiple.totalOdds : 0;
+      const profit = payout - stake;
       
       currentCapital += profit;
-      
-      results.push({
-        ...multiple,
-        stake,
-        potentialWin,
-        profit,
-        capitalAfter: currentCapital
-      });
-      
-      const statusIcon = multiple.won ? '✅' : '❌';
-      const statusColor = multiple.won ? colors.green : colors.red;
-      console.log(`  ${statusIcon} ${statusColor}${multiple.won ? 'VINTA' : 'PERSA'}${colors.reset} - Stake: €${stake.toFixed(2)} | Quota: ${multiple.totalOdds.toFixed(2)} | Profit: ${colors.bright}${profit >= 0 ? '+' : ''}€${profit.toFixed(2)}${colors.reset} | Capitale: €${currentCapital.toFixed(2)}`);
-      
-      // Mostra dettaglio eventi
-      multiple.events.forEach(evt => {
-        const icon = evt.correct ? '✓' : '✗';
-        const color = evt.correct ? colors.green : colors.red;
-        console.log(`    ${color}${icon}${colors.reset} ${evt.fixture}: ${evt.prediction} @${evt.odds.toFixed(2)} (${evt.actualScore})`);
-      });
-    }
-    
-    // 🚀 OTTIMIZZAZIONE: Salta pausa se cache è warm (dati già pronti)
-    // Rate limiting necessario solo con API calls (cache cold)
-    if (multiple && multiple.cacheWarmed) {
-      // Cache warm: nessuna pausa necessaria, dati istantanei
-      // Continua immediatamente con la prossima giornata
-    } else {
-      // Cache cold o nessuna multipla: pausa per rate limit safety
-      console.log(`  ⏳ Attesa 2 secondi prima della prossima giornata...`);
-      //await new Promise(resolve => setTimeout(resolve, 2000));
+      results.push(multiple);
     }
   }
   
-  // Genera report finale
-  console.log(`\n${colors.bright}${colors.blue}═══════════════════════════════════════════════════════${colors.reset}`);
-  console.log(`${colors.bright}                   REPORT FINALE${colors.reset}`);
-  console.log(`${colors.blue}═══════════════════════════════════════════════════════${colors.reset}\n`);
+  // Calcola metriche
+  const totalBets = results.length;
+  const wonBets = results.filter(r => r.won).length;
+  const winRate = totalBets > 0 ? (wonBets / totalBets) * 100 : 0;
+  const totalStaked = totalBets * INITIAL_CAPITAL * params.stake_percentage;
+  const roi = totalStaked > 0 ? ((currentCapital - INITIAL_CAPITAL) / totalStaked) * 100 : 0;
+  const profitLoss = currentCapital - INITIAL_CAPITAL;
   
-  const totalMultiples = results.length;
-  const wonMultiples = results.filter(r => r.won).length;
-  const lostMultiples = totalMultiples - wonMultiples;
-  const winRate = totalMultiples > 0 ? (wonMultiples / totalMultiples) * 100 : 0;
+  return {
+    params,
+    metrics: {
+      winRate,
+      roi,
+      profitLoss,
+      finalCapital: currentCapital,
+      totalBets,
+      wonBets,
+    }
+  };
+}
+
+// Funzione principale optimizer
+async function runBacktest() {
+  console.log(`${colors.bright}${colors.cyan}🔬 BACKTEST PARAMETER OPTIMIZER V2${colors.reset}\n`);
+  console.log(`📅 Date Range: ${START_DATE} → ${END_DATE}`);
+  console.log(`� Initial Capital: €${INITIAL_CAPITAL}\n`);
   
-  const totalStaked = results.reduce((sum, r) => sum + r.stake, 0);
-  const totalWon = results.filter(r => r.won).reduce((sum, r) => sum + r.potentialWin, 0);
-  const totalProfit = currentCapital - INITIAL_CAPITAL;
-  const roi = ((totalProfit / INITIAL_CAPITAL) * 100);
+  // Genera tutte le combinazioni
+  const combinations = [];
+  for (const stake of PARAM_GRID.stake_percentage) {
+    for (const target of PARAM_GRID.target_odds) {
+      for (const minOdds of PARAM_GRID.min_odds) {
+        for (const maxOdds of PARAM_GRID.max_odds) {
+          for (const maxEvents of PARAM_GRID.max_events) {
+            for (const prefEvents of PARAM_GRID.preferred_events) {
+              if (prefEvents <= maxEvents && minOdds < maxOdds && target >= minOdds && target <= maxOdds) {
+                combinations.push({
+                  stake_percentage: stake,
+                  target_odds: target,
+                  min_odds: minOdds,
+                  max_odds: maxOdds,
+                  max_events: maxEvents,
+                  preferred_events: prefEvents,
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+  }
   
-  console.log(`📊 ${colors.bright}Multiple giocate:${colors.reset} ${totalMultiples}`);
-  console.log(`${colors.green}✅ Vinte: ${wonMultiples}${colors.reset}`);
-  console.log(`${colors.red}❌ Perse: ${lostMultiples}${colors.reset}`);
-  console.log(`📈 ${colors.bright}Win Rate: ${winRate.toFixed(1)}%${colors.reset}\n`);
+  console.log(`🎯 Total Combinations: ${combinations.length}\n`);
+  console.log(`${colors.yellow}⚡ Testing with MAXIMUM parallelization...${colors.reset}\n`);
   
-  console.log(`💵 Capitale iniziale: €${INITIAL_CAPITAL.toFixed(2)}`);
-  console.log(`💰 ${colors.bright}Capitale finale: €${currentCapital.toFixed(2)}${colors.reset}`);
-  console.log(`${totalProfit >= 0 ? colors.green : colors.red}${totalProfit >= 0 ? '📈' : '📉'} Profitto/Perdita: ${totalProfit >= 0 ? '+' : ''}€${totalProfit.toFixed(2)}${colors.reset}`);
-  console.log(`📊 ROI: ${colors.bright}${roi >= 0 ? '+' : ''}${roi.toFixed(2)}%${colors.reset}\n`);
+  const allResults = [];
+  const startTime = Date.now();
   
-  console.log(`💸 Totale investito: €${totalStaked.toFixed(2)}`);
-  console.log(`💎 Totale vinto: €${totalWon.toFixed(2)}\n`);
+  const BATCH_SIZE = 50; // Test 50 configs in parallel
   
-  // Statistiche quota media
-  const avgOdds = results.reduce((sum, r) => sum + r.totalOdds, 0) / totalMultiples;
-  const avgEventsPerMultiple = results.reduce((sum, r) => sum + r.events.length, 0) / totalMultiples;
-  
-  console.log(`📈 Quota media: ${avgOdds.toFixed(2)}`);
-  console.log(`🎯 Eventi medi per multipla: ${avgEventsPerMultiple.toFixed(1)}\n`);
-  
-  // 🎯 Statistiche Goal/NoGoal
-  if (ENABLE_GG_NG) {
-    const allEventsList = results.flatMap(r => r.events);
-    const ggNgEvents = allEventsList.filter(e => isGGorNG(e.prediction));
-    const ggNgCount = ggNgEvents.length;
-    const ggNgPercentage = (ggNgCount / allEventsList.length) * 100;
-    const ggNgWon = ggNgEvents.filter(e => e.correct).length;
-    const ggNgWinRate = ggNgCount > 0 ? (ggNgWon / ggNgCount) * 100 : 0;
+  for (let batchStart = 0; batchStart < combinations.length; batchStart += BATCH_SIZE) {
+    const batchEnd = Math.min(batchStart + BATCH_SIZE, combinations.length);
+    const batch = combinations.slice(batchStart, batchEnd);
     
-    console.log(`${colors.bright}${colors.cyan}⚽ STATISTICHE GOAL/NOGOAL${colors.reset}`);
-    console.log(`   - Eventi GG/NG: ${ggNgCount}/${allEventsList.length} (${ggNgPercentage.toFixed(1)}%)`);
-    console.log(`   - Win Rate GG/NG: ${ggNgWinRate.toFixed(1)}%`);
-    console.log(`   - Multiple con GG/NG: ${results.filter(r => r.events.some(e => isGGorNG(e.prediction))).length}/${results.length}\n`);
+    console.log(`\n${colors.bright}${colors.blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${colors.reset}`);
+    console.log(`${colors.bright}Batch ${Math.floor(batchStart / BATCH_SIZE) + 1}/${Math.ceil(combinations.length / BATCH_SIZE)} (Configs ${batchStart + 1}-${batchEnd})${colors.reset}`);
+    
+    const batchStartTime = Date.now();
+    
+    const batchPromises = batch.map(config => testConfiguration(config));
+    const batchResults = await Promise.all(batchPromises);
+    allResults.push(...batchResults);
+    
+    const batchDuration = ((Date.now() - batchStartTime) / 1000).toFixed(1);
+    const overallProgress = ((batchEnd) / combinations.length * 100).toFixed(1);
+    const elapsed = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
+    const avgTimePerBatch = (Date.now() - startTime) / (batchStart / BATCH_SIZE + 1) / 1000;
+    const remainingBatches = Math.ceil((combinations.length - batchEnd) / BATCH_SIZE);
+    const remaining = (avgTimePerBatch * remainingBatches / 60).toFixed(1);
+    
+    console.log(`${colors.green}✓ Batch completed in ${batchDuration}s${colors.reset}`);
+    console.log(`${colors.cyan}Progress: ${overallProgress}% | Elapsed: ${elapsed}min | ETA: ${remaining}min${colors.reset}`);
   }
   
-  // Analisi performance
-  console.log(`${colors.bright}${colors.yellow}💡 ANALISI PERFORMANCE${colors.reset}\n`);
+  console.log(`\n\n${colors.bright}${colors.green}✅ OPTIMIZATION COMPLETE!${colors.reset}\n`);
   
-  if (winRate >= 50) {
-    console.log(`${colors.green}✅ Win rate eccellente (>50%)!${colors.reset}`);
-  } else if (winRate >= 40) {
-    console.log(`${colors.yellow}⚠️  Win rate buono (40-50%), ma può migliorare${colors.reset}`);
-  } else {
-    console.log(`${colors.red}❌ Win rate basso (<40%), rivedere strategia${colors.reset}`);
+  // Ordina per ROI
+  allResults.sort((a, b) => b.metrics.roi - a.metrics.roi);
+  
+  // Top 10
+  console.log(`${colors.bright}${colors.magenta}🏆 TOP 10 CONFIGURATIONS (by ROI)${colors.reset}\n`);
+  
+  for (let i = 0; i < Math.min(10, allResults.length); i++) {
+    const result = allResults[i];
+    const p = result.params;
+    const m = result.metrics;
+    
+    console.log(`${colors.bright}#${i + 1}${colors.reset}`);
+    console.log(`  📊 Metrics:`);
+    console.log(`     ROI: ${colors.green}${m.roi.toFixed(2)}%${colors.reset}`);
+    console.log(`     Win Rate: ${m.winRate.toFixed(1)}%`);
+    console.log(`     Profit/Loss: ${m.profitLoss >= 0 ? colors.green : colors.red}€${m.profitLoss.toFixed(2)}${colors.reset}`);
+    console.log(`     Final Capital: €${m.finalCapital.toFixed(2)}`);
+    console.log(`     Bets: ${m.wonBets}/${m.totalBets}`);
+    console.log(`  🎛️  Parameters:`);
+    console.log(`     stake_percentage: ${(p.stake_percentage * 100).toFixed(0)}%`);
+    console.log(`     target_odds: ${p.target_odds}`);
+    console.log(`     min_odds: ${p.min_odds}`);
+    console.log(`     max_odds: ${p.max_odds}`);
+    console.log(`     max_events: ${p.max_events}`);
+    console.log(`     preferred_events: ${p.preferred_events}`);
+    console.log('');
   }
   
-  if (roi > 0) {
-    console.log(`${colors.green}✅ ROI positivo (+${roi.toFixed(2)}%)! La strategia è profittevole${colors.reset}`);
-  } else if (roi > -10) {
-    console.log(`${colors.yellow}⚠️  ROI leggermente negativo (${roi.toFixed(2)}%), ancora sostenibile${colors.reset}`);
-  } else {
-    console.log(`${colors.red}❌ ROI molto negativo (${roi.toFixed(2)}%), rivedere completamente la strategia${colors.reset}`);
-  }
-  
-  const capitalGrowth = ((currentCapital - INITIAL_CAPITAL) / INITIAL_CAPITAL) * 100;
-  if (capitalGrowth > 0) {
-    console.log(`${colors.green}📈 Crescita capitale: +${capitalGrowth.toFixed(2)}%${colors.reset}`);
-  } else {
-    console.log(`${colors.red}📉 Perdita capitale: ${capitalGrowth.toFixed(2)}%${colors.reset}`);
-  }
-  
-  console.log(`\n${colors.bright}${colors.cyan}Conclusione:${colors.reset}`);
-  if (currentCapital > INITIAL_CAPITAL * 1.1) {
-    console.log(`${colors.green}🎉 Ottimo! Il capitale è cresciuto del ${((currentCapital/INITIAL_CAPITAL - 1) * 100).toFixed(1)}%${colors.reset}`);
-  } else if (currentCapital > INITIAL_CAPITAL) {
-    console.log(`${colors.yellow}👍 Buono! Il capitale è cresciuto del ${((currentCapital/INITIAL_CAPITAL - 1) * 100).toFixed(1)}%${colors.reset}`);
-  } else if (currentCapital > INITIAL_CAPITAL * 0.9) {
-    console.log(`${colors.yellow}⚠️  Il capitale è leggermente diminuito (${((currentCapital/INITIAL_CAPITAL - 1) * 100).toFixed(1)}%)${colors.reset}`);
-  } else {
-    console.log(`${colors.red}❌ Attenzione! Il capitale è diminuito significativamente (${((currentCapital/INITIAL_CAPITAL - 1) * 100).toFixed(1)}%)${colors.reset}`);
-  }
+  // Salva risultati
+  const fs = require('fs');
+  const outputFile = `backtest-optimization-${moment().format('YYYY-MM-DD_HH-mm-ss')}.json`;
+  fs.writeFileSync(outputFile, JSON.stringify(allResults, null, 2));
+  console.log(`${colors.cyan}💾 Full results saved to: ${outputFile}${colors.reset}\n`);
 }
 
 // Esegui backtesting
 runBacktest().catch(console.error);
+

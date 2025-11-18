@@ -19,6 +19,136 @@ interface TeamStrength {
   xgPerformance: number; // xG over/underperformance
 }
 
+/**
+ * 🆕 Seasonal factors for adaptive prediction
+ */
+interface SeasonalFactors {
+  month: number;
+  homeAdvantage: number;  // 1.08-1.20 depending on season
+  drawBoost: number;      // 0.95-1.15 to adjust draw probability
+  formWeight: number;     // 0.10-0.15 weight for form differential
+  dataDecay: number;      // 0.10-0.25 decay rate for time-weighted average
+  description: string;
+}
+
+/**
+ * 🆕 Get seasonal adjustment factors based on month
+ * Critical for handling Q1/Q2 vs Q3/Q4 differences
+ */
+function getSeasonalFactors(fixtureDate: Date, leagueName?: string): SeasonalFactors {
+  const month = fixtureDate.getMonth() + 1; // 1-12
+  
+  // Jan-Feb (Q1): Winter, more draws, unstable form, recent data critical
+  if (month <= 2) {
+    return {
+      month,
+      homeAdvantage: 1.08,  // Reduced (weather, pitch conditions)
+      drawBoost: 1.15,      // +15% draw probability
+      formWeight: 0.15,     // Higher weight (high instability after winter break)
+      dataDecay: 0.25,      // Aggressive decay (only last 2 months matter)
+      description: 'Q1 Winter - High draw rate, unstable form'
+    };
+  }
+  
+  // Mar-May (Q2): Spring, playoff season, moderate conditions
+  if (month <= 5) {
+    return {
+      month,
+      homeAdvantage: 1.12,
+      drawBoost: 1.05,      // +5% draw probability
+      formWeight: 0.12,
+      dataDecay: 0.15,      // Moderate decay
+      description: 'Q2 Spring - Playoff season, moderate stability'
+    };
+  }
+  
+  // Jun-Aug (Q3): Summer break / early season start
+  if (month <= 8) {
+    return {
+      month,
+      homeAdvantage: 1.15,
+      drawBoost: 1.00,      // Neutral
+      formWeight: 0.12,
+      dataDecay: 0.20,      // Higher decay (new season, squads changed)
+      description: 'Q3 Summer - New season, squad changes'
+    };
+  }
+  
+  // Sep-Nov (Q4): Autumn, stable conditions, best prediction period
+  return {
+    month,
+    homeAdvantage: 1.20,    // Maximum (good weather, established patterns)
+    drawBoost: 0.95,        // -5% draw probability
+    formWeight: 0.10,       // Lower weight (form more stable)
+    dataDecay: 0.10,        // Gentle decay (data from last 6 months relevant)
+    description: 'Q4 Autumn - Optimal conditions, stable form'
+  };
+}
+
+/**
+ * 🆕 Calculate data quality score based on recency
+ * Penalizes old data (>90 days) heavily
+ */
+function calculateDataQuality(matches: MatchHistoryData[], referenceDate: Date): number {
+  if (matches.length === 0) return 0;
+  
+  const now = referenceDate.getTime();
+  let qualityScore = 0;
+  
+  for (const match of matches) {
+    const matchDate = new Date(match.date).getTime();
+    const daysSince = (now - matchDate) / (1000 * 60 * 60 * 24);
+    
+    // Weight based on recency
+    if (daysSince <= 30) {
+      qualityScore += 1.0;      // 100% relevance (last month)
+    } else if (daysSince <= 60) {
+      qualityScore += 0.8;      // 80% relevance
+    } else if (daysSince <= 90) {
+      qualityScore += 0.5;      // 50% relevance (3 months old)
+    } else if (daysSince <= 180) {
+      qualityScore += 0.2;      // 20% relevance (6 months old)
+    } else {
+      qualityScore += 0.05;     // 5% relevance (very old)
+    }
+  }
+  
+  // Normalize: 20 recent matches = perfect score of 1.0
+  return Math.min(1.0, qualityScore / 20);
+}
+
+/**
+ * Calculate time-weighted average with exponential decay
+ * More recent matches have higher weight
+ * 🆕 Now uses adaptive decay rate from seasonal factors
+ */
+function timeWeightedAverage(
+  values: number[], 
+  dates: (Date | string)[], 
+  referenceDate?: Date,
+  decayRate: number = 0.1 // 🆕 Now configurable
+): number {
+  if (values.length === 0) return 0;
+  
+  const now = referenceDate ? referenceDate.getTime() : Date.now();
+  // decayRate is now passed as parameter - removed duplicate
+  
+  let weightedSum = 0;
+  let totalWeight = 0;
+  
+  values.forEach((value, i) => {
+    const matchDate = dates[i] instanceof Date ? dates[i] as Date : new Date(dates[i]);
+    const daysSince = (now - matchDate.getTime()) / (1000 * 60 * 60 * 24);
+    const monthsSince = daysSince / 30;
+    const weight = Math.exp(-decayRate * monthsSince);
+    
+    weightedSum += value * weight;
+    totalWeight += weight;
+  });
+  
+  return totalWeight > 0 ? weightedSum / totalWeight : 0;
+}
+
 interface PredictionFactors {
   homeStrength: TeamStrength;
   awayStrength: TeamStrength;
@@ -43,39 +173,15 @@ interface MatchPrediction {
 }
 
 /**
- * Calculate time-weighted average with exponential decay
- * More recent matches have higher weight
- */
-function timeWeightedAverage(values: number[], dates: (Date | string)[], referenceDate?: Date): number {
-  if (values.length === 0) return 0;
-  
-  const now = referenceDate ? referenceDate.getTime() : Date.now();
-  const decayRate = 0.1; // Decay rate per month
-  
-  let weightedSum = 0;
-  let totalWeight = 0;
-  
-  values.forEach((value, i) => {
-    const matchDate = dates[i] instanceof Date ? dates[i] as Date : new Date(dates[i]);
-    const daysSince = (now - matchDate.getTime()) / (1000 * 60 * 60 * 24);
-    const monthsSince = daysSince / 30;
-    const weight = Math.exp(-decayRate * monthsSince);
-    
-    weightedSum += value * weight;
-    totalWeight += weight;
-  });
-  
-  return totalWeight > 0 ? weightedSum / totalWeight : 0;
-}
-
-/**
  * Calculate team strength metrics from match history
+ * 🆕 Now accepts decayRate for adaptive time-weighting
  */
 export function calculateTeamStrength(
   matches: MatchHistoryData[],
   teamId: number,
   isHome: boolean,
-  referenceDate?: Date // 🆕 Temporal constraint to prevent data leakage
+  referenceDate?: Date, // 🆕 Temporal constraint to prevent data leakage
+  decayRate: number = 0.1 // 🆕 Adaptive decay rate from seasonal factors
 ): TeamStrength {
   // 🔧 FALLBACK MIGLIORATO per piano Free (senza dati storici)
   // Usiamo valori più realistici basati su medie statistiche del calcio
@@ -104,8 +210,8 @@ export function calculateTeamStrength(
     const dates = matches.map(m => m.date);
     
     return {
-      attack: Math.max(0.5, timeWeightedAverage(allGoalsScored, dates, referenceDate)) || FALLBACK_ATTACK,
-      defense: Math.max(0.5, timeWeightedAverage(allGoalsConceded, dates, referenceDate)) || FALLBACK_DEFENSE,
+      attack: Math.max(0.5, timeWeightedAverage(allGoalsScored, dates, referenceDate, decayRate)) || FALLBACK_ATTACK,
+      defense: Math.max(0.5, timeWeightedAverage(allGoalsConceded, dates, referenceDate, decayRate)) || FALLBACK_DEFENSE,
       form: 0.5,
       xgPerformance: 1.0,
     };
@@ -116,13 +222,13 @@ export function calculateTeamStrength(
     m.isHome ? m.homeGoals : m.awayGoals
   );
   const dates = relevantMatches.map(m => m.date);
-  const attack = timeWeightedAverage(goalsScored, dates, referenceDate);
+  const attack = timeWeightedAverage(goalsScored, dates, referenceDate, decayRate);
 
   // Calculate defense strength (goals conceded per match)
   const goalsConceded = relevantMatches.map(m => 
     m.isHome ? m.awayGoals : m.homeGoals
   );
-  const defense = timeWeightedAverage(goalsConceded, dates, referenceDate);
+  const defense = timeWeightedAverage(goalsConceded, dates, referenceDate, decayRate);
 
   // Calculate form (recent 5 matches)
   const recentMatches = relevantMatches.slice(0, 5);
@@ -230,6 +336,7 @@ function calculateH2HAdvantage(h2hMatches: MatchHistoryData[], homeTeamId: numbe
 
 /**
  * Main prediction function
+ * 🆕 Now with seasonal adjustments and data quality scoring
  */
 export function predictMatch(
   homeMatches: MatchHistoryData[],
@@ -238,16 +345,38 @@ export function predictMatch(
   homeTeamId: number,
   awayTeamId: number,
   leagueAvgGoals: number = 2.7, // League average goals per match
-  leagueName?: string // 🆕 League name for specific home advantage
+  leagueName?: string, // 🆕 League name for specific home advantage
+  fixtureDate?: Date // 🆕 Fixture date for seasonal adjustments
 ): MatchPrediction {
-  // Calculate team strengths
-  const homeStrength = calculateTeamStrength(homeMatches, homeTeamId, true);
-  const awayStrength = calculateTeamStrength(awayMatches, awayTeamId, false);
+  // 🆕 Get seasonal adjustment factors
+  const referenceDate = fixtureDate || new Date();
+  const seasonalFactors = getSeasonalFactors(referenceDate, leagueName);
   
-  // Home advantage factor - league-specific or default
-  const homeAdvantage = leagueName 
+  console.log(`🌍 Seasonal context: ${seasonalFactors.description}`);
+  console.log(`   Home advantage: ${seasonalFactors.homeAdvantage.toFixed(2)}, Draw boost: ${seasonalFactors.drawBoost.toFixed(2)}`);
+  console.log(`   Form weight: ${seasonalFactors.formWeight.toFixed(2)}, Data decay: ${seasonalFactors.dataDecay.toFixed(2)}`);
+  
+  // Calculate team strengths with adaptive decay
+  const homeStrength = calculateTeamStrength(
+    homeMatches, 
+    homeTeamId, 
+    true, 
+    referenceDate,
+    seasonalFactors.dataDecay // 🆕 Adaptive decay rate
+  );
+  const awayStrength = calculateTeamStrength(
+    awayMatches, 
+    awayTeamId, 
+    false, 
+    referenceDate,
+    seasonalFactors.dataDecay // 🆕 Adaptive decay rate
+  );
+  
+  // 🆕 Home advantage factor - seasonal adjusted
+  const baseHomeAdvantage = leagueName 
     ? getLeagueHomeAdvantage(leagueName)
-    : 1.1; // Default fallback
+    : 1.1;
+  const homeAdvantage = baseHomeAdvantage * (seasonalFactors.homeAdvantage / 1.15); // Normalize around 1.15 baseline
   
   // Calculate expected goals using strength-based approach
   const leagueAvgHome = leagueAvgGoals * 0.55; // Home teams score ~55% of total goals
@@ -305,9 +434,9 @@ export function predictMatch(
   drawProb /= total;
   awayWinProb /= total;
   
-  // Adjust probabilities based on form
+  // 🆕 Adjust probabilities based on form (with adaptive weight)
   const formDifferential = homeStrength.form - awayStrength.form;
-  const formAdjustment = formDifferential * 0.1; // Max 10% adjustment
+  const formAdjustment = formDifferential * seasonalFactors.formWeight; // Now adaptive (0.10-0.15)
   
   homeWinProb = Math.max(0.01, Math.min(0.99, homeWinProb + formAdjustment));
   awayWinProb = Math.max(0.01, Math.min(0.99, awayWinProb - formAdjustment));
@@ -321,10 +450,50 @@ export function predictMatch(
   awayWinProb = Math.max(0.01, Math.min(0.99, awayWinProb - h2hAdjustment));
   drawProb = Math.max(0.01, 1 - homeWinProb - awayWinProb);
   
-  // Calculate confidence based on data quality
-  const dataCompleteness = Math.min(1, (homeMatches.length + awayMatches.length) / 40);
+  // 🆕 Apply seasonal draw boost (CRITICAL FIX for Q1)
+  if (seasonalFactors.drawBoost !== 1.0) {
+    const oldDrawProb = drawProb;
+    drawProb = drawProb * seasonalFactors.drawBoost;
+    
+    // Redistribute difference proportionally between home/away
+    const diff = drawProb - oldDrawProb;
+    const totalNonDraw = homeWinProb + awayWinProb;
+    
+    if (totalNonDraw > 0) {
+      const homeRatio = homeWinProb / totalNonDraw;
+      const awayRatio = awayWinProb / totalNonDraw;
+      
+      homeWinProb -= diff * homeRatio;
+      awayWinProb -= diff * awayRatio;
+    }
+    
+    // Normalize again
+    const newTotal = homeWinProb + drawProb + awayWinProb;
+    homeWinProb /= newTotal;
+    drawProb /= newTotal;
+    awayWinProb /= newTotal;
+    
+    console.log(`   🎯 Draw boost applied: ${oldDrawProb.toFixed(3)} → ${drawProb.toFixed(3)} (${seasonalFactors.drawBoost.toFixed(2)}x)`);
+  }
+  
+  // 🆕 Calculate robust confidence based on DATA QUALITY, not just quantity
+  const homeDataQuality = calculateDataQuality(homeMatches, referenceDate);
+  const awayDataQuality = calculateDataQuality(awayMatches, referenceDate);
+  const dataQuality = (homeDataQuality + awayDataQuality) / 2;
+  
+  // Seasonal penalty for Q1 (unstable period)
+  const seasonalPenalty = seasonalFactors.month <= 2 ? 0.8 : 1.0;
+  
+  // Fallback penalty (if using fallback values)
+  const fallbackPenalty = usingFallback ? 0.5 : 1.0;
+  
+  // Form stability (same as before)
   const formStability = 1 - Math.abs(homeStrength.form - 0.5) * 0.5;
-  const confidence = dataCompleteness * formStability;
+  
+  // Robust confidence
+  const confidence = dataQuality * seasonalPenalty * fallbackPenalty * formStability;
+  
+  console.log(`   📊 Confidence: ${confidence.toFixed(2)} (quality=${dataQuality.toFixed(2)}, seasonal=${seasonalPenalty.toFixed(2)}, fallback=${fallbackPenalty.toFixed(2)}, stability=${formStability.toFixed(2)})`);
   
   // Determine most likely outcome
   let mostLikely: '1' | 'X' | '2';

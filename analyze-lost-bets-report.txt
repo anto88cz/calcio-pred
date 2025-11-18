@@ -1,0 +1,179 @@
+🔍 ANALISI DETTAGLIATA DELLE 5 SCHEDINE PERSE
+
+Obiettivo: Identificare pattern e problemi sistematici
+
+
+======================================================================
+📉 ANALISI SCHEDINA PERSA #1
+======================================================================
+📅 Data: 2025-10-01
+⚽ Match: Portsmouth vs Watford
+🎯 Predizione: 12 @1.33
+📊 Risultato: 2-2
+💡 Analisi: Pareggio non previsto (X)
+
+🔍 Cercando: Portsmouth vs Watford il 2025-10-01...
+   ✓ Fixture trovato: ID 19431841
+
+📊 STATISTICHE PARTITA:
+   Possesso: 0% - 0%
+   Tiri: 0 - 0
+   Tiri in porta: 0 - 0
+   Corner: 0 - 0
+   Attacchi pericolosi: 0 - 0
+   ❌ Errore predizione: Request failed with status code 400
+
+🚨 PROBLEMI IDENTIFICATI:
+
+   1. [MEDIUM] MISSED_DRAW
+      Non identificato equilibrio tra le squadre
+      Evidence:
+         - Possesso equilibrato: 0% vs 0%
+         - Tiri simili: 0 vs 0
+         - Risultato finale: 2-2
+
+======================================================================
+📉 ANALISI SCHEDINA PERSA #2
+======================================================================
+📅 Data: 2025-10-20
+⚽ Match: Eyüpspor vs Kasımpaşa
+🎯 Predizione: X2 @1.52
+📊 Risultato: 2-0
+💡 Analisi: Vittoria casa non prevista (1)
+
+🔍 Cercando: Eyüpspor vs Kasımpaşa il 2025-10-20...
+   ✓ Fixture trovato: ID 19443006
+
+📊 STATISTICHE PARTITA:
+   Possesso: 0% - 0%
+   Tiri: 0 - 0
+   Tiri in porta: 0 - 0
+   Corner: 0 - 0
+   Attacchi pericolosi: 0 - 0
+   ❌ Errore predizione: Request failed with status code 400
+
+🚨 PROBLEMI IDENTIFICATI:
+
+   1. [HIGH] UNDERESTIMATED_HOME
+      Sottovalutata la forza della squadra casa
+      Evidence:
+         - Possesso palla casa: 0%
+         - Tiri casa: 0 (0 in porta)
+         - Attacchi pericolosi casa: 0
+
+======================================================================
+📉 ANALISI SCHEDINA PERSA #3
+======================================================================
+📅 Data: 2025-10-23
+⚽ Match: Nottingham Forest vs Porto
+🎯 Predizione: X2 @1.52
+📊 Risultato: 2-0
+💡 Analisi: Vittoria casa non prevista (1)
+
+🔍 Cercando: Nottingham Forest vs Porto il 2025-10-23...
+   ✓ Fixture trovato: ID 19569026
+
+📊 STATISTICHE PARTITA:
+   Possesso: 0% - 0%
+   Tiri: 0 - 0
+   Tiri in porta: 0 - 0
+   Corner: 0 - 0
+   Attacchi pericolosi: 0 - 0
+   ❌ Errore predizione: Request failed with status code 400
+
+🚨 PROBLEMI IDENTIFICATI:
+
+   1. [HIGH] UNDERESTIMATED_HOME
+      Sottovalutata la forza della squadra casa
+      Evidence:
+         - Possesso palla casa: 0%
+         - Tiri casa: 0 (0 in porta)
+         - Attacchi pericolosi casa: 0
+
+======================================================================
+📉 ANALISI SCHEDINA PERSA #4
+======================================================================
+📅 Data: 2025-11-03
+⚽ Match: Real Oviedo vs Osasuna
+🎯 Predizione: 12 @1.37
+📊 Risultato: 0-0
+💡 Analisi: Pareggio non previsto (X)
+
+🔍 Cercando: Real Oviedo vs Osasuna il 2025-11-03...
+   ✓ Fixture trovato: ID 19439357
+
+📊 STATISTICHE PARTITA:
+   Possesso: 0% - 0%
+   Tiri: 0 - 0
+   Tiri in porta: 0 - 0
+   Corner: 0 - 0
+   Attacchi pericolosi: 0 - 0
+   ❌ Errore predizione: Request failed with status code 400
+
+🚨 PROBLEMI IDENTIFICATI:
+
+   1. [MEDIUM] MISSED_DRAW
+      Non identificato equilibrio tra le squadre
+      Evidence:
+         - Possesso equilibrato: 0% vs 0%
+         - Tiri simili: 0 vs 0
+         - Risultato finale: 0-0
+
+======================================================================
+📉 ANALISI SCHEDINA PERSA #5
+======================================================================
+📅 Data: 2025-11-09
+⚽ Match: Fatih Karagümrük vs Konyaspor
+🎯 Predizione: X2 @1.45
+📊 Risultato: 2-0
+💡 Analisi: Vittoria casa non prevista (1)
+
+🔍 Cercando: Fatih Karagümrük vs Konyaspor il 2025-11-09...
+   ✓ Fixture trovato: ID 19443030
+
+📊 STATISTICHE PARTITA:
+   Possesso: 0% - 0%
+   Tiri: 0 - 0
+   Tiri in porta: 0 - 0
+   Corner: 0 - 0
+   Attacchi pericolosi: 0 - 0
+   ❌ Errore predizione: Request failed with status code 400
+
+🚨 PROBLEMI IDENTIFICATI:
+
+   1. [HIGH] UNDERESTIMATED_HOME
+      Sottovalutata la forza della squadra casa
+      Evidence:
+         - Possesso palla casa: 0%
+         - Tiri casa: 0 (0 in porta)
+         - Attacchi pericolosi casa: 0
+
+
+======================================================================
+📊 SUMMARY ANALISI
+======================================================================
+
+🔍 PATTERN IDENTIFICATI:
+   UNDERESTIMATED_HOME: 3 occorrenze
+   MISSED_DRAW: 2 occorrenze
+
+💡 RACCOMANDAZIONI PER MIGLIORARE:
+
+   1. 🏠 SOTTOVALUTAZIONE SQUADRA CASA
+      Problema: Predizioni X2 falliscono quando la casa vince
+      Soluzione: Aumentare homeAdvantage o ridurre confidence per X2
+      Codice: Controllare lambda casa e fattore homeAdvantage nel motore
+
+   2. ⚖️  PAREGGI NON IDENTIFICATI
+      Problema: Predizioni 12 falliscono per pareggio
+      Soluzione: Migliorare identificazione match equilibrati
+      Codice: Aggiustare threshold per drawProbability nel motore
+
+
+🎯 PRIORITÀ DI FIX:
+   1. UNDERESTIMATED_HOME (3 occorrenze) - Priority: HIGH
+   2. MISSED_DRAW (2 occorrenze) - Priority: LOW
+
+
+✅ Analisi completata!
+📝 Prossimi step: Implementare i fix suggeriti nel motore di predizione

@@ -195,6 +195,14 @@ const LEAGUE_STRENGTH_DATA: Record<number, LeagueStrengthData> = {
   },
 
   // === ENGLISH LOWER DIVISIONS ===
+  9: {
+    leagueId: 9,
+    name: 'Championship',
+    country: 'England',
+    tier: 'GOOD',
+    coefficient: 0.88,      // -12% - Molto competitivo per seconda divisione
+    confidenceFactor: 0.92,
+  },
   40: {
     leagueId: 40,
     name: 'Championship',
@@ -215,6 +223,14 @@ const LEAGUE_STRENGTH_DATA: Record<number, LeagueStrengthData> = {
   // === ITALIAN LOWER DIVISIONS ===
   136: {
     leagueId: 136,
+    name: 'Serie B',
+    country: 'Italy',
+    tier: 'MEDIUM',
+    coefficient: 0.82,      // -18%
+    confidenceFactor: 0.88,
+  },
+  387: {
+    leagueId: 387,
     name: 'Serie B',
     country: 'Italy',
     tier: 'MEDIUM',

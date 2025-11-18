@@ -10,7 +10,9 @@ const BASE_URL = 'https://api.sportmonks.com/v3/football';
 // League IDs supportate
 const SUPPORTED_LEAGUES = {
   'Serie A': 384,
+  'Serie B': 387, // 🆕
   'Premier League': 8,
+  'Championship': 9, // 🆕
   'La Liga': 564,
   'Bundesliga': 82,
   'Ligue 1': 301,

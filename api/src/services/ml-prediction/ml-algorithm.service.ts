@@ -61,6 +61,28 @@ export interface PredictionResult {
 
 export class MLPredictionAlgorithm {
   /**
+   * 🌍 Restituisce boost stagionale per probabilità pareggio
+   * Q1 (Gen-Feb): +15% | Q2 (Mar-Mag): +5% | Q3 (Giu-Ago): 0% | Q4 (Set-Nov): -5%
+   */
+  private getSeasonalDrawBoost(fixtureDate: Date | undefined): number {
+    if (!fixtureDate) return 1.0; // No adjustment if date unknown
+    
+    const month = fixtureDate.getMonth() + 1; // 1-12
+    
+    // Q1: Gen-Feb (winter, more draws)
+    if (month <= 2) return 1.15;
+    
+    // Q2: Mar-Mag (spring, moderate draws)
+    if (month <= 5) return 1.05;
+    
+    // Q3: Giu-Ago (summer, neutral)
+    if (month <= 8) return 1.0;
+    
+    // Q4: Set-Nov (autumn, fewer draws, optimal form)
+    return 0.95;
+  }
+
+  /**
    * Genera una predizione completa per una partita
    */
   async predictMatch(input: PredictionInput): Promise<PredictionResult> {
@@ -99,7 +121,8 @@ export class MLPredictionAlgorithm {
     const prediction = this.calculateFinalPrediction(
       h2hAnalysis,
       statsAnalysis,
-      xGAnalysis
+      xGAnalysis,
+      maxDate // 🌍 Pass fixture date for seasonal adjustments
     );
 
     // Calcola il punteggio atteso
@@ -113,7 +136,10 @@ export class MLPredictionAlgorithm {
     const confidence = this.calculateConfidence(
       h2hAnalysis,
       statsAnalysis,
-      xGAnalysis
+      xGAnalysis,
+      homeXGMatches,
+      awayXGMatches,
+      maxDate // 🌍 Pass fixture date for seasonal adjustments
     );
 
     // Analisi qualitativa
@@ -345,11 +371,13 @@ export class MLPredictionAlgorithm {
 
   /**
    * Calcola la predizione finale combinando tutti i fattori
+   * 🌍 SEASONAL FIX: Applica boost pareggio basato su stagionalità
    */
   private calculateFinalPrediction(
     h2hAnalysis: any,
     statsAnalysis: any,
-    xGAnalysis: any
+    xGAnalysis: any,
+    fixtureDate?: Date
   ) {
     // Normalizza i pesi
     const totalWeight = h2hAnalysis.weight + statsAnalysis.weight + xGAnalysis.weight;
@@ -373,9 +401,24 @@ export class MLPredictionAlgorithm {
     const xGProbs = this.xGDiffToProbs(xGDiff);
 
     // Combina con i pesi
-    const homeWin = (h2hProbs.home * h2hW) + (statsProbs.home * statsW) + (xGProbs.home * xGW);
-    const draw = (h2hProbs.draw * h2hW) + (statsProbs.draw * statsW) + (xGProbs.draw * xGW);
-    const awayWin = (h2hProbs.away * h2hW) + (statsProbs.away * statsW) + (xGProbs.away * xGW);
+    let homeWin = (h2hProbs.home * h2hW) + (statsProbs.home * statsW) + (xGProbs.home * xGW);
+    let draw = (h2hProbs.draw * h2hW) + (statsProbs.draw * statsW) + (xGProbs.draw * xGW);
+    let awayWin = (h2hProbs.away * h2hW) + (statsProbs.away * statsW) + (xGProbs.away * xGW);
+
+    // 🌍 SEASONAL FIX: Apply draw boost based on season
+    const drawBoost = this.getSeasonalDrawBoost(fixtureDate);
+    if (drawBoost !== 1.0) {
+      // Boost draw probability
+      draw = draw * drawBoost;
+      
+      // Redistribute excess to home/away proportionally
+      const excessOrDeficit = draw - (draw / drawBoost);
+      const redistributeFactor = excessOrDeficit / (homeWin + awayWin);
+      homeWin = homeWin - (homeWin * redistributeFactor);
+      awayWin = awayWin - (awayWin * redistributeFactor);
+      
+      console.log(`   🌍 Seasonal draw adjustment: boost=${drawBoost.toFixed(2)}, draw ${((draw / drawBoost) * 100).toFixed(1)}% → ${(draw * 100).toFixed(1)}%`);
+    }
 
     // Normalizza per assicurarsi che sommino a 1
     const total = homeWin + draw + awayWin;
@@ -452,20 +495,48 @@ export class MLPredictionAlgorithm {
 
   /**
    * Calcola la confidence della predizione (0-100)
+   * 🌍 SEASONAL FIX: Penalizza dati vecchi e Q1 (inverno)
    */
   private calculateConfidence(
     h2hAnalysis: any,
     statsAnalysis: any,
-    xGAnalysis: any
+    xGAnalysis: any,
+    homeXGMatches: FixtureXGData[],
+    awayXGMatches: FixtureXGData[],
+    fixtureDate?: Date
   ): number {
     // La confidence aumenta con:
     // 1. Più dati disponibili (h2h, stats, xG)
     // 2. Maggiore concordanza tra i diversi metodi
 
-    const dataAvailability = 
+    let dataAvailability = 
       (h2hAnalysis.weight > 0 ? 33 : 0) +
       (statsAnalysis.weight > 0 ? 33 : 0) +
       (xGAnalysis.weight > 0 ? 34 : 0);
+
+    // 🌍 SEASONAL FIX: Penalizza se dati xG troppo vecchi
+    if (fixtureDate && (homeXGMatches.length > 0 || awayXGMatches.length > 0)) {
+      const allXGMatches = [...homeXGMatches, ...awayXGMatches];
+      const avgAge = allXGMatches.reduce((sum, m) => {
+        const daysDiff = Math.floor((fixtureDate.getTime() - new Date(m.date).getTime()) / (1000 * 60 * 60 * 24));
+        return sum + daysDiff;
+      }, 0) / allXGMatches.length;
+      
+      // Penalizza se dati mediamente >90 giorni vecchi
+      if (avgAge > 90) {
+        dataAvailability *= 0.5;
+        console.log(`   ⚠️ Data quality penalty: avg age ${avgAge.toFixed(0)} days → confidence reduced by 50%`);
+      }
+    }
+
+    // 🌍 SEASONAL FIX: Penalizza Q1 (Gen-Feb) - periodo più imprevedibile
+    if (fixtureDate) {
+      const month = fixtureDate.getMonth() + 1;
+      if (month <= 2) {
+        dataAvailability *= 0.8;
+        console.log(`   ❄️ Q1 seasonal penalty: confidence reduced by 20% (winter unpredictability)`);
+      }
+    }
 
     return Math.round(dataAvailability);
   }

@@ -8,25 +8,27 @@
 export const SUPPORTED_LEAGUES = {
   // Top 5 European Leagues
   'Serie A': { id: 'serie-a', minDataCompleteness: 0.30, homeAdvantage: 1.08 },
-  'Premier League': { id: 'premier-league', minDataCompleteness: 0.35, homeAdvantage: 1.12 },
+  'Serie B': { id: 'serie-b', minDataCompleteness: 0.28, homeAdvantage: 1.15 }, // 🔧 Q1 FIX: 1.12 → 1.15 (+2.7%)
+  'Premier League': { id: 'premier-league', minDataCompleteness: 0.35, homeAdvantage: 1.15 }, // 🔧 Q1 FIX: 1.13 → 1.15 (+1.8%)
+  'Championship': { id: 'championship', minDataCompleteness: 0.28, homeAdvantage: 1.18 }, // 🔧 Q1 FIX: 1.15 → 1.18 (+2.6%)
   'Bundesliga': { id: 'bundesliga', minDataCompleteness: 0.35, homeAdvantage: 1.10 },
   'Ligue 1': { id: 'ligue-1', minDataCompleteness: 0.30, homeAdvantage: 1.08 },
   'La Liga': { id: 'la-liga', minDataCompleteness: 0.30, homeAdvantage: 1.09 },
   
-  // Other Major European Leagues
+    // Other Major European Leagues
   'Eredivisie': { id: 'eredivisie', minDataCompleteness: 0.25, homeAdvantage: 1.15 },
   'Champions League': { id: 'champions-league', minDataCompleteness: 0.20, homeAdvantage: 1.05 },
   'Europa League': { id: 'europa-league', minDataCompleteness: 0.20, homeAdvantage: 1.08 },
   'Jupiler Pro League': { id: 'jupiler-pro-league', minDataCompleteness: 0.25, homeAdvantage: 1.12 },
   'Danimarca Superliga': { id: 'superliga', minDataCompleteness: 0.25, homeAdvantage: 1.13 },
   
-  // Asian & Other Leagues
+  // Asian Leagues
   'J1 League': { id: 'j1-league', minDataCompleteness: 0.25, homeAdvantage: 1.10 },
   'China Super League': { id: 'super-league', minDataCompleteness: 0.20, homeAdvantage: 1.12 },
   
-  // Portuguese & Turkish
+  // Other competitive leagues
   'Portogallo - Primeira Liga': { id: 'liga-portugal', minDataCompleteness: 0.25, homeAdvantage: 1.14 },
-  'Turkey Super Lig': { id: 'super-lig', minDataCompleteness: 0.25, homeAdvantage: 1.16 },
+  'Turkey Super Lig': { id: 'super-lig', minDataCompleteness: 0.25, homeAdvantage: 1.20 }, // 🔧 (aumentato da 1.16)
 } as const;
 
 export type SupportedLeagueName = keyof typeof SUPPORTED_LEAGUES;

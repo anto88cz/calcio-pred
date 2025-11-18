@@ -11,7 +11,9 @@ const BACKEND_URL = 'http://localhost:3001';
 // League IDs
 const LEAGUES = {
   'Serie A': 384,
+  'Serie B': 387, // 🆕
   'Premier League': 8,
+  'Championship': 9, // 🆕
   'La Liga': 564,
   'Bundesliga': 82,
   'Ligue 1': 301

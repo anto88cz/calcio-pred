@@ -18,17 +18,19 @@ const router = Router();
 
 // IDs delle competizioni principali supportate (Sportsmonks IDs)
 const ALLOWED_LEAGUES = [
-  8,    // Premier League (England) - NON Russia (486) o Ukraine (609)
+  8,    // Premier League (England)
+  9,    // Championship (England) 🆕
   384,  // Serie A (Italy)
+  387,  // Serie B (Italy) 🆕
   564,  // La Liga (Spain)
   82,   // Bundesliga (Germany)
   301,  // Ligue 1 (France)
   72,   // Eredivisie (Netherlands)
-  2,    // UEFA Champions League
-  5,    // UEFA Europa League
-  271,  // Superliga (Denmark)
-  600,  // Super Lig (Turkey)
-  462,  // Liga Portugal / Primeira Liga (Portugal)
+  2,    // Champions League
+  5,    // Europa League
+  271,  // Conference League
+  600,  // Nations League
+  462   // Europa Conference League Qualification
 ];
 
 // Schema validazione query params

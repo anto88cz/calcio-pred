@@ -146,11 +146,11 @@ export class BettingRecommendationsService {
     // 2. DOPPIA CHANCE
     recommendations.push(...this.generateDoubleChanceRecommendations(mlData, odds, homeTeam, awayTeam));
     
-    // 3. GOAL/NO GOAL (BTTS) - DISABILITATO (25% WR non accettabile)
+    // 3. GOAL/NO GOAL (BTTS) - NASCOSTO (performance non soddisfacenti)
     // recommendations.push(...this.generateGoalNoGoalRecommendations(mlData, odds, homeTeam, awayTeam));
     
-    // 4. OVER/UNDER
-    recommendations.push(...this.generateOverUnderRecommendations(mlData, odds));
+    // 4. OVER/UNDER - NASCOSTO (performance non soddisfacenti)
+    // recommendations.push(...this.generateOverUnderRecommendations(mlData, odds));
     
     // 5. MULTIGOAL - DISABILITATO (39.9% win rate nel backtest)
     // recommendations.push(...this.generateMultigoalRecommendations(mlData, odds, homeTeam, awayTeam));
@@ -173,23 +173,20 @@ export class BettingRecommendationsService {
     let validRecommendations = recommendations.filter(r => {
       // 🚀 ROI OTTIMIZZATO: Filtri basati su analisi performance
       
-      // ⚡ OVER/UNDER: Tipi vincenti (OVER 2.5, UNDER 2.5)
-      // EV > 10%, confidence 75-90%, quote 1.6-2.5
+      // ⚡ OVER/UNDER: FILTRI RILASSATI per permettere più raccomandazioni
+      // Soglie base: EV > 3%, confidence >= 50%, rating <= 3⭐
       if (r.type === 'over_under') {
-        const isOptimalOdds = r.odds >= 1.6 && r.odds <= 2.5;
-        const isOptimalConf = r.confidence >= 75 && r.confidence <= 90;
-        const passes = r.expectedValue > 0.10 && r.valueRating <= 3 && isOptimalConf && isOptimalOdds;
+        const passes = r.expectedValue > 0.03 && r.valueRating <= 3 && r.confidence >= 50;
         if (!passes) {
-          let reason = 'Over/Under scartato (ROI ottimizzato): ';
-          if (r.expectedValue <= 0.10) reason += `EV troppo basso (${(r.expectedValue * 100).toFixed(2)}% <= 10%)`;
+          let reason = 'Over/Under scartato: ';
+          if (r.expectedValue <= 0.03) reason += `EV troppo basso (${(r.expectedValue * 100).toFixed(2)}% <= 3%)`;
           else if (r.valueRating > 3) reason += `Rating troppo basso (${r.valueRating}⭐ > 3⭐)`;
-          else if (!isOptimalConf) reason += `Confidence non ottimale (${r.confidence.toFixed(1)}% fuori range 75-90%)`;
-          else if (!isOptimalOdds) reason += `Quote non ottimali (${r.odds.toFixed(2)} fuori range 1.6-2.5)`;
+          else if (r.confidence < 50) reason += `Confidence troppo bassa (${r.confidence.toFixed(1)}% < 50%)`;
           
           filteredOut.push({
             recommendation: r,
             filterReason: reason,
-            filterType: r.expectedValue <= 0.10 ? 'ev_too_low' : !isOptimalConf ? 'confidence_too_low' : 'rating_too_low'
+            filterType: r.expectedValue <= 0.03 ? 'ev_too_low' : r.confidence < 50 ? 'confidence_too_low' : 'rating_too_low'
           });
         }
         return passes;
@@ -309,15 +306,23 @@ export class BettingRecommendationsService {
         return passes;
       }
 
-      // ⚡ GOAL/NOGOAL: DISABILITATO (25% WR nel backtest mensile)
-      // Richiede revisione completa dell'algoritmo prima di riabilitare
+      // ⚡ GOAL/NOGOAL: RIABILITATO con filtri conservativi
+      // Soglie: EV > 5%, confidence >= 55%, rating <= 3⭐
       if (r.type === 'goal_nogoal') {
-        filteredOut.push({
-          recommendation: r,
-          filterReason: 'Goal/NoGoal disabilitato: 25% WR nel backtest mensile - richiede revisione algoritmo',
-          filterType: 'type_disabled'
-        });
-        return false; // Blocca completamente Goal/NoGoal
+        const passes = r.expectedValue > 0.05 && r.valueRating <= 3 && r.confidence >= 55;
+        if (!passes) {
+          let reason = 'Goal/NoGoal scartato: ';
+          if (r.expectedValue <= 0.05) reason += `EV troppo basso (${(r.expectedValue * 100).toFixed(2)}% <= 5%)`;
+          else if (r.valueRating > 3) reason += `Rating troppo basso (${r.valueRating}⭐ > 3⭐)`;
+          else if (r.confidence < 55) reason += `Confidence troppo bassa (${r.confidence.toFixed(1)}% < 55%)`;
+          
+          filteredOut.push({
+            recommendation: r,
+            filterReason: reason,
+            filterType: r.expectedValue <= 0.05 ? 'ev_too_low' : r.confidence < 55 ? 'confidence_too_low' : 'rating_too_low'
+          });
+        }
+        return passes;
       }
 
       // Tipo non riconosciuto o non gestito

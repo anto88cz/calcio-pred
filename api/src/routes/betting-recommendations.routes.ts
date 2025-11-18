@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { mlPredictionAlgorithm } from '../services/ml-prediction/ml-algorithm.service';
 import { bettingRecommendationsService, type OddsData } from '../services/ml-prediction/betting-recommendations.service';
 import { getSportsmonksClient } from '../services/sportsmonks/client';
+import { redis } from '../lib/redis';
 import logger from '../utils/logger';
 
 const router = Router();
@@ -18,6 +19,18 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({
         error: 'Missing required fields: fixtureId, homeTeamId, awayTeamId',
       });
+    }
+    
+    // 🔄 CACHE: Check Redis first for complete betting recommendations
+    const cacheKey = `betting_recs:${fixtureId}:${homeTeamId}:${awayTeamId}`;
+    try {
+      const cached = await redis?.get(cacheKey);
+      if (cached) {
+        logger.info(`✅ Cache HIT for betting recommendations fixture ${fixtureId}`);
+        return res.json(JSON.parse(cached));
+      }
+    } catch (cacheErr) {
+      logger.warn('Redis cache read error (proceeding with fresh data):', cacheErr);
     }
     
     logger.info(`🎲 Generating betting recommendations for fixture ${fixtureId}`);
@@ -70,6 +83,14 @@ router.post('/', async (req: Request, res: Response) => {
     );
     
     logger.info(`✅ Generated ${recommendations.recommendations.length} betting recommendations`);
+    
+    // 🔄 CACHE: Save to Redis (TTL: INFINITO - nessuna scadenza per backtest)
+    try {
+      await redis?.set(cacheKey, JSON.stringify(recommendations));
+      logger.info(`💾 Cached betting recommendations for fixture ${fixtureId} (persistent cache)`);
+    } catch (cacheErr) {
+      logger.warn('Redis cache write error (non-blocking):', cacheErr);
+    }
     
     return res.json(recommendations);
     

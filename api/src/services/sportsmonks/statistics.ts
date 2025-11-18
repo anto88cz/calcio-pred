@@ -295,7 +295,7 @@ export async function getTeamHistory(
     // Invece usiamo /fixtures/between per le leghe supportate e filtriamo lato client
     
     // Leghe supportate - stesso array di ALLOWED_LEAGUES
-    const ALLOWED_LEAGUES = [8, 384, 564, 82, 301, 72, 2, 5, 271, 600, 462];
+    const ALLOWED_LEAGUES = [8, 9, 384, 387, 564, 82, 301, 72, 2, 5, 271, 600, 462]; // 🆕 Aggiunto 9 (Championship) e 387 (Serie B)
     
     // 📊 Recupera fixtures per tutte le leghe supportate e filtra per team
     // Questo è l'unico modo che funziona con il piano European Plan

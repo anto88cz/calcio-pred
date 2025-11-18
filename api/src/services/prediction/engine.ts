@@ -487,7 +487,8 @@ export class PredictionEngine {
         input.homeTeamId,
         input.awayTeamId,
         2.7, // League average goals (TODO: make this league-specific)
-        input.leagueName // 🆕 Pass league name for league-specific home advantage
+        input.leagueName, // 🆕 Pass league name for league-specific home advantage
+        input.fixtureDate // 🆕 Pass fixture date for seasonal adjustments
       );
       
       logger.info({
