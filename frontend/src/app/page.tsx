@@ -36,6 +36,10 @@ interface TodayMatch {
   date?: string; // Data completa ISO
   time: string;
   status: string;
+  score?: {
+    home: number | null;
+    away: number | null;
+  };
 }
 
 interface ExtendedMatchPrediction extends MatchPrediction {
@@ -177,6 +181,7 @@ function MainApp() {
             date: fixture.date, // ✅ Data completa ISO per confronto
             time: moment.utc(fixture.date).tz('Europe/Rome').format('HH:mm'), // ✅ UTC input -> Europe/Rome output
             status: fixture.statusShort,
+            score: fixture.score, // ✅ Include score for finished matches
           };
           
           // Debug: log dei campi chiave
@@ -818,6 +823,9 @@ function MainApp() {
                                   />
                                 )}
                                 <span className="font-medium text-gray-200 text-xs sm:text-sm truncate">{match.homeTeam}</span>
+                                {match.score && match.score.home !== null && (
+                                  <span className="ml-auto font-bold text-sm sm:text-base text-yellow-400">{match.score.home}</span>
+                                )}
                               </div>
                               <div className="flex items-center space-x-1.5 sm:space-x-2">
                                 <span className="w-3 sm:w-4 text-center text-[10px] sm:text-xs text-red-400 font-bold">A</span>
@@ -830,6 +838,9 @@ function MainApp() {
                                   />
                                 )}
                                 <span className="font-medium text-gray-200 text-xs sm:text-sm truncate">{match.awayTeam}</span>
+                                {match.score && match.score.away !== null && (
+                                  <span className="ml-auto font-bold text-sm sm:text-base text-yellow-400">{match.score.away}</span>
+                                )}
                               </div>
                             </div>
                           </div>
