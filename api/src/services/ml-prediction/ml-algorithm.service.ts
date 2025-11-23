@@ -238,7 +238,7 @@ export class MLPredictionAlgorithm {
   private analyzeHeadToHead(
     matches: HeadToHeadMatch[], 
     homeTeamId: number, 
-    awayTeamId: number
+    _awayTeamId: number
   ) {
     if (matches.length === 0) {
       return {

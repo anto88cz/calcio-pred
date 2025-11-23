@@ -25,7 +25,7 @@ import {
 import * as sportsmonksOdds from '../sportsmonks/odds';
 import { calibrationService } from '../odds';
 import { config as _config, calculationConfig } from '../../config';
-import { isLeagueSupported, hasMinimumDataQuality } from '../../config/supported-leagues';
+import { isLeagueSupported } from '../../config/supported-leagues';
 import { prisma } from '../../lib/prisma';
 import logger from '../../utils/logger';
 import type { PredictionResponse, DataQuality } from '../../types';
@@ -559,9 +559,9 @@ export class PredictionEngine {
       logger.debug({ fixtureId }, 'Fetching xG data from API-FOOTBALL');
       const xgData = await statisticsService.getExpectedGoals(fixtureId);
       
-      if (xgData.missingXg) {
+      if (xgData && xgData.missingXg) {
         logger.warn({ fixtureId }, 'xG data missing or incomplete');
-      } else {
+      } else if (xgData) {
         logger.info({ 
           fixtureId, 
           xgHome: xgData.home.xg, 
@@ -802,7 +802,7 @@ export class PredictionEngine {
   private calculateH2HStats(
     h2hMatches: any[],
     currentHomeId: number,
-    currentAwayId: number
+    _currentAwayId: number
   ): {
     totalMatches: number;
     homeWins: number;
@@ -1459,40 +1459,42 @@ export class PredictionEngine {
       poissonParams: {
         lambdaHome: 0,
         lambdaAway: 0,
+        homeAdvantage: 0,
       },
       
       teamStats: {
         home: {
           xg: homeXGAvg,
           xga: homeXGAAvg,
-          goalsScored: 0,
-          goalsConceded: 0,
         },
         away: {
           xg: awayXGAvg,
           xga: awayXGAAvg,
-          goalsScored: 0,
-          goalsConceded: 0,
         },
       },
       
       formMomentum: {
         home: {
-          trend: 'STABLE',
-          score: 0,
-          recentResults: [],
-          confidence: 0,
+          formScore: 0,
+          formFactor: 1,
+          formLabel: 'STABLE',
+          recentResults: '',
         },
         away: {
-          trend: 'STABLE',
-          score: 0,
-          recentResults: [],
-          confidence: 0,
+          formScore: 0,
+          formFactor: 1,
+          formLabel: 'STABLE',
+          recentResults: '',
         },
-        momentum: 'NEUTRAL',
       },
       
-      recommendations: [],
+      mostProbableScores: [],
+      dataQuality: 'LOW' as any,
+      hasInjuries: false,
+      hasLineup: false,
+      provider: 'sportsmonks',
+      calculatedAt: new Date(),
+      lastUpdate: new Date(),
     };
   }
 

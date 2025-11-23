@@ -741,11 +741,12 @@ export class BettingRecommendationsService {
    * - Max 3⭐ rating
    * - Soglia probabilità: 35% (lowered dopo 81.8% WR discovery)
    */
-  private generateGoalNoGoalRecommendations(
+  // @ts-ignore - Metodo non usato ma mantenuto per riferimento futuro
+  private _generateGoalNoGoalRecommendations(
     mlData: MLPredictionData,
     odds: OddsData,
-    homeTeam: string,
-    awayTeam: string
+    _homeTeam: string,
+    _awayTeam: string
   ): BettingRecommendation[] {
     const recs: BettingRecommendation[] = [];
     
@@ -814,6 +815,7 @@ export class BettingRecommendationsService {
    * - Over 1.5: xG totale > 2.0 E confidence > 60%
    * - EV minimo: 7% (abbassato da 9.5% per aumentare copertura)
    */
+  // @ts-ignore - Metodo non usato ma mantenuto per riferimento futuro
   private generateOverUnderRecommendations(
     mlData: MLPredictionData,
     odds: OddsData
@@ -1048,9 +1050,10 @@ export class BettingRecommendationsService {
    * - Include solo range che abbiano senso basato su xG
    * - Soglia confidence: 0.35 (backtest mostra alta affidabilità)
    */
+  // @ts-ignore - Metodo non usato ma mantenuto per riferimento futuro
   private generateMultigoalRecommendations(
     mlData: MLPredictionData,
-    odds: OddsData,
+    _odds: OddsData,
     homeTeam: string,
     awayTeam: string
   ): BettingRecommendation[] {
@@ -1260,6 +1263,7 @@ export class BettingRecommendationsService {
    * Genera raccomandazioni Combo
    * OTTIMIZZAZIONE: Solo se EV > 20% (backtest: 20% win rate)
    */
+  // @ts-ignore - Metodo non usato ma mantenuto per riferimento futuro
   private generateComboRecommendations(
     mlData: MLPredictionData,
     odds: OddsData,

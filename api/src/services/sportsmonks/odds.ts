@@ -82,6 +82,8 @@ interface SportsmonksOddsData {
   }>;
 }
 
+// @ts-ignore - Interfaccia non usata ma mantenuta per riferimento futuro
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface SportsmonksResponse {
   data: SportsmonksOddsData[];
   subscription?: any;

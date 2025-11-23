@@ -538,7 +538,7 @@ router.post('/calculate', async (req: Request, res: Response, next: NextFunction
     // Aggiungi exactGoals alla risposta (non salvato nel DB per evitare verbosity)
     const responseWithExactGoals = {
       ...savedPrediction,
-      exactGoals: predictionResult.poisson?.exactGoals || null,
+      exactGoals: (predictionResult as any).poisson?.exactGoals || null,
     };
     
     return res.status(201).json(responseWithExactGoals);

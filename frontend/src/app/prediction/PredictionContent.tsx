@@ -83,6 +83,7 @@ export default function PredictionContent() {
   const [recommendations, setRecommendations] = useState<BettingRecommendations | null>(null);
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
   const [fromCache, setFromCache] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const fixtureId = searchParams.get('fixtureId');
@@ -110,6 +111,33 @@ export default function PredictionContent() {
     );
   }, [searchParams]);
 
+  const refreshWithFreshData = async () => {
+    const fixtureId = searchParams.get('fixtureId');
+    const homeTeam = searchParams.get('home');
+    const awayTeam = searchParams.get('away');
+    const homeTeamId = searchParams.get('homeTeamId');
+    const awayTeamId = searchParams.get('awayTeamId');
+    const seasonId = searchParams.get('seasonId');
+    const leagueId = searchParams.get('leagueId');
+
+    if (!fixtureId || !homeTeamId || !awayTeamId || !seasonId || !leagueId) {
+      return;
+    }
+
+    setRefreshing(true);
+    await fetchPrediction(
+      parseInt(fixtureId),
+      parseInt(homeTeamId),
+      parseInt(awayTeamId),
+      parseInt(seasonId),
+      parseInt(leagueId),
+      homeTeam || '',
+      awayTeam || '',
+      true // forceRefresh
+    );
+    setRefreshing(false);
+  };
+
   const fetchPrediction = async (
     fixtureId: number,
     homeTeamId: number,
@@ -117,7 +145,8 @@ export default function PredictionContent() {
     seasonId: number,
     leagueId: number,
     homeTeam: string,
-    awayTeam: string
+    awayTeam: string,
+    forceRefresh: boolean = false
   ) => {
     try {
       setLoading(true);
@@ -138,6 +167,7 @@ export default function PredictionContent() {
           leagueId,
           homeTeamName: homeTeam,
           awayTeamName: awayTeam,
+          forceRefresh,
         }),
       });
 

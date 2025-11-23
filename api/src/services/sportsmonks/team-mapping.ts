@@ -9,6 +9,8 @@ import { redis } from '../../lib/redis';
 import { getSportsmonksClient } from './client';
 import logger from '../../utils/logger';
 
+// @ts-ignore - Interfaccia non usata ma mantenuta per riferimento futuro
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface TeamMapping {
   apiFootballId: number;
   sportsmonksId: number;

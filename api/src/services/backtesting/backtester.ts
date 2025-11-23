@@ -308,7 +308,7 @@ export class Backtester {
   private generateReport(
     config: BacktestConfig,
     results: BacktestResult[],
-    fixtures: any[]
+    _fixtures: any[]
   ): BacktestReport {
     // Overall accuracy
     const correct = results.filter(r => r.correct1X2).length;

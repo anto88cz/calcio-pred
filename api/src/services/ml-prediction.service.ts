@@ -35,7 +35,7 @@ interface SeasonalFactors {
  * 🆕 Get seasonal adjustment factors based on month
  * Critical for handling Q1/Q2 vs Q3/Q4 differences
  */
-function getSeasonalFactors(fixtureDate: Date, leagueName?: string): SeasonalFactors {
+function getSeasonalFactors(fixtureDate: Date, _leagueName?: string): SeasonalFactors {
   const month = fixtureDate.getMonth() + 1; // 1-12
   
   // Jan-Feb (Q1): Winter, more draws, unstable form, recent data critical
@@ -178,7 +178,7 @@ interface MatchPrediction {
  */
 export function calculateTeamStrength(
   matches: MatchHistoryData[],
-  teamId: number,
+  _teamId: number,
   isHome: boolean,
   referenceDate?: Date, // 🆕 Temporal constraint to prevent data leakage
   decayRate: number = 0.1 // 🆕 Adaptive decay rate from seasonal factors

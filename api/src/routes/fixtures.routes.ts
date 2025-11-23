@@ -11,7 +11,7 @@ import { fetchOddsByFixtureId } from '../services/sportsmonks/odds';
 import { prisma } from '../lib/prisma';
 import { redis } from '../lib/redis';
 import logger from '../utils/logger';
-import { filterSupportedFixtures, hasMinimumDataQuality } from '../config/supported-leagues';
+import { filterSupportedFixtures } from '../config/supported-leagues';
 import type { Request, Response, NextFunction } from 'express';
 
 const router = Router();
