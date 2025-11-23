@@ -2,7 +2,8 @@ import {
   mlDataFetcher, 
   HeadToHeadMatch, 
   TeamSeasonStats, 
-  FixtureXGData 
+  FixtureXGData,
+  FormMatch
 } from './data-fetcher.service';
 
 export interface PredictionInput {
@@ -31,6 +32,7 @@ export interface PredictionResult {
   analysis: {
     headToHeadAdvantage: 'home' | 'away' | 'neutral';
     formAdvantage: 'home' | 'away' | 'neutral';
+    recentFormAdvantage: 'home' | 'away' | 'neutral'; // 🆕 Recent form
     xGAdvantage: 'home' | 'away' | 'neutral';
     strengthDifference: number;
   };
@@ -42,6 +44,17 @@ export interface PredictionResult {
       awayWins: number;
       avgHomeGoals: number;
       avgAwayGoals: number;
+      weight: number;
+    };
+    recentForm: { // 🆕 Recent form factor
+      homeWinRate: number;
+      homeGoalsPerGame: number;
+      homeConcededPerGame: number;
+      homeStreak: number;
+      awayWinRate: number;
+      awayGoalsPerGame: number;
+      awayConcededPerGame: number;
+      awayStreak: number;
       weight: number;
     };
     seasonStats: {
@@ -69,11 +82,11 @@ export class MLPredictionAlgorithm {
     
     const month = fixtureDate.getMonth() + 1; // 1-12
     
-    // Q1: Gen-Feb (winter, more draws)
-    if (month <= 2) return 1.15;
+    // 🔴 Q1 FIX: Gen-Mar (winter, MOLTI più pareggi - dati reali mostrano 76% losses su DC)
+    if (month <= 3) return 1.30; // Aumentato da 1.15 a 1.30
     
-    // Q2: Mar-Mag (spring, moderate draws)
-    if (month <= 5) return 1.05;
+    // Q2: Apr-Mag (spring, moderate draws)
+    if (month <= 5) return 1.10; // Aumentato da 1.05
     
     // Q3: Giu-Ago (summer, neutral)
     if (month <= 8) return 1.0;
@@ -95,16 +108,21 @@ export class MLPredictionAlgorithm {
     }
 
     // Recupera tutti i dati necessari
-    const [h2hMatches, homeStats, awayStats, homeXGMatches, awayXGMatches] = await Promise.all([
+    const [h2hMatches, homeStats, awayStats, homeXGMatches, awayXGMatches, homeForm, awayForm] = await Promise.all([
       mlDataFetcher.getHeadToHeadData(input.homeTeamId, input.awayTeamId, maxDate),
       mlDataFetcher.getTeamSeasonStats(input.homeTeamId, input.seasonId, input.leagueId),
       mlDataFetcher.getTeamSeasonStats(input.awayTeamId, input.seasonId, input.leagueId),
       mlDataFetcher.getTeamRecentXGMatches(input.homeTeamId, input.seasonId, 10, maxDate),
       mlDataFetcher.getTeamRecentXGMatches(input.awayTeamId, input.seasonId, 10, maxDate),
+      mlDataFetcher.getTeamRecentForm(input.homeTeamId, input.seasonId, 7, maxDate), // 🆕 Recent form
+      mlDataFetcher.getTeamRecentForm(input.awayTeamId, input.seasonId, 7, maxDate), // 🆕 Recent form
     ]);
 
     // Analizza i testa a testa
     const h2hAnalysis = this.analyzeHeadToHead(h2hMatches, input.homeTeamId, input.awayTeamId);
+
+    // 🆕 Analizza la forma recente (ultime 7 partite)
+    const formAnalysis = this.analyzeRecentForm(homeForm, awayForm);
 
     // Analizza le statistiche stagionali
     const statsAnalysis = this.analyzeSeasonStats(homeStats, awayStats);
@@ -117,9 +135,10 @@ export class MLPredictionAlgorithm {
       input.awayTeamId
     );
 
-    // Calcola le probabilità finali usando un sistema di pesi
+    // Calcola le probabilità finali usando un sistema di pesi RIVISTO
     const prediction = this.calculateFinalPrediction(
       h2hAnalysis,
+      formAnalysis, // 🆕 Recent form
       statsAnalysis,
       xGAnalysis,
       maxDate // 🌍 Pass fixture date for seasonal adjustments
@@ -128,6 +147,7 @@ export class MLPredictionAlgorithm {
     // Calcola il punteggio atteso
     const expectedScore = this.calculateExpectedScore(
       h2hAnalysis,
+      formAnalysis, // 🆕 Recent form
       statsAnalysis,
       xGAnalysis
     );
@@ -135,6 +155,7 @@ export class MLPredictionAlgorithm {
     // Determina la confidence della predizione
     const confidence = this.calculateConfidence(
       h2hAnalysis,
+      formAnalysis, // 🆕 Recent form
       statsAnalysis,
       xGAnalysis,
       homeXGMatches,
@@ -151,6 +172,10 @@ export class MLPredictionAlgorithm {
       formAdvantage: this.determineAdvantage(
         statsAnalysis.homeStrength,
         statsAnalysis.awayStrength
+      ),
+      recentFormAdvantage: this.determineAdvantage( // 🆕 Recent form advantage
+        formAnalysis.homeWinRate,
+        formAnalysis.awayWinRate
       ),
       xGAdvantage: this.determineAdvantage(
         xGAnalysis.homeXGDiff,
@@ -176,6 +201,17 @@ export class MLPredictionAlgorithm {
           avgHomeGoals: h2hAnalysis.avgHomeGoals,
           avgAwayGoals: h2hAnalysis.avgAwayGoals,
           weight: h2hAnalysis.weight,
+        },
+        recentForm: { // 🆕 Recent form data
+          homeWinRate: formAnalysis.homeWinRate,
+          homeGoalsPerGame: formAnalysis.homeGoalsPerGame,
+          homeConcededPerGame: formAnalysis.homeConcededPerGame,
+          homeStreak: formAnalysis.homeStreak,
+          awayWinRate: formAnalysis.awayWinRate,
+          awayGoalsPerGame: formAnalysis.awayGoalsPerGame,
+          awayConcededPerGame: formAnalysis.awayConcededPerGame,
+          awayStreak: formAnalysis.awayStreak,
+          weight: formAnalysis.weight,
         },
         seasonStats: {
           homeStats: homeStats || {},
@@ -249,8 +285,19 @@ export class MLPredictionAlgorithm {
     const drawRate = draws / totalMatches;
     const awayWinRate = awayWins / totalMatches;
 
-    // Il peso aumenta con il numero di partite, ma si stabilizza
-    const weight = Math.min(totalMatches / 20, 0.3);
+    // 🎯 PESO RIDOTTO: Max 10% invece di 30%
+    // Il peso aumenta con il numero di partite, ma si satura a 10%
+    let weight = 0;
+    if (totalMatches >= 10) {
+      weight = 0.10; // 10+ partite: peso massimo 10%
+    } else if (totalMatches >= 5) {
+      weight = 0.05; // 5-9 partite: peso medio 5%
+    } else if (totalMatches >= 2) {
+      weight = 0.02; // 2-4 partite: peso basso 2%
+    }
+    // 0-1 partite: peso 0%
+
+    console.log(`   H2H: ${totalMatches} matches → weight ${(weight * 100).toFixed(0)}%`);
 
     return {
       totalMatches,
@@ -262,6 +309,66 @@ export class MLPredictionAlgorithm {
       awayWinRate,
       avgHomeGoals: totalHomeGoals / totalMatches,
       avgAwayGoals: totalAwayGoals / totalMatches,
+      weight,
+    };
+  }
+
+  /**
+   * 🆕 Analizza la forma recente (ultime 7 partite)
+   */
+  private analyzeRecentForm(homeMatches: FormMatch[], awayMatches: FormMatch[]) {
+    const analyzeTeamForm = (matches: FormMatch[]) => {
+      if (matches.length === 0) {
+        return {
+          winRate: 0.35,
+          goalsPerGame: 1.3,
+          concededPerGame: 1.3,
+          streak: 0,
+        };
+      }
+
+      const wins = matches.filter(m => m.result === 'win').length;
+      const totalGoalsScored = matches.reduce((sum, m) => sum + m.goalsScored, 0);
+      const totalConceded = matches.reduce((sum, m) => sum + m.goalsConceded, 0);
+
+      // Calcola streak (serie di vittorie/sconfitte consecutive)
+      let streak = 0;
+      const lastResult = matches[0]?.result;
+      if (lastResult) {
+        for (const match of matches) {
+          if (match.result === lastResult && lastResult !== 'draw') {
+            streak += (lastResult === 'win' ? 1 : -1);
+          } else {
+            break;
+          }
+        }
+      }
+
+      return {
+        winRate: wins / matches.length,
+        goalsPerGame: totalGoalsScored / matches.length,
+        concededPerGame: totalConceded / matches.length,
+        streak,
+      };
+    };
+
+    const homeForm = analyzeTeamForm(homeMatches);
+    const awayForm = analyzeTeamForm(awayMatches);
+
+    // Peso fisso 35% - sempre disponibile (se ci sono dati)
+    const weight = (homeMatches.length > 0 && awayMatches.length > 0) ? 0.35 : 0.15;
+
+    console.log(`   Recent Form: home ${homeMatches.length} matches (${(homeForm.winRate * 100).toFixed(0)}% WR, streak ${homeForm.streak}), away ${awayMatches.length} matches (${(awayForm.winRate * 100).toFixed(0)}% WR, streak ${awayForm.streak}) → weight ${(weight * 100).toFixed(0)}%`);
+
+    return {
+      homeWinRate: homeForm.winRate,
+      homeGoalsPerGame: homeForm.goalsPerGame,
+      homeConcededPerGame: homeForm.concededPerGame,
+      homeStreak: homeForm.streak,
+      awayWinRate: awayForm.winRate,
+      awayGoalsPerGame: awayForm.goalsPerGame,
+      awayConcededPerGame: awayForm.concededPerGame,
+      awayStreak: awayForm.streak,
       weight,
     };
   }
@@ -292,7 +399,8 @@ export class MLPredictionAlgorithm {
     // Aggiusta per il vantaggio casalingo (circa +10% di forza per la casa)
     const adjustedHomeStrength = homeStrength * 1.1;
 
-    const weight = (homeStats && awayStats) ? 0.4 : 0.2;
+    // 🎯 PESO RIDOTTO: 30% invece di 40%
+    const weight = (homeStats && awayStats) ? 0.30 : 0.15;
 
     return {
       homeStrength: adjustedHomeStrength,
@@ -333,7 +441,8 @@ export class MLPredictionAlgorithm {
     const homeXGStats = this.calculateXGStats(homeMatches, homeTeamId);
     const awayXGStats = this.calculateXGStats(awayMatches, _awayTeamId);
 
-    const weight = (homeMatches.length > 0 && awayMatches.length > 0) ? 0.3 : 0.1;
+    // 🎯 PESO RIDOTTO: 25% invece di 30%
+    const weight = (homeMatches.length > 0 && awayMatches.length > 0) ? 0.25 : 0.10;
 
     return {
       homeAvgXG: homeXGStats.avgXG,
@@ -372,18 +481,23 @@ export class MLPredictionAlgorithm {
   /**
    * Calcola la predizione finale combinando tutti i fattori
    * 🌍 SEASONAL FIX: Applica boost pareggio basato su stagionalità
+   * 🎯 NUOVO SISTEMA PESI: Form 35%, Stats 30%, xG 25%, H2H 10%
    */
   private calculateFinalPrediction(
     h2hAnalysis: any,
+    formAnalysis: any, // 🆕 Recent form
     statsAnalysis: any,
     xGAnalysis: any,
     fixtureDate?: Date
   ) {
-    // Normalizza i pesi
-    const totalWeight = h2hAnalysis.weight + statsAnalysis.weight + xGAnalysis.weight;
+    // 🎯 NUOVI PESI: Form 35%, Stats 30%, xG 25%, H2H 10%
+    const totalWeight = h2hAnalysis.weight + formAnalysis.weight + statsAnalysis.weight + xGAnalysis.weight;
     const h2hW = h2hAnalysis.weight / totalWeight;
+    const formW = formAnalysis.weight / totalWeight; // 🆕
     const statsW = statsAnalysis.weight / totalWeight;
     const xGW = xGAnalysis.weight / totalWeight;
+
+    console.log(`   💡 Weight distribution: H2H ${(h2hW * 100).toFixed(0)}%, Form ${(formW * 100).toFixed(0)}%, Stats ${(statsW * 100).toFixed(0)}%, xG ${(xGW * 100).toFixed(0)}%`);
 
     // Calcola probabilità da h2h
     const h2hProbs = {
@@ -391,6 +505,10 @@ export class MLPredictionAlgorithm {
       draw: h2hAnalysis.drawRate,
       away: h2hAnalysis.awayWinRate,
     };
+
+    // 🆕 Calcola probabilità dalla forma recente
+    const formWinRateDiff = formAnalysis.homeWinRate - formAnalysis.awayWinRate;
+    const formProbs = this.formToProbs(formWinRateDiff, formAnalysis.homeStreak, formAnalysis.awayStreak);
 
     // Calcola probabilità dalle statistiche stagionali
     const strengthDiff = statsAnalysis.homeStrength - statsAnalysis.awayStrength;
@@ -400,10 +518,10 @@ export class MLPredictionAlgorithm {
     const xGDiff = xGAnalysis.homeXGDiff - xGAnalysis.awayXGDiff;
     const xGProbs = this.xGDiffToProbs(xGDiff);
 
-    // Combina con i pesi
-    let homeWin = (h2hProbs.home * h2hW) + (statsProbs.home * statsW) + (xGProbs.home * xGW);
-    let draw = (h2hProbs.draw * h2hW) + (statsProbs.draw * statsW) + (xGProbs.draw * xGW);
-    let awayWin = (h2hProbs.away * h2hW) + (statsProbs.away * statsW) + (xGProbs.away * xGW);
+    // 🆕 Combina TUTTI E 4 i fattori con i pesi
+    let homeWin = (h2hProbs.home * h2hW) + (formProbs.home * formW) + (statsProbs.home * statsW) + (xGProbs.home * xGW);
+    let draw = (h2hProbs.draw * h2hW) + (formProbs.draw * formW) + (statsProbs.draw * statsW) + (xGProbs.draw * xGW);
+    let awayWin = (h2hProbs.away * h2hW) + (formProbs.away * formW) + (statsProbs.away * statsW) + (xGProbs.away * xGW);
 
     // 🌍 SEASONAL FIX: Apply draw boost based on season
     const drawBoost = this.getSeasonalDrawBoost(fixtureDate);
@@ -427,6 +545,35 @@ export class MLPredictionAlgorithm {
       homeWin: Math.round((homeWin / total) * 100) / 100,
       draw: Math.round((draw / total) * 100) / 100,
       awayWin: Math.round((awayWin / total) * 100) / 100,
+    };
+  }
+
+  /**
+   * 🆕 Converte il differenziale di win rate in probabilità 1X2
+   * Integra anche l'effetto degli streak (momentum)
+   */
+  private formToProbs(winRateDiff: number, homeStreak: number, awayStreak: number) {
+    // Base: win rate differenziale (-100 a +100)
+    // +50 = home molto più forte, -50 = away molto più forte
+    
+    // Applica momentum bonus (+/-5% per streak di 3+)
+    let adjustedDiff = winRateDiff;
+    if (homeStreak >= 3) adjustedDiff += 5; // Home in striscia positiva
+    if (homeStreak <= -3) adjustedDiff -= 5; // Home in striscia negativa
+    if (awayStreak >= 3) adjustedDiff -= 5; // Away in striscia positiva
+    if (awayStreak <= -3) adjustedDiff += 5; // Away in striscia negativa
+    
+    // Normalizza a [-1, 1]
+    const normalized = Math.max(-1, Math.min(1, adjustedDiff / 50));
+    
+    // Converti in probabilità con sigmoid
+    const homeAdvantage = 0.5 + (normalized * 0.35); // Range [0.15, 0.85]
+    const drawProb = 0.25; // Base draw probability (forma recente non predice bene i pareggi)
+    
+    return {
+      home: homeAdvantage * (1 - drawProb),
+      draw: drawProb,
+      away: (1 - homeAdvantage) * (1 - drawProb),
     };
   }
 
@@ -465,25 +612,30 @@ export class MLPredictionAlgorithm {
 
   /**
    * Calcola il punteggio atteso
+   * 🆕 Integra anche la forma recente (goals per game)
    */
   private calculateExpectedScore(
     h2hAnalysis: any,
+    formAnalysis: any, // 🆕
     statsAnalysis: any,
     xGAnalysis: any
   ) {
-    const totalWeight = h2hAnalysis.weight + statsAnalysis.weight + xGAnalysis.weight;
+    const totalWeight = h2hAnalysis.weight + formAnalysis.weight + statsAnalysis.weight + xGAnalysis.weight;
     const h2hW = h2hAnalysis.weight / totalWeight;
+    const formW = formAnalysis.weight / totalWeight; // 🆕
     const statsW = statsAnalysis.weight / totalWeight;
     const xGW = xGAnalysis.weight / totalWeight;
 
-    // Media ponderata dei goal attesi
+    // Media ponderata dei goal attesi (4 fonti)
     const homeGoals = 
       (h2hAnalysis.avgHomeGoals * h2hW) +
+      (formAnalysis.homeGoalsPerGame * formW) + // 🆕
       (statsAnalysis.homeAttack * statsW) +
       (xGAnalysis.homeAvgXG * xGW);
 
     const awayGoals = 
       (h2hAnalysis.avgAwayGoals * h2hW) +
+      (formAnalysis.awayGoalsPerGame * formW) + // 🆕
       (statsAnalysis.awayAttack * statsW) +
       (xGAnalysis.awayAvgXG * xGW);
 
@@ -496,9 +648,11 @@ export class MLPredictionAlgorithm {
   /**
    * Calcola la confidence della predizione (0-100)
    * 🌍 SEASONAL FIX: Penalizza dati vecchi e Q1 (inverno)
+   * 🆕 FORM BOOST: Aggiunge bonus/penalità per streak lunghi
    */
   private calculateConfidence(
     h2hAnalysis: any,
+    formAnalysis: any, // 🆕
     statsAnalysis: any,
     xGAnalysis: any,
     homeXGMatches: FixtureXGData[],
@@ -506,13 +660,15 @@ export class MLPredictionAlgorithm {
     fixtureDate?: Date
   ): number {
     // La confidence aumenta con:
-    // 1. Più dati disponibili (h2h, stats, xG)
+    // 1. Più dati disponibili (h2h, form, stats, xG)
     // 2. Maggiore concordanza tra i diversi metodi
+    // 3. Streak forti e consistenti
 
     let dataAvailability = 
-      (h2hAnalysis.weight > 0 ? 33 : 0) +
-      (statsAnalysis.weight > 0 ? 33 : 0) +
-      (xGAnalysis.weight > 0 ? 34 : 0);
+      (h2hAnalysis.weight > 0 ? 25 : 0) +
+      (formAnalysis.weight > 0 ? 25 : 0) + // 🆕
+      (statsAnalysis.weight > 0 ? 25 : 0) +
+      (xGAnalysis.weight > 0 ? 25 : 0);
 
     // 🌍 SEASONAL FIX: Penalizza se dati xG troppo vecchi
     if (fixtureDate && (homeXGMatches.length > 0 || awayXGMatches.length > 0)) {
@@ -529,6 +685,16 @@ export class MLPredictionAlgorithm {
       }
     }
 
+    // 🆕 FORM BOOST: Bonus per streak forti (3+ consecutive wins/losses)
+    const homeStreakAbs = Math.abs(formAnalysis.homeStreak);
+    const awayStreakAbs = Math.abs(formAnalysis.awayStreak);
+    
+    if (homeStreakAbs >= 3 || awayStreakAbs >= 3) {
+      const streakBonus = Math.max(homeStreakAbs, awayStreakAbs) >= 5 ? 10 : 5;
+      dataAvailability += streakBonus;
+      console.log(`   🔥 Streak bonus: ${Math.max(homeStreakAbs, awayStreakAbs)} consecutive → +${streakBonus}% confidence`);
+    }
+
     // 🌍 SEASONAL FIX: Penalizza Q1 (Gen-Feb) - periodo più imprevedibile
     if (fixtureDate) {
       const month = fixtureDate.getMonth() + 1;
@@ -538,7 +704,7 @@ export class MLPredictionAlgorithm {
       }
     }
 
-    return Math.round(dataAvailability);
+    return Math.round(Math.min(100, dataAvailability)); // Cap a 100%
   }
 
   /**

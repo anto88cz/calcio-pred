@@ -20,17 +20,29 @@ const router = Router();
 const ALLOWED_LEAGUES = [
   8,    // Premier League (England)
   9,    // Championship (England) 🆕
+  10,   // League One (England)
+  11,   // League Two (England)
   384,  // Serie A (Italy)
   387,  // Serie B (Italy) 🆕
   564,  // La Liga (Spain)
+  566,  // La Liga 2 (Spain)
   82,   // Bundesliga (Germany)
+  83,   // 2. Bundesliga (Germany)
   301,  // Ligue 1 (France)
+  303,  // Ligue 2 (France)
   72,   // Eredivisie (Netherlands)
+  73,   // Eerste Divisie (Netherlands)
+  271,  // Primeira Liga (Portugal)
+  272,  // Segunda Liga (Portugal)
+  462,  // Super Lig (Turkey)
+  463,  // 1. Lig (Turkey)
+  307,  // Pro League (Belgium)
+  266,  // Superliga (Denmark)
   2,    // Champions League
   5,    // Europa League
-  271,  // Conference League
+  848,  // Conference League
   600,  // Nations League
-  462   // Europa Conference League Qualification
+  // Serie B Italy, Championship England, etc. - più coverage
 ];
 
 // Schema validazione query params
@@ -524,19 +536,24 @@ router.get('/sm/live', async (req: Request, res: Response, next: NextFunction) =
  */
 router.get('/sm/range', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { startDate, endDate, leagueId } = req.query;
+    const { startDate, endDate, leagueId, includeAllLeagues } = req.query;
     
     if (!startDate || !endDate) {
       return res.status(400).json({ error: 'startDate and endDate are required' });
     }
     
     const league = leagueId ? parseInt(leagueId as string) : undefined;
+    const includeAll = includeAllLeagues === 'true';
     
-    logger.info({ startDate, endDate, leagueId: league }, 'Fetching fixtures by range from Sportsmonks');
+    logger.info({ startDate, endDate, leagueId: league, includeAll }, 'Fetching fixtures by range from Sportsmonks');
     
-    // Se viene specificato un leagueId, usa quello, altrimenti usa tutte le leghe supportate
+    // Se viene specificato un leagueId, usa quello
+    // Se includeAllLeagues=true, non filtrare per leghe
+    // Altrimenti usa ALLOWED_LEAGUES
     const fixtures = league
       ? await fixturesService.getFixturesByDateRange(startDate as string, endDate as string, league)
+      : includeAll
+      ? await fixturesService.getFixturesByDateRange(startDate as string, endDate as string)
       : await fixturesService.getFixturesByDateRange(startDate as string, endDate as string, undefined, ALLOWED_LEAGUES);
     
     logger.info({ total: fixtures.length }, 'Fixtures fetched');

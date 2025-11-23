@@ -141,7 +141,7 @@ export async function getFixturesByDate(date: string, leagueId?: number, leagueI
     
     // Use the /fixtures/between endpoint to get ALL fixtures including future ones
     const params: any = {
-      include: 'participants;league.country;scores;state;venue',
+      include: 'participants;league.country;scores;state;venue;lineups',
       per_page: 100, // Max per page
     };
     
@@ -213,7 +213,7 @@ export async function getFixturesByDateRange(startDate: string, endDate: string,
     const client = getSportsmonksClient();
     
     const params: any = {
-      include: 'participants;league.country;scores;state;venue',
+      include: 'participants;league.country;scores;state;venue;lineups',
       per_page: 100, // Max per page
     };
     
@@ -287,7 +287,7 @@ export async function getFixtureById(fixtureId: number): Promise<Fixture | null>
     const response = await client.get<any>(
       `/fixtures/${fixtureId}`,
       {
-        include: 'participants;league.country;scores;state;venue',
+        include: 'participants;league.country;scores;state;venue;lineups',
       }
     );
     
@@ -327,7 +327,7 @@ export async function getLiveFixtures(leagueId?: number): Promise<Fixture[]> {
     const client = getSportsmonksClient();
     
     const params: any = {
-      include: 'participants;league.country;scores;state;venue',
+      include: 'participants;league.country;scores;state;venue;lineups',
     };
     
     if (leagueId) {
@@ -374,7 +374,7 @@ export async function getUpcomingFixturesByTeam(teamId: number, limit: number = 
     const response = await client.get<any>(
       `/fixtures/upcoming/team/${teamId}`,
       {
-        include: 'participants;league.country;scores;state;venue',
+        include: 'participants;league.country;scores;state;venue;lineups',
       }
     );
     

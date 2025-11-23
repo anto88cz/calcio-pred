@@ -48,6 +48,7 @@ export interface MLPredictionData {
     away: number;
   };
   confidence: number;
+  fixtureDate?: Date | string; // 🆕 Per filtri stagionali
   factors: {
     headToHead: {
       avgHomeGoals: number;
@@ -649,12 +650,18 @@ export class BettingRecommendationsService {
   ): BettingRecommendation[] {
     const recs: BettingRecommendation[] = [];
     
+    // 🔴 Q1 FIX: Calcola mese una sola volta per tutti i DC
+    const month = mlData.fixtureDate ? new Date(mlData.fixtureDate).getMonth() + 1 : 0;
+    
     // 1X (Casa o Pareggio)
     const prob1X = mlData.predictions.homeWin + mlData.predictions.draw;
     const odds1X = this.calculateDoubleChanceOdds(odds.home, odds.draw);
     const ev1X = this.calculateEV(prob1X, odds1X);
     
-    if (prob1X > 0.50) {
+    // 🔴 Q1 FIX: Soglia più alta in inverno (più imprevedibile)
+    const threshold1X = (month >= 1 && month <= 3) ? 0.70 : 0.65;
+    
+    if (prob1X > threshold1X) {
       recs.push({
         id: 'double_1x',
         type: 'double_chance',
@@ -676,7 +683,11 @@ export class BettingRecommendationsService {
     const odds12 = this.calculateDoubleChanceOdds(odds.home, odds.away);
     const ev12 = this.calculateEV(prob12, odds12);
     
-    if (prob12 > 0.60 && mlData.predictions.draw < 0.30) {
+    // 🔴 Q1 FIX: Soglie più stringenti per 12 (loss analysis: 76% worst losses erano DC)
+    const drawThreshold = (month >= 1 && month <= 5) ? 0.35 : 0.30; // Q1-Q2: più conservativo
+    const minOdds12 = 1.45; // Evita quote troppo basse (loss analysis: 12 @ 1.40-1.43 perde su pareggi)
+    
+    if (prob12 > 0.60 && mlData.predictions.draw < drawThreshold && odds12 >= minOdds12) {
       recs.push({
         id: 'double_12',
         type: 'double_chance',
@@ -698,7 +709,10 @@ export class BettingRecommendationsService {
     const oddsX2 = this.calculateDoubleChanceOdds(odds.draw, odds.away);
     const evX2 = this.calculateEV(probX2, oddsX2);
     
-    if (probX2 > 0.50) {
+    // 🔴 Q1 FIX: Soglia MOLTO più alta per X2 (loss analysis: 38/50 worst losses)
+    const thresholdX2 = (month >= 1 && month <= 3) ? 0.75 : 0.65;
+    
+    if (probX2 > thresholdX2) {
       recs.push({
         id: 'double_x2',
         type: 'double_chance',

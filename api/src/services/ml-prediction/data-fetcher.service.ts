@@ -43,6 +43,19 @@ export interface FixtureXGData {
   date: string;
 }
 
+export interface FormMatch {
+  id: number;
+  date: string;
+  isHome: boolean;
+  opponentId: number;
+  opponentName: string;
+  goalsScored: number;
+  goalsConceded: number;
+  result: 'win' | 'draw' | 'loss';
+  xGFor?: number;
+  xGAgainst?: number;
+}
+
 export class MLDataFetcherService {
   private client = getSportsmonksClient();
 
@@ -389,6 +402,107 @@ export class MLDataFetcherService {
       return xgMatches;
     } catch (error) {
       console.error(`Error fetching recent xG matches for team ${teamId}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * 🆕 Recupera le ultime N partite di una squadra (vs qualsiasi avversario)
+   * Per analizzare forma recente indipendentemente dall'avversario
+   */
+  async getTeamRecentForm(
+    teamId: number,
+    seasonId: number,
+    limit: number = 7,
+    maxDate?: Date
+  ): Promise<FormMatch[]> {
+    try {
+      console.log(`📊 Fetching recent form (last ${limit} matches) for team ${teamId}, season ${seasonId}`);
+      if (maxDate) {
+        console.log(`   🕐 BACKTEST MODE: maxDate=${maxDate.toISOString().split('T')[0]}`);
+      }
+
+      // Ottieni le ultime partite del team
+      const response = await this.client.get<any>(
+        `/teams/${teamId}`,
+        {
+          include: 'latest.participants;latest.scores;latest.state',
+        }
+      );
+
+      if (!response.data || !response.data.latest || !Array.isArray(response.data.latest)) {
+        console.warn(`No recent matches found for team ${teamId}`);
+        return [];
+      }
+
+      const matches = response.data.latest;
+
+      // Filtra solo partite finite della stagione corrente + maxDate filter
+      const finishedMatches = matches
+        .filter((fixture: any) => {
+          // Solo partite finite
+          if (fixture.state_id !== 5) return false;
+
+          // Solo stagione corretta
+          if (fixture.season_id !== seasonId) return false;
+
+          // 🆕 BACKTEST FIX: Filtra per maxDate
+          if (maxDate) {
+            const fixtureDate = new Date(fixture.starting_at);
+            if (fixtureDate >= maxDate) return false;
+          }
+
+          return true;
+        })
+        .sort((a: any, b: any) => new Date(b.starting_at).getTime() - new Date(a.starting_at).getTime())
+        .slice(0, limit);
+
+      console.log(`📋 Found ${finishedMatches.length} recent form matches for team ${teamId}`);
+
+      // Converte in FormMatch con dettagli
+      const formMatches: FormMatch[] = finishedMatches.map((fixture: any) => {
+        const homeParticipant = fixture.participants?.find((p: any) => p.meta?.location === 'home');
+        const awayParticipant = fixture.participants?.find((p: any) => p.meta?.location === 'away');
+
+        const isHome = homeParticipant?.id === teamId;
+        const opponentId = isHome ? awayParticipant?.id : homeParticipant?.id;
+        const opponentName = isHome ? awayParticipant?.name : homeParticipant?.name;
+
+        const homeScore = fixture.scores?.find((s: any) =>
+          s.participant_id === homeParticipant?.id && s.description === 'CURRENT'
+        )?.score?.goals || 0;
+
+        const awayScore = fixture.scores?.find((s: any) =>
+          s.participant_id === awayParticipant?.id && s.description === 'CURRENT'
+        )?.score?.goals || 0;
+
+        const goalsScored = isHome ? homeScore : awayScore;
+        const goalsConceded = isHome ? awayScore : homeScore;
+
+        let result: 'win' | 'draw' | 'loss';
+        if (goalsScored > goalsConceded) result = 'win';
+        else if (goalsScored < goalsConceded) result = 'loss';
+        else result = 'draw';
+
+        return {
+          id: fixture.id,
+          date: fixture.starting_at,
+          isHome,
+          opponentId: opponentId || 0,
+          opponentName: opponentName || 'Unknown',
+          goalsScored,
+          goalsConceded,
+          result,
+          // xG sarà aggiunto successivamente se necessario
+        };
+      });
+
+      console.log(`✅ Fetched ${formMatches.length} form matches for team ${teamId}`);
+      console.log(`   Recent results: ${formMatches.map(m => m.result[0].toUpperCase()).join('-')}`);
+
+      return formMatches;
+    } catch (error) {
+      console.error(`Error fetching recent form for team ${teamId}:`, error);
       return [];
     }
   }

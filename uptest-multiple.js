@@ -2,12 +2,12 @@ const moment = require('moment-timezone');
 
 // 📅 UPTEST - Predizioni per date future
 const API_URL = process.env.API_URL || 'http://localhost:3001';
-const STAKE_PERCENTAGE = 0.5; // 30% del capitale (informativo)
-const TARGET_ODDS = 1.3;
-const MIN_ODDS = 1.1;
-const MAX_ODDS = 1.6;
+const STAKE_PERCENTAGE = 0.3; // 30% del capitale (informativo)
+const TARGET_ODDS = 1.8;
+const MIN_ODDS = 1.4;
+const MAX_ODDS = 4;
 const MAX_EVENTS = 2;
-const PREFERRED_EVENTS = 1;
+const PREFERRED_EVENTS = 4;
 
 // 🎯 GOAL/NOGOAL SETTINGS
 const ENABLE_GG_NG = true;

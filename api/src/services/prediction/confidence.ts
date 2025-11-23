@@ -238,33 +238,64 @@ export class ConfidenceCalculator {
 
   /**
    * 4. Status lineup (0-1)
+   * 
+   * NUOVO APPROCCIO BRUTALE:
+   * - Se NON ci sono lineups: penalità del 20% (0.8) perché non sai chi gioca
+   * - Se ci sono lineups incomplete (<11 giocatori): penalità progressiva
+   * - Se ci sono lineups complete (11 titolari): bonus pieno (1.0)
+   * - Se lineups confermate + formazioni note: bonus extra (1.1)
+   * 
+   * RAZIONALE:
+   * Le lineups sono CRITICHE. Non sapere chi gioca = alta incertezza.
+   * Esempio: se Mbappé è infortunato e non lo sai, la tua previsione è spazzatura.
    */
   private calculateLineupStatus(lineups: LineupInfo[]): number {
     if (lineups.length === 0) {
-      // Nessuna lineup disponibile = baseline
-      return 0.5;
+      // NESSUNA lineup disponibile = ALTA incertezza
+      // Stai scommettendo senza sapere chi scende in campo
+      // Penalità: -20% (0.8 invece di 1.0)
+      return 0.80;
     }
 
-    if (lineups.length !== 2) {
-      // Lineup parziale
-      return 0.6;
+    if (lineups.length === 1) {
+      // Solo UNA lineup (home o away) = incertezza moderata
+      // Sai metà della storia, manca l'altra metà
+      const lineup = lineups[0];
+      const completeness = Math.min(lineup.startingXI.length / 11, 1.0);
+      
+      // Penalità: -15% base + recupero parziale se lineup completa
+      return 0.85 * completeness;
     }
 
-    // Verifica lineup complete
-    const allComplete = lineups.every(lineup => 
-      lineup.startingXI.length === 11 && lineup.formation
-    );
+    // ENTRAMBE le lineups disponibili
+    const homeLineup = lineups[0];
+    const awayLineup = lineups[1];
 
-    if (allComplete) {
-      return 1.0; // Lineup complete confermate
+    // Calcola completezza media (% giocatori presenti)
+    const homeCompleteness = Math.min(homeLineup.startingXI.length / 11, 1.0);
+    const awayCompleteness = Math.min(awayLineup.startingXI.length / 11, 1.0);
+    const avgCompleteness = (homeCompleteness + awayCompleteness) / 2;
+
+    // Base score: completezza media
+    let score = avgCompleteness;
+
+    // BONUS: Lineups confermate (non probabili)
+    const bothConfirmed = homeLineup.confirmed && awayLineup.confirmed;
+    if (bothConfirmed) {
+      score *= 1.05; // +5% se confermate
     }
 
-    // Lineup parzialmente complete
-    const avgPlayers = lineups.reduce((sum, lineup) => 
-      sum + lineup.startingXI.length, 0
-    ) / lineups.length;
+    // BONUS: Formazioni note (tattica chiara)
+    const bothHaveFormation = 
+      homeLineup.formation && homeLineup.formation !== 'Unknown' &&
+      awayLineup.formation && awayLineup.formation !== 'Unknown';
+    
+    if (bothHaveFormation) {
+      score *= 1.05; // +5% se formazioni note
+    }
 
-    return 0.5 + (avgPlayers / 11) * 0.5;
+    // Cap massimo a 1.1 (bonus totale +10% se tutto perfetto)
+    return Math.min(score, 1.10);
   }
 
   /**

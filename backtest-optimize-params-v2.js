@@ -117,18 +117,18 @@ async function generateMultipleForDate(date, params) {
     const fixturesData = await fixturesResponse.json();
     
     if (!fixturesData.fixtures || fixturesData.fixtures.length === 0) {
-      console.log(`  ⚠️  Nessuna partita trovata per ${date}`);
+      // console.log(`  ⚠️  Nessuna partita trovata per ${date}`);
       return null;
     }
     
-    console.log(`  ✓ ${fixturesData.fixtures.length} partite trovate`);
+    // console.log(`  ✓ ${fixturesData.fixtures.length} partite trovate`);
     
     // Filtra solo partite finite
     const finishedFixtures = fixturesData.fixtures.filter(f => f.status === 'FT' && f.score);
-    console.log(`  ✓ ${finishedFixtures.length} partite finite`);
+    // console.log(`  ✓ ${finishedFixtures.length} partite finite`);
     
     if (finishedFixtures.length === 0) {
-      console.log(`  ⚠️  Nessuna partita finita per ${date}`);
+      // console.log(`  ⚠️  Nessuna partita finita per ${date}`);
       return null;
     }
     
@@ -136,7 +136,7 @@ async function generateMultipleForDate(date, params) {
     // Se cache hit, processiamo tutto in parallelo (velocissimo)
     // Se cache miss, usiamo chunks per rispettare rate limit API
     
-    console.log(`  🔍 Checking Redis cache availability...`);
+    // console.log(`  🔍 Checking Redis cache availability...`);
     
     // Quick check: prova a fare una chiamata di test per vedere se risponde da cache
     const testFixture = finishedFixtures[0];
@@ -161,9 +161,9 @@ async function generateMultipleForDate(date, params) {
     const isCacheWarmed = testDuration < 100;
     
     if (isCacheWarmed) {
-      console.log(`  ⚡ Cache WARM detected (${testDuration}ms) - processing all ${finishedFixtures.length} fixtures in parallel!`);
+      // console.log(`  ⚡ Cache WARM detected (${testDuration}ms) - processing all ${finishedFixtures.length} fixtures in parallel!`);
     } else {
-      console.log(`  � Cache COLD detected (${testDuration}ms) - using chunked processing for rate limit safety`);
+      // console.log(`  🐌 Cache COLD detected (${testDuration}ms) - using chunked processing for rate limit safety`);
     }
     
     const allEvents = [];
@@ -226,7 +226,7 @@ async function generateMultipleForDate(date, params) {
       
       for (let i = 0; i < remainingFixtures.length; i += chunkSize) {
         const chunk = remainingFixtures.slice(i, i + chunkSize);
-        console.log(`  📦 Processando chunk ${Math.floor(i / chunkSize) + 1}/3 (${chunk.length} partite)...`);
+        // console.log(`  📦 Processando chunk ${Math.floor(i / chunkSize) + 1}/3 (${chunk.length} partite)...`);
         
         const fixturePromises = chunk.map(async (fixture) => {
           const homeTeamId = fixture.homeTeam?.id;
@@ -270,18 +270,18 @@ async function generateMultipleForDate(date, params) {
         
         // Pausa tra i chunks (tranne dopo l'ultimo)
         if (i + chunkSize < remainingFixtures.length) {
-          console.log(`  ⏳ Pausa 1 secondo prima del prossimo chunk...`);
+          // console.log(`  ⏳ Pausa 1 secondo prima del prossimo chunk...`);
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
     }
     
     if (allEvents.length === 0) {
-      console.log(`  ⚠️  Nessun evento con raccomandazioni valide`);
+      // console.log(`  ⚠️  Nessun evento con raccomandazioni valide`);
       return null;
     }
     
-    console.log(`  ✓ ${allEvents.length} eventi con raccomandazioni valide`);
+    // console.log(`  ✓ ${allEvents.length} eventi con raccomandazioni valide`);
     
     // 3. Ordina per score e seleziona i migliori
     allEvents.sort((a, b) => b.recommendation.score - a.recommendation.score);
@@ -370,7 +370,7 @@ async function generateMultipleForDate(date, params) {
     const selectedEvents = bestMultiple.events;
     const finalOdds = bestMultiple.odds;
     
-    console.log(`  ${colors.bright}📊 Multipla generata: ${selectedEvents.length} eventi, quota ${finalOdds.toFixed(2)}${colors.reset}`);
+    // console.log(`  ${colors.bright}📊 Multipla generata: ${selectedEvents.length} eventi, quota ${finalOdds.toFixed(2)}${colors.reset}`);
     
     // 5. Verifica risultato di ogni evento
     const results = selectedEvents.map(event => {

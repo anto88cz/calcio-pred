@@ -218,7 +218,7 @@ export class PredictionEngine {
 
       // 6.7. Applica Injuries Impact factor a lambda
       // TODO: Implement analyzeMatchInjuriesImpact in Sportsmonks injuries service
-      let injuriesAnalysis = null;
+      let injuriesAnalysis: any = null;
       /*
       const injuriesAnalysis = await injuriesService.analyzeMatchInjuriesImpact(
         input.homeTeamId,
