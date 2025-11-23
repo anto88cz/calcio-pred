@@ -16,6 +16,7 @@ const colors = {
   yellow: '\x1b[33m',
   blue: '\x1b[34m',
   cyan: '\x1b[36m',
+  magenta: '\x1b[35m',
 };
 
 // 🔥 RIMOSSO calculateScore - usa solo filtri del backend API
@@ -254,7 +255,6 @@ function displayBettingSlip(multiple, targetDate) {
     console.log(`   ${colors.yellow}📊 Confidence: ${rec.confidence.toFixed(1)}%${colors.reset}`);
     console.log(`   ${colors.yellow}💎 Expected Value: ${rec.expectedValue.toFixed(1)}%${colors.reset}`);
     console.log(`   ${colors.yellow}⭐ Value Rating: ${rec.valueRating}/5${colors.reset}`);
-    console.log(`   ${colors.yellow}🎲 Score: ${rec.score.toFixed(1)}${colors.reset}`);
     
     if (rec.reasoning) {
       console.log(`   ${colors.blue}💡 ${rec.reasoning}${colors.reset}`);
