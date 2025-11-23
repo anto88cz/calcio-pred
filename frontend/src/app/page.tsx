@@ -102,6 +102,7 @@ function MainApp() {
   // 🆕 Stato per raccomandazioni inline
   const [matchRecommendations, setMatchRecommendations] = useState<Record<number, any[]>>({});
   const [loadingRecommendations, setLoadingRecommendations] = useState<Record<number, boolean>>({});
+  const [loadingLeagueRecommendations, setLoadingLeagueRecommendations] = useState<Record<string, boolean>>({});
   
   // NUOVI STATI per filtri - inizializzati dai query params
   const [startDate, setStartDate] = useState<string>(
@@ -138,10 +139,10 @@ function MainApp() {
     router.replace(newUrl, { scroll: false });
   }, [startDate, endDate, selectedLeague, searchQuery]);
 
-  // Carica partite quando cambiano le date
+  // Carica partite solo al mount iniziale
   useEffect(() => {
     loadMatches();
-  }, [startDate, endDate]);
+  }, []);
 
   const loadMatches = async () => {
     setLoadingMatches(true);
@@ -243,6 +244,22 @@ function MainApp() {
       console.error('Failed to load recommendations:', err);
     } finally {
       setLoadingRecommendations(prev => ({ ...prev, [match.id]: false }));
+    }
+  };
+
+  // 🆕 Carica raccomandazioni per tutte le partite di una lega
+  const loadLeagueRecommendations = async (leagueName: string, matches: TodayMatch[]) => {
+    setLoadingLeagueRecommendations(prev => ({ ...prev, [leagueName]: true }));
+    
+    try {
+      // Carica raccomandazioni in parallelo per tutte le partite della lega
+      await Promise.all(
+        matches.map(match => loadMatchRecommendations(match, true))
+      );
+    } catch (err) {
+      console.error('Failed to load league recommendations:', err);
+    } finally {
+      setLoadingLeagueRecommendations(prev => ({ ...prev, [leagueName]: false }));
     }
   };
 
@@ -642,7 +659,7 @@ function MainApp() {
               className="flex-1 sm:flex-none px-6 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-sm font-bold rounded-lg hover:from-green-500 hover:to-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg shadow-green-500/20 flex items-center justify-center space-x-2"
             >
               <span className="text-lg">🎰</span>
-              <span>{showSystemGenerator ? 'Nascondi' : 'Genera'} Sistema Integrale</span>
+              <span>{showSystemGenerator ? 'Nascondi' : 'Genera'} Schedina</span>
             </button>
             
             {/* PULSANTE SCHEDINA AUTOMATICA - TEMPORANEAMENTE NASCOSTO */}
@@ -734,7 +751,7 @@ function MainApp() {
               return (
                 <div key={competition} className="bg-gray-800/50 backdrop-blur-sm rounded-lg border border-gray-700 overflow-hidden shadow-lg">
                   {/* Header Campionato */}
-                  <div className={`bg-gradient-to-r ${color} px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between`}>
+                  <div className={`bg-gradient-to-r ${color} px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between gap-2`}>
                     <div className="flex items-center space-x-2 min-w-0 flex-1">
                       <span className="text-base sm:text-lg flex-shrink-0">{emoji}</span>
                       <div className="min-w-0 flex-1">
@@ -744,9 +761,22 @@ function MainApp() {
                         )}
                       </div>
                     </div>
-                    <span className="bg-white/20 backdrop-blur-sm px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-white text-[10px] sm:text-xs font-medium flex-shrink-0">
-                      {compMatches.length}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => loadLeagueRecommendations(competition, compMatches)}
+                        disabled={loadingLeagueRecommendations[competition]}
+                        className="px-2 sm:px-3 py-1 bg-white/20 hover:bg-white/30 disabled:bg-white/10 disabled:cursor-not-allowed backdrop-blur-sm rounded text-white text-[10px] sm:text-xs font-medium transition flex items-center gap-1"
+                        title="Genera raccomandazioni per tutta la lega"
+                      >
+                        <svg className={`w-3 h-3 ${loadingLeagueRecommendations[competition] ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <span className="hidden sm:inline">{loadingLeagueRecommendations[competition] ? 'Loading...' : 'Tutte'}</span>
+                      </button>
+                      <span className="bg-white/20 backdrop-blur-sm px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-white text-[10px] sm:text-xs font-medium flex-shrink-0">
+                        {compMatches.length}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Lista Partite */}
@@ -803,49 +833,51 @@ function MainApp() {
                               </div>
                             </div>
                           </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              analyzeMatch(
-                                match.homeTeam, 
-                                match.awayTeam, 
-                                match.id,
-                                match.homeTeamId,
-                                match.awayTeamId,
-                                match.seasonId,
-                                match.leagueId
-                              );
-                            }}
-                            className="w-full sm:w-auto px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs sm:text-sm font-medium rounded-lg hover:from-blue-700 hover:to-purple-700 transition shadow-lg shadow-blue-500/20 whitespace-nowrap"
-                          >
-                            <span className="hidden sm:inline">🔍 Analizza</span>
-                            <span className="sm:hidden">🔍</span>
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                analyzeMatch(
+                                  match.homeTeam, 
+                                  match.awayTeam, 
+                                  match.id,
+                                  match.homeTeamId,
+                                  match.awayTeamId,
+                                  match.seasonId,
+                                  match.leagueId
+                                );
+                              }}
+                              className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs sm:text-sm font-medium rounded-lg hover:from-blue-700 hover:to-purple-700 transition shadow-lg shadow-blue-500/20 whitespace-nowrap"
+                            >
+                              <span className="hidden sm:inline">📊 Dettaglio</span>
+                              <span className="sm:hidden">📊</span>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                loadMatchRecommendations(match, true);
+                              }}
+                              disabled={loadingRecommendations[match.id]}
+                              className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 bg-purple-600/80 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition flex items-center gap-1"
+                            >
+                              <svg className={`w-3 h-3 ${loadingRecommendations[match.id] ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                              </svg>
+                              <span className="hidden sm:inline">{loadingRecommendations[match.id] ? 'Loading...' : 'Raccomandazioni'}</span>
+                              <span className="sm:hidden">⚡</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                       
-                      {/* 🆕 Pulsante e Raccomandazioni */}
+                      {/* 🆕 Raccomandazioni */}
                       <div className="mt-2 flex flex-col gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            loadMatchRecommendations(match, true);
-                          }}
-                          disabled={isLoadingRecs}
-                          className="text-[10px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded transition flex items-center justify-center gap-1.5 sm:gap-2"
-                        >
-                          <svg className={`w-3 h-3 ${isLoadingRecs ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                          </svg>
-                          <span className="hidden sm:inline">{isLoadingRecs ? 'Caricamento...' : hasRecs ? 'Aggiorna Raccomandazioni' : 'Genera Raccomandazioni'}</span>
-                          <span className="sm:hidden">{isLoadingRecs ? 'Loading...' : hasRecs ? 'Aggiorna' : 'Genera'}</span>
-                        </button>
                         
                         {/* Mostra raccomandazioni se presenti */}
-                        {hasRecs && (
+                        {matchRecommendations[match.id] && matchRecommendations[match.id].length > 0 && (
                           <div className="bg-gray-900/50 rounded p-1.5 sm:p-2 space-y-1">
                             <div className="text-[10px] sm:text-xs font-semibold text-purple-400 mb-1">🎯 Top Raccomandazioni:</div>
-                            {recs.slice(0, 3).map((rec: any, idx: number) => (
+                            {matchRecommendations[match.id].slice(0, 3).map((rec: any, idx: number) => (
                               <div key={idx} className="text-[10px] sm:text-xs text-gray-300 flex items-start gap-1.5 sm:gap-2">
                                 <span className="text-yellow-400 text-xs sm:text-sm">⭐</span>
                                 <div className="flex-1 min-w-0">
@@ -856,6 +888,16 @@ function MainApp() {
                                 </div>
                               </div>
                             ))}
+                          </div>
+                        )}
+                        
+                        {/* Messaggio quando non ci sono raccomandazioni */}
+                        {matchRecommendations[match.id] && matchRecommendations[match.id].length === 0 && !loadingRecommendations[match.id] && (
+                          <div className="bg-gray-900/50 rounded p-1.5 sm:p-2">
+                            <div className="text-[10px] sm:text-xs text-gray-400 italic flex items-center gap-1.5">
+                              <span>ℹ️</span>
+                              <span>Nessuna raccomandazione disponibile per questa partita</span>
+                            </div>
                           </div>
                         )}
                       </div>

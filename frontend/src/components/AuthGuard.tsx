@@ -11,23 +11,36 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-
-  // Password configurabile tramite variabile d'ambiente
-  const CORRECT_PASSWORD = process.env.NEXT_PUBLIC_APP_PASSWORD || 'calcio2025';
+  const [correctPassword, setCorrectPassword] = useState('');
 
   useEffect(() => {
+    // Fetch password dal backend
+    const fetchPassword = async () => {
+      try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const response = await fetch(`${API_URL}/api/auth/config`);
+        const data = await response.json();
+        setCorrectPassword(data.password);
+      } catch (err) {
+        console.error('Errore nel recupero della configurazione:', err);
+        setCorrectPassword('calcio2025'); // Fallback
+      }
+    };
+
     // Controlla se l'utente è già autenticato (sessionStorage)
     const authToken = sessionStorage.getItem('calcio_pred_auth');
     if (authToken === 'authenticated') {
       setIsAuthenticated(true);
+      setLoading(false);
+    } else {
+      fetchPassword().then(() => setLoading(false));
     }
-    setLoading(false);
   }, []);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (password === CORRECT_PASSWORD) {
+    if (password === correctPassword) {
       sessionStorage.setItem('calcio_pred_auth', 'authenticated');
       setIsAuthenticated(true);
       setError('');

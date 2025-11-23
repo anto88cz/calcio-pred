@@ -50,6 +50,13 @@ app.get('/health', (_req, res) => {
   });
 });
 
+// Auth config endpoint
+app.get('/api/auth/config', (_req, res) => {
+  res.json({
+    password: process.env.NEXT_PUBLIC_APP_PASSWORD || 'calcio2025',
+  });
+});
+
 // API usage statistics
 app.get('/api/usage', async (_req, res) => {
   try {
