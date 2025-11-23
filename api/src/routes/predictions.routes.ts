@@ -567,6 +567,7 @@ router.post('/calculate-by-name', async (req: Request, res: Response, next: Next
       season: z.number().int().positive().optional().default(currentSeason),
       forceRecalculate: z.boolean().optional().default(false), // 🆕 Forza ricalcolo
       fixtureId: z.number().int().positive().optional(), // 🆕 Fixture ID opzionale (se dalla lista partite)
+      fixtureDate: z.string().optional(), // 🔧 BACKTEST FIX: Data partita per filtering storico (prevent look-ahead bias)
     });
     
     const input = schema.parse(req.body);
@@ -733,6 +734,7 @@ router.post('/calculate-by-name', async (req: Request, res: Response, next: Next
       awayTeam: input.awayTeamName,
       fixtureId,
       isRealFixture: !!input.fixtureId,
+      fixtureDate: input.fixtureDate || 'not-provided',
     }, input.fixtureId ? '🎯 Using real fixture ID from frontend' : '🔀 Generated temporary fixture ID');
     
     const predictionResult = await predictionEngine.calculatePrediction({
@@ -743,6 +745,7 @@ router.post('/calculate-by-name', async (req: Request, res: Response, next: Next
       leagueId,
       homeTeamName: input.homeTeamName,  // Per Market Odds e team mapping
       awayTeamName: input.awayTeamName,  // Per Market Odds e team mapping
+      fixtureDate: input.fixtureDate ? new Date(input.fixtureDate) : undefined, // 🔧 BACKTEST FIX: Converti stringa a Date
     });
     
     logger.info({ 

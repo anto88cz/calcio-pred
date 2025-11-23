@@ -2,13 +2,12 @@ const moment = require('moment-timezone');
 
 // Configurazione
 const API_URL = process.env.API_URL || 'http://localhost:3001';
-const INITIAL_CAPITAL = 100; // €100 iniziali
-const STAKE_PERCENTAGE = 0.30; // 30% del capitale
-const TARGET_ODDS = 1.8; // Target quota moderata
-const MIN_ODDS = 1.4; // Minimo accettabile
-const MAX_ODDS = 4.0; // Massimo accettabile
-const START_DATE = '2025-09-01'; // Data inizio backtest
-const END_DATE = '2025-11-23'; // Data fine backtest
+const INITIAL_CAPITAL = 200; // €200 iniziali
+const STAKE_PERCENTAGE = 0.20; // 20% del capitale
+const TARGET_ODDS = 2.0; // Target quota per raddoppio
+const MIN_ODDS = 1.8; // Minimo accettabile (90% del target)
+const MAX_ODDS = 2.5; // Massimo accettabile (125% del target)
+const BACKTESTING_DAYS = 60; // Ultimo mese
 
 // Colori per console
 const colors = {
@@ -21,8 +20,15 @@ const colors = {
   cyan: '\x1b[36m',
 };
 
-// 🔥 RIMOSSO calculateScore - usa solo filtri del backend API
-// Il backend già applica filtri ottimali su EV, confidence e valueRating
+// Funzione per calcolare score di una raccomandazione
+function calculateScore(rec) {
+  const valueRating = rec.valueRating || rec.value || 0;
+  const confidence = (rec.confidence || 0) > 1 ? rec.confidence : (rec.confidence || 0) * 100;
+  const expectedValue = (rec.expectedValue || 0) > 1 ? rec.expectedValue : (rec.expectedValue || 0) * 100;
+  const oddsBonus = rec.odds >= 1.5 && rec.odds <= 3.0 ? 10 : 0;
+  
+  return valueRating * 0.4 + confidence * 0.3 + expectedValue * 0.2 + oddsBonus;
+}
 
 // Funzione per generare multipla automatica
 async function generateMultipleForDate(date) {
@@ -88,10 +94,24 @@ async function generateMultipleForDate(date) {
         const recsData = await recsResponse.json();
         
         if (recsData.recommendations && recsData.recommendations.length > 0) {
-          // 🔥 USA DIRETTAMENTE LE RACCOMANDAZIONI DAL BACKEND
-          // Il backend già applica tutti i filtri necessari (EV, confidence, valueRating)
-          // Prendi semplicemente la prima (già ordinata per importanza dal backend)
-          const bestRec = recsData.recommendations[0];
+          // Normalizza confidence e expectedValue
+          const normalizedRecs = recsData.recommendations.map(rec => {
+            const confidence = (rec.confidence || 0) > 1 ? rec.confidence : (rec.confidence || 0) * 100;
+            const expectedValue = (rec.expectedValue || 0) > 1 ? rec.expectedValue : (rec.expectedValue || 0) * 100;
+            return {
+              ...rec,
+              confidence,
+              expectedValue
+            };
+          });
+          
+          // Calcola score per ogni raccomandazione e prendi la migliore
+          const bestRec = normalizedRecs
+            .map(rec => ({
+              ...rec,
+              score: calculateScore(rec)
+            }))
+            .sort((a, b) => b.score - a.score)[0];
           
           allEvents.push({
             fixture,
@@ -308,7 +328,7 @@ async function generateMultipleForDate(date) {
 async function runBacktest() {
   console.log(`${colors.bright}${colors.blue}`);
   console.log('╔════════════════════════════════════════════════════════╗');
-  console.log('║    BACKTESTING MULTIPLE - SISTEMA ORIGINALE            ║');
+  console.log('║         BACKTESTING MULTIPLE - ULTIMO MESE             ║');
   console.log('╚════════════════════════════════════════════════════════╝');
   console.log(colors.reset);
   
@@ -316,21 +336,15 @@ async function runBacktest() {
   console.log(`📊 Stake per schedina: ${(STAKE_PERCENTAGE * 100)}% del capitale`);
   console.log(`🎯 Target quota: ${TARGET_ODDS}x (range: ${MIN_ODDS}-${MAX_ODDS})`);
   console.log(`🏆 Eventi per multipla: 1-3 partite (flessibile)`);
-  console.log(`📅 Periodo: dal ${START_DATE} al ${END_DATE}\n`);
+  console.log(`📅 Periodo: ultimi ${BACKTESTING_DAYS} giorni\n`);
   
   const results = [];
   let currentCapital = INITIAL_CAPITAL;
   
-  // Genera date dal START_DATE al END_DATE
+  // Genera date degli ultimi 14 giorni
   const dates = [];
-  const startMoment = moment(START_DATE);
-  const endMoment = moment(END_DATE);
-  const totalDays = endMoment.diff(startMoment, 'days') + 1;
-  
-  console.log(`📊 Totale giorni da analizzare: ${totalDays}\n`);
-  
-  for (let i = 0; i < totalDays; i++) {
-    const date = startMoment.clone().add(i, 'days').format('YYYY-MM-DD');
+  for (let i = BACKTESTING_DAYS - 1; i >= 0; i--) {
+    const date = moment().subtract(i, 'days').format('YYYY-MM-DD');
     dates.push(date);
   }
   

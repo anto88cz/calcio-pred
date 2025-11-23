@@ -2,7 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import moment from 'moment-timezone';
 import type { MatchPrediction, MarketCalibration, InjuriesAnalysis } from '@/types';
 import { ENV } from '@/config/env';
@@ -93,16 +93,29 @@ export default function Home() {
 
 function MainApp() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [matches, setMatches] = useState<TodayMatch[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   
-  // NUOVI STATI per filtri
-  const [startDate, setStartDate] = useState<string>(moment().format('YYYY-MM-DD')); // Data inizio
-  const [endDate, setEndDate] = useState<string>(moment().format('YYYY-MM-DD')); // Data fine
-  const [selectedLeague, setSelectedLeague] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  // 🆕 Stato per raccomandazioni inline
+  const [matchRecommendations, setMatchRecommendations] = useState<Record<number, any[]>>({});
+  const [loadingRecommendations, setLoadingRecommendations] = useState<Record<number, boolean>>({});
+  
+  // NUOVI STATI per filtri - inizializzati dai query params
+  const [startDate, setStartDate] = useState<string>(
+    searchParams.get('startDate') || moment().format('YYYY-MM-DD')
+  );
+  const [endDate, setEndDate] = useState<string>(
+    searchParams.get('endDate') || moment().format('YYYY-MM-DD')
+  );
+  const [selectedLeague, setSelectedLeague] = useState<string>(
+    searchParams.get('league') || 'all'
+  );
+  const [searchQuery, setSearchQuery] = useState<string>(
+    searchParams.get('search') || ''
+  );
   
   // STATI per schedina automatica
   const [showBetSlipModal, setShowBetSlipModal] = useState(false);
@@ -112,6 +125,18 @@ function MainApp() {
   
   // STATO per generatore sistemi
   const [showSystemGenerator, setShowSystemGenerator] = useState(false);
+
+  // Aggiorna URL quando cambiano i filtri
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (startDate !== moment().format('YYYY-MM-DD')) params.set('startDate', startDate);
+    if (endDate !== moment().format('YYYY-MM-DD')) params.set('endDate', endDate);
+    if (selectedLeague !== 'all') params.set('league', selectedLeague);
+    if (searchQuery) params.set('search', searchQuery);
+    
+    const newUrl = params.toString() ? `/?${params.toString()}` : '/';
+    router.replace(newUrl, { scroll: false });
+  }, [startDate, endDate, selectedLeague, searchQuery]);
 
   // Carica partite quando cambiano le date
   useEffect(() => {
@@ -182,6 +207,45 @@ function MainApp() {
     }
   };
 
+  // 🆕 Carica raccomandazioni per una singola partita
+  const loadMatchRecommendations = async (match: TodayMatch, forceRecalculate = false) => {
+    if (!match.id || !match.homeTeamId || !match.awayTeamId || !match.leagueId || !match.seasonId) {
+      console.warn('⚠️ Missing IDs for recommendations');
+      return;
+    }
+
+    setLoadingRecommendations(prev => ({ ...prev, [match.id]: true }));
+    
+    try {
+      const response = await fetch(`${ENV.API_URL}/api/betting-recommendations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fixtureId: match.id,
+          homeTeamId: match.homeTeamId,
+          awayTeamId: match.awayTeamId,
+          leagueId: match.leagueId,
+          seasonId: match.seasonId,
+          homeTeamName: match.homeTeam,
+          awayTeamName: match.awayTeam,
+          forceRecalculate, // 🆕 Forza ricalcolo se richiesto
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setMatchRecommendations(prev => ({
+          ...prev,
+          [match.id]: data.recommendations || []
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to load recommendations:', err);
+    } finally {
+      setLoadingRecommendations(prev => ({ ...prev, [match.id]: false }));
+    }
+  };
+
   const analyzeMatch = async (
     homeTeam: string, 
     awayTeam: string, 
@@ -202,17 +266,30 @@ function MainApp() {
       leagueId,
     });
 
+    // Costruisci i filtri da preservare
+    const filterParams = new URLSearchParams();
+    if (startDate !== moment().format('YYYY-MM-DD')) filterParams.set('startDate', startDate);
+    if (endDate !== moment().format('YYYY-MM-DD')) filterParams.set('endDate', endDate);
+    if (selectedLeague !== 'all') filterParams.set('league', selectedLeague);
+    if (searchQuery) filterParams.set('search', searchQuery);
+    const filterString = filterParams.toString();
+
     // Naviga alla nuova pagina di predizione ML
     if (fixtureId && homeTeamId && awayTeamId && seasonId && leagueId) {
       console.log('✅ All parameters available - redirecting to /prediction');
-      const url = `/prediction?fixtureId=${fixtureId}&home=${encodeURIComponent(homeTeam)}&away=${encodeURIComponent(awayTeam)}&homeTeamId=${homeTeamId}&awayTeamId=${awayTeamId}&seasonId=${seasonId}&leagueId=${leagueId}`;
+      const url = `/prediction?fixtureId=${fixtureId}&home=${encodeURIComponent(homeTeam)}&away=${encodeURIComponent(awayTeam)}&homeTeamId=${homeTeamId}&awayTeamId=${awayTeamId}&seasonId=${seasonId}&leagueId=${leagueId}${filterString ? '&' + filterString : ''}`;
       router.push(url);
     } else {
       console.log('⚠️ Missing parameters - fallback to /analysis');
       // Fallback alla pagina analysis se mancano dati
-      const url = fixtureId 
-        ? `/analysis?home=${encodeURIComponent(homeTeam)}&away=${encodeURIComponent(awayTeam)}&fixtureId=${fixtureId}`
-        : `/analysis?home=${encodeURIComponent(homeTeam)}&away=${encodeURIComponent(awayTeam)}`;
+      // 🆕 Passa anche gli ID disponibili per permettere il caricamento delle raccomandazioni dall'API
+      let baseUrl = `/analysis?home=${encodeURIComponent(homeTeam)}&away=${encodeURIComponent(awayTeam)}`;
+      if (fixtureId) baseUrl += `&fixtureId=${fixtureId}`;
+      if (homeTeamId) baseUrl += `&homeTeamId=${homeTeamId}`;
+      if (awayTeamId) baseUrl += `&awayTeamId=${awayTeamId}`;
+      if (leagueId) baseUrl += `&leagueId=${leagueId}`;
+      if (seasonId) baseUrl += `&seasonId=${seasonId}`;
+      const url = baseUrl + (filterString ? '&' + filterString : '');
       router.push(url);
     }
   };
@@ -412,25 +489,25 @@ function MainApp() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {/* Filtri Compatti Dark */}
-        <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg border border-gray-700 p-4 mb-6 shadow-lg">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg border border-gray-700 p-3 sm:p-4 mb-4 sm:mb-6 shadow-lg">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {/* Data Inizio */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">📅 Data Da</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1.5 sm:mb-2">📅 Data Da</label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 max={endDate}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs sm:text-sm text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 
             {/* Data Fine */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">📅 Data A</label>
+              <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1.5 sm:mb-2">📅 Data A</label>
               <input
                 type="date"
                 value={endDate}
@@ -441,12 +518,12 @@ function MainApp() {
             </div>
 
             {/* Filtro Campionato */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">🏆 Campionato</label>
+            <div className="sm:col-span-2 lg:col-span-1">
+              <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-1.5 sm:mb-2">🏆 Campionato</label>
               <select
                 value={selectedLeague}
                 onChange={(e) => setSelectedLeague(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs sm:text-sm text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">Tutti i campionati ({matches.length})</option>
                 {Object.keys(groupedMatches).map(league => (
@@ -459,14 +536,14 @@ function MainApp() {
           </div>
 
           {/* Quick Date Shortcuts */}
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-3 sm:mt-4 flex flex-wrap gap-1.5 sm:gap-2">
             <button
               onClick={() => {
                 const today = moment().format('YYYY-MM-DD');
                 setStartDate(today);
                 setEndDate(today);
               }}
-              className="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors"
+              className="px-2 sm:px-3 py-1 text-[10px] sm:text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors"
             >
               Oggi
             </button>
@@ -476,7 +553,7 @@ function MainApp() {
                 setStartDate(tomorrow);
                 setEndDate(tomorrow);
               }}
-              className="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors"
+              className="px-2 sm:px-3 py-1 text-[10px] sm:text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors"
             >
               Domani
             </button>
@@ -657,66 +734,72 @@ function MainApp() {
               return (
                 <div key={competition} className="bg-gray-800/50 backdrop-blur-sm rounded-lg border border-gray-700 overflow-hidden shadow-lg">
                   {/* Header Campionato */}
-                  <div className={`bg-gradient-to-r ${color} px-4 py-2.5 flex items-center justify-between`}>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-lg">{emoji}</span>
-                      <div>
-                        <h3 className="font-bold text-white text-sm">{competition}</h3>
+                  <div className={`bg-gradient-to-r ${color} px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between`}>
+                    <div className="flex items-center space-x-2 min-w-0 flex-1">
+                      <span className="text-base sm:text-lg flex-shrink-0">{emoji}</span>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-bold text-white text-xs sm:text-sm truncate">{competition}</h3>
                         {firstMatch.competitionCountry && (
-                          <p className="text-xs text-white/80">{firstMatch.competitionCountry}</p>
+                          <p className="text-[10px] sm:text-xs text-white/80 truncate">{firstMatch.competitionCountry}</p>
                         )}
                       </div>
                     </div>
-                    <span className="bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-full text-white text-xs font-medium">
+                    <span className="bg-white/20 backdrop-blur-sm px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-white text-[10px] sm:text-xs font-medium flex-shrink-0">
                       {compMatches.length}
                     </span>
                   </div>
 
                   {/* Lista Partite */}
                   <div className="divide-y divide-gray-700/50">
-                    {compMatches.map((match) => (
-                      <div
-                        key={match.id}
-                        className="p-3 hover:bg-gray-700/30 transition cursor-pointer"
-                        onClick={() => analyzeMatch(
-                          match.homeTeam, 
-                          match.awayTeam, 
-                          match.id,
-                          match.homeTeamId,
-                          match.awayTeamId,
-                          match.seasonId,
-                          match.leagueId
-                        )}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2 mb-1.5">
-                              <span className="text-xs font-medium text-gray-400">{match.time}</span>
+                    {compMatches.map((match) => {
+                      const recs = matchRecommendations[match.id] || [];
+                      const isLoadingRecs = loadingRecommendations[match.id] || false;
+                      const hasRecs = recs.length > 0;
+                      
+                      return (
+                      <div key={match.id} className="p-2 sm:p-3 hover:bg-gray-700/30 transition">
+                        {/* Riga principale partita */}
+                        <div
+                          className="cursor-pointer"
+                          onClick={() => analyzeMatch(
+                            match.homeTeam, 
+                            match.awayTeam, 
+                            match.id,
+                            match.homeTeamId,
+                            match.awayTeamId,
+                            match.seasonId,
+                            match.leagueId
+                          )}
+                        >
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-2 mb-1 sm:mb-1.5">
+                              <span className="text-[10px] sm:text-xs font-medium text-gray-400">{match.time}</span>
                             </div>
-                            <div className="space-y-1">
-                              <div className="flex items-center space-x-2">
-                                <span className="w-4 text-center text-xs text-blue-400 font-bold">H</span>
+                            <div className="space-y-0.5 sm:space-y-1">
+                              <div className="flex items-center space-x-1.5 sm:space-x-2">
+                                <span className="w-3 sm:w-4 text-center text-[10px] sm:text-xs text-blue-400 font-bold">H</span>
                                 {match.homeTeamLogo && (
                                   <img 
                                     src={match.homeTeamLogo} 
                                     alt={match.homeTeam}
-                                    className="w-5 h-5 object-contain"
+                                    className="w-4 h-4 sm:w-5 sm:h-5 object-contain flex-shrink-0"
                                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                   />
                                 )}
-                                <span className="font-medium text-gray-200 text-sm">{match.homeTeam}</span>
+                                <span className="font-medium text-gray-200 text-xs sm:text-sm truncate">{match.homeTeam}</span>
                               </div>
-                              <div className="flex items-center space-x-2">
-                                <span className="w-4 text-center text-xs text-red-400 font-bold">A</span>
+                              <div className="flex items-center space-x-1.5 sm:space-x-2">
+                                <span className="w-3 sm:w-4 text-center text-[10px] sm:text-xs text-red-400 font-bold">A</span>
                                 {match.awayTeamLogo && (
                                   <img 
                                     src={match.awayTeamLogo} 
                                     alt={match.awayTeam}
-                                    className="w-5 h-5 object-contain"
+                                    className="w-4 h-4 sm:w-5 sm:h-5 object-contain flex-shrink-0"
                                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                   />
                                 )}
-                                <span className="font-medium text-gray-200 text-sm">{match.awayTeam}</span>
+                                <span className="font-medium text-gray-200 text-xs sm:text-sm truncate">{match.awayTeam}</span>
                               </div>
                             </div>
                           </div>
@@ -733,13 +816,52 @@ function MainApp() {
                                 match.leagueId
                               );
                             }}
-                            className="px-3 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs font-medium rounded-lg hover:from-blue-700 hover:to-purple-700 transition shadow-lg shadow-blue-500/20"
+                            className="w-full sm:w-auto px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xs sm:text-sm font-medium rounded-lg hover:from-blue-700 hover:to-purple-700 transition shadow-lg shadow-blue-500/20 whitespace-nowrap"
                           >
-                            🔍 Analizza
+                            <span className="hidden sm:inline">🔍 Analizza</span>
+                            <span className="sm:hidden">🔍</span>
                           </button>
                         </div>
                       </div>
-                    ))}
+                      
+                      {/* 🆕 Pulsante e Raccomandazioni */}
+                      <div className="mt-2 flex flex-col gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            loadMatchRecommendations(match, true);
+                          }}
+                          disabled={isLoadingRecs}
+                          className="text-[10px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded transition flex items-center justify-center gap-1.5 sm:gap-2"
+                        >
+                          <svg className={`w-3 h-3 ${isLoadingRecs ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          <span className="hidden sm:inline">{isLoadingRecs ? 'Caricamento...' : hasRecs ? 'Aggiorna Raccomandazioni' : 'Genera Raccomandazioni'}</span>
+                          <span className="sm:hidden">{isLoadingRecs ? 'Loading...' : hasRecs ? 'Aggiorna' : 'Genera'}</span>
+                        </button>
+                        
+                        {/* Mostra raccomandazioni se presenti */}
+                        {hasRecs && (
+                          <div className="bg-gray-900/50 rounded p-1.5 sm:p-2 space-y-1">
+                            <div className="text-[10px] sm:text-xs font-semibold text-purple-400 mb-1">🎯 Top Raccomandazioni:</div>
+                            {recs.slice(0, 3).map((rec: any, idx: number) => (
+                              <div key={idx} className="text-[10px] sm:text-xs text-gray-300 flex items-start gap-1.5 sm:gap-2">
+                                <span className="text-yellow-400 text-xs sm:text-sm">⭐</span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium truncate">{rec.description || rec.name}</div>
+                                  <div className="text-gray-400 text-[9px] sm:text-xs truncate">
+                                    C: {rec.confidence}% | V: {rec.valueRating}/5 | EV: {(rec.expectedValue * 100).toFixed(1)}%
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                      );
+                    })}
                   </div>
                 </div>
               );

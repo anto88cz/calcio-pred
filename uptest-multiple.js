@@ -1,24 +1,11 @@
 const moment = require('moment-timezone');
 
-// 📅 UPTEST - Predizioni per date future
+// 📅 UPTEST - Predizioni per date future (ALLINEATO A BACKTEST)
 const API_URL = process.env.API_URL || 'http://localhost:3001';
-const STAKE_PERCENTAGE = 0.3; // 30% del capitale (informativo)
+const STAKE_PERCENTAGE = 0.30; // 30% del capitale (identico a backtest)
 const TARGET_ODDS = 1.8;
 const MIN_ODDS = 1.4;
-const MAX_ODDS = 4;
-const MAX_EVENTS = 2;
-const PREFERRED_EVENTS = 4;
-
-// 🎯 GOAL/NOGOAL SETTINGS
-const ENABLE_GG_NG = true;
-const MIN_GG_NG_CONFIDENCE = 60;
-
-// FILTRI QUALITÀ per raccomandazioni
-const MIN_CONFIDENCE = 65;
-const MIN_EXPECTED_VALUE = 0.12;
-const MIN_VALUE_RATING = 3;
-const MIN_ODDS_SINGLE_EVENT = 1.42;
-const ENABLE_LOW_ODDS_FILTER = true;
+const MAX_ODDS = 4.0;
 
 // Colori per console
 const colors = {
@@ -29,27 +16,11 @@ const colors = {
   yellow: '\x1b[33m',
   blue: '\x1b[34m',
   cyan: '\x1b[36m',
-  magenta: '\x1b[35m',
 };
 
-// 🎯 Funzione per identificare se una predizione è Goal/NoGoal
-function isGGorNG(prediction) {
-  const pred = prediction.toLowerCase();
-  return pred.includes('gg') || pred.includes('ng') || 
-         pred === 'goal' || pred === 'no goal' ||
-         pred.includes('goal/goal') || pred.includes('nogoal') ||
-         pred.includes('btts');
-}
-
-// Funzione per calcolare score di una raccomandazione
-function calculateScore(rec) {
-  const valueRating = rec.valueRating || rec.value || 0;
-  const confidence = (rec.confidence || 0) > 1 ? rec.confidence : (rec.confidence || 0) * 100;
-  const expectedValue = (rec.expectedValue || 0) > 1 ? rec.expectedValue : (rec.expectedValue || 0) * 100;
-  const oddsBonus = rec.odds >= 1.7 && rec.odds <= 2.5 ? 15 : 0;
-  
-  return valueRating * 0.4 + confidence * 0.3 + expectedValue * 0.2 + oddsBonus;
-}
+// 🔥 RIMOSSO calculateScore - usa solo filtri del backend API
+// Il backend già applica filtri ottimali su EV, confidence e valueRating
+// ALLINEATO A BACKTEST
 
 // Funzione per generare predizioni per una data specifica
 async function generatePredictionsForDate(date) {
@@ -122,35 +93,10 @@ async function generatePredictionsForDate(date) {
           const recsData = await recsResponse.json();
           
           if (recsData.recommendations && recsData.recommendations.length > 0) {
-            // Normalizza confidence e expectedValue
-            const normalizedRecs = recsData.recommendations.map(rec => {
-              const confidence = (rec.confidence || 0) > 1 ? rec.confidence : (rec.confidence || 0) * 100;
-              const expectedValue = (rec.expectedValue || 0) > 1 ? rec.expectedValue : (rec.expectedValue || 0) * 100;
-              return {
-                ...rec,
-                confidence,
-                expectedValue
-              };
-            });
-            
-            // Filtra per qualità
-            const qualityRecs = normalizedRecs.filter(rec => {
-              return rec.confidence >= MIN_CONFIDENCE &&
-                     rec.expectedValue >= MIN_EXPECTED_VALUE &&
-                     rec.valueRating >= MIN_VALUE_RATING;
-            });
-            
-            if (qualityRecs.length === 0) {
-              return null;
-            }
-            
-            // Calcola score e prendi la migliore
-            const bestRec = qualityRecs
-              .map(rec => ({
-                ...rec,
-                score: calculateScore(rec)
-              }))
-              .sort((a, b) => b.score - a.score)[0];
+            // 🔥 USA DIRETTAMENTE LE RACCOMANDAZIONI DAL BACKEND (ALLINEATO A BACKTEST)
+            // Il backend già applica tutti i filtri necessari (EV, confidence, valueRating)
+            // Prendi semplicemente la prima (già ordinata per importanza dal backend)
+            const bestRec = recsData.recommendations[0];
             
             return {
               fixture,
@@ -176,105 +122,100 @@ async function generatePredictionsForDate(date) {
       return null;
     }
     
-    console.log(`\n${colors.green}  ✓ ${allEvents.length} eventi con raccomandazioni di qualità${colors.reset}\n`);
+    console.log(`\n${colors.green}  ✓ ${allEvents.length} eventi con raccomandazioni valide${colors.reset}\n`);
     
-    // 3. Ordina per score
+    // 3. Ordina per score e seleziona i migliori (IDENTICO A BACKTEST)
     allEvents.sort((a, b) => b.recommendation.score - a.recommendation.score);
     
-    // 4. Genera multipla ottimale
+    // 4. STRATEGIA FLESSIBILE: Cerca di raggiungere quota ~1.8 con 1-3 partite (IDENTICO A BACKTEST)
     let bestMultiple = null;
     let bestDiffFromTarget = Infinity;
     
-    const eventSequence = [PREFERRED_EVENTS];
-    for (let n = 1; n <= MAX_EVENTS; n++) {
-      if (n !== PREFERRED_EVENTS) eventSequence.push(n);
-    }
-    
-    for (const numEvents of eventSequence) {
-      if (numEvents > allEvents.length) continue;
-      
-      // Genera combinazioni di numEvents
-      const combinations = generateCombinations(allEvents, numEvents);
-      
-      for (const combination of combinations) {
-        let totalOdds = 1;
-        const events = [];
-        let hasGGNG = false;
-        
-        for (const event of combination) {
-          const rec = event.recommendation;
-          
-          // Filtra quote troppo basse se attivo
-          if (ENABLE_LOW_ODDS_FILTER && rec.odds < MIN_ODDS_SINGLE_EVENT) {
-            continue;
-          }
-          
-          // Filtra GG/NG se non abilitato
-          if (!ENABLE_GG_NG && isGGorNG(rec.prediction)) {
-            continue;
-          }
-          
-          if (isGGorNG(rec.prediction)) {
-            hasGGNG = true;
-            if (rec.confidence < MIN_GG_NG_CONFIDENCE) {
-              continue;
-            }
-          }
-          
-          totalOdds *= rec.odds;
-          events.push({
-            fixture: event.fixture,
-            recommendation: rec
-          });
-        }
-        
-        if (events.length !== numEvents) continue;
-        if (totalOdds < MIN_ODDS || totalOdds > MAX_ODDS) continue;
-        
-        const diffFromTarget = Math.abs(totalOdds - TARGET_ODDS);
-        if (diffFromTarget < bestDiffFromTarget) {
-          bestDiffFromTarget = diffFromTarget;
+    // Prova con 1 partita sola (quota alta)
+    for (const event of allEvents) {
+      const odds = event.recommendation.odds;
+      if (odds >= MIN_ODDS && odds <= MAX_ODDS) {
+        const diff = Math.abs(odds - TARGET_ODDS);
+        if (diff < bestDiffFromTarget) {
+          bestDiffFromTarget = diff;
           bestMultiple = {
-            events,
-            totalOdds,
-            hasGGNG
+            events: [event],
+            odds: odds
           };
         }
       }
-      
-      // Se troviamo una multipla valida con PREFERRED_EVENTS, fermiamoci
-      if (bestMultiple && numEvents === PREFERRED_EVENTS) {
-        break;
+    }
+    
+    // Prova con 2 partite
+    for (let i = 0; i < Math.min(allEvents.length, 10); i++) {
+      for (let j = i + 1; j < Math.min(allEvents.length, 15); j++) {
+        // Verifica che non siano della stessa partita
+        if (allEvents[i].fixture.id === allEvents[j].fixture.id) continue;
+        
+        const combinedOdds = allEvents[i].recommendation.odds * allEvents[j].recommendation.odds;
+        
+        if (combinedOdds >= MIN_ODDS && combinedOdds <= MAX_ODDS) {
+          const diff = Math.abs(combinedOdds - TARGET_ODDS);
+          if (diff < bestDiffFromTarget) {
+            bestDiffFromTarget = diff;
+            bestMultiple = {
+              events: [allEvents[i], allEvents[j]],
+              odds: combinedOdds
+            };
+          }
+        }
       }
     }
     
-    return bestMultiple;
+    // Prova con 3 partite (solo se non abbiamo trovato nulla di buono)
+    if (bestDiffFromTarget > 0.3) {
+      for (let i = 0; i < Math.min(allEvents.length, 8); i++) {
+        for (let j = i + 1; j < Math.min(allEvents.length, 10); j++) {
+          for (let k = j + 1; k < Math.min(allEvents.length, 12); k++) {
+            // Verifica che non siano della stessa partita
+            if (allEvents[i].fixture.id === allEvents[j].fixture.id ||
+                allEvents[i].fixture.id === allEvents[k].fixture.id ||
+                allEvents[j].fixture.id === allEvents[k].fixture.id) continue;
+            
+            const combinedOdds = allEvents[i].recommendation.odds * 
+                                allEvents[j].recommendation.odds * 
+                                allEvents[k].recommendation.odds;
+            
+            if (combinedOdds >= MIN_ODDS && combinedOdds <= MAX_ODDS) {
+              const diff = Math.abs(combinedOdds - TARGET_ODDS);
+              if (diff < bestDiffFromTarget) {
+                bestDiffFromTarget = diff;
+                bestMultiple = {
+                  events: [allEvents[i], allEvents[j], allEvents[k]],
+                  odds: combinedOdds
+                };
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    if (!bestMultiple) {
+      console.log(`\n${colors.yellow}  ⚠️  Impossibile creare multipla con quota target ${TARGET_ODDS}${colors.reset}`);
+      return null;
+    }
+    
+    const selectedEvents = bestMultiple.events;
+    const finalOdds = bestMultiple.odds;
+    
+    console.log(`\n${colors.bright}${colors.cyan}📊 MULTIPLA CONSIGLIATA: ${selectedEvents.length} eventi, quota ${finalOdds.toFixed(2)}${colors.reset}\n`);
+    
+    // Ritorna multipla con formato compatibile per display
+    return {
+      events: selectedEvents,
+      totalOdds: finalOdds
+    };
     
   } catch (error) {
     console.error(`${colors.red}❌ Errore: ${error.message}${colors.reset}`);
     return null;
   }
-}
-
-// Funzione per generare combinazioni
-function generateCombinations(array, size) {
-  const result = [];
-  
-  function combine(start, combo) {
-    if (combo.length === size) {
-      result.push([...combo]);
-      return;
-    }
-    
-    for (let i = start; i < array.length; i++) {
-      combo.push(array[i]);
-      combine(i + 1, combo);
-      combo.pop();
-    }
-  }
-  
-  combine(0, []);
-  return result;
 }
 
 // Formatta orario partita
@@ -305,12 +246,11 @@ function displayBettingSlip(multiple, targetDate) {
     const fixture = event.fixture;
     const rec = event.recommendation;
     const matchTime = formatMatchTime(fixture.date);
-    const isGGNG = isGGorNG(rec.prediction);
     
     console.log(`${colors.bright}${index + 1}. ${fixture.homeTeam.name} vs ${fixture.awayTeam.name}${colors.reset}`);
     console.log(`   ${colors.blue}🏆 ${fixture.league.name}${colors.reset}`);
     console.log(`   ${colors.cyan}🕐 Orario: ${matchTime}${colors.reset}`);
-    console.log(`   ${colors.magenta}${isGGNG ? '🎯' : '⚽'} Scommessa: ${colors.bright}${rec.prediction} @${rec.odds.toFixed(2)}${colors.reset}`);
+    console.log(`   ${colors.magenta}⚽ Scommessa: ${colors.bright}${rec.prediction} @${rec.odds.toFixed(2)}${colors.reset}`);
     console.log(`   ${colors.yellow}📊 Confidence: ${rec.confidence.toFixed(1)}%${colors.reset}`);
     console.log(`   ${colors.yellow}💎 Expected Value: ${rec.expectedValue.toFixed(1)}%${colors.reset}`);
     console.log(`   ${colors.yellow}⭐ Value Rating: ${rec.valueRating}/5${colors.reset}`);
@@ -344,9 +284,6 @@ function displayBettingSlip(multiple, targetDate) {
   console.log(`   • Verifica che tutte le partite siano ancora in programma`);
   console.log(`   • Gli orari sono in fuso Europe/Rome (CET/CEST)`);
   console.log(`   • Gestisci responsabilmente il tuo capitale`);
-  if (multiple.hasGGNG) {
-    console.log(`   ${colors.cyan}• 🎯 Include mercato Goal/NoGoal${colors.reset}`);
-  }
   console.log();
 }
 
@@ -401,12 +338,7 @@ async function main() {
   console.log(`${colors.blue}📋 PARAMETRI:${colors.reset}`);
   console.log(`   Target Odds: ${TARGET_ODDS.toFixed(2)}`);
   console.log(`   Range Odds: ${MIN_ODDS.toFixed(2)} - ${MAX_ODDS.toFixed(2)}`);
-  console.log(`   Eventi preferiti: ${PREFERRED_EVENTS}`);
-  console.log(`   Max eventi: ${MAX_EVENTS}`);
-  console.log(`   Min Confidence: ${MIN_CONFIDENCE}%`);
-  console.log(`   Min Expected Value: ${(MIN_EXPECTED_VALUE * 100).toFixed(0)}%`);
-  console.log(`   Min Value Rating: ${MIN_VALUE_RATING}/5`);
-  console.log(`   Goal/NoGoal: ${ENABLE_GG_NG ? 'Abilitato' : 'Disabilitato'}`);
+  console.log(`   Stake: ${(STAKE_PERCENTAGE * 100).toFixed(0)}% del capitale`);
   
   const startTime = Date.now();
   

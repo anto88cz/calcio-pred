@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ENV } from '@/config/env';
-import { generateRecommendations, getTopRecommendations, type BettingRecommendation } from '@/lib/betting-recommendations';
+import { type BettingRecommendation } from '@/lib/betting-recommendations';
 
 interface AnalysisData {
   homeTeam: string;
@@ -103,16 +103,28 @@ export default function AnalysisPage() {
   const [data, setData] = useState<AnalysisData | null>(null);
   const [fromCache, setFromCache] = useState(false); // 🆕 Indica se i dati sono dalla cache
   const [oddsAttempted, setOddsAttempted] = useState(false); // 🆕 Indica se abbiamo tentato di recuperare quote
+  const [recommendations, setRecommendations] = useState<BettingRecommendation[]>([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Calcola raccomandazioni intelligenti (PRIMA di qualsiasi return!)
-  const recommendations = useMemo(() => {
-    if (!data) return [];
-    return generateRecommendations(data);
-  }, [data]);
-
+  // Top 5 raccomandazioni
   const topRecommendations = useMemo(() => {
-    return getTopRecommendations(recommendations, 5);
+    return recommendations.slice(0, 5);
   }, [recommendations]);
+
+  // Funzione per ricaricare tutto con dati freschi
+  const refreshWithFreshData = async () => {
+    const homeTeam = searchParams.get('home');
+    const awayTeam = searchParams.get('away');
+    const fixtureIdParam = searchParams.get('fixtureId');
+    
+    if (!homeTeam || !awayTeam) return;
+    
+    setRefreshing(true);
+    const fixtureId = fixtureIdParam ? parseInt(fixtureIdParam, 10) : undefined;
+    await analyzeMatch(homeTeam, awayTeam, true, fixtureId); // forceRecalculate = true
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     const homeTeam = searchParams.get('home');
@@ -128,6 +140,61 @@ export default function AnalysisPage() {
     const fixtureId = fixtureIdParam ? parseInt(fixtureIdParam, 10) : undefined;
     analyzeMatch(homeTeam, awayTeam, false, fixtureId);
   }, [searchParams]);
+
+  // 🆕 Carica raccomandazioni dall'API quando i dati sono disponibili
+  useEffect(() => {
+    if (!data) return;
+    
+    const loadRecommendations = async () => {
+      const fixtureIdParam = searchParams.get('fixtureId');
+      if (!fixtureIdParam) {
+        console.warn('⚠️ No fixtureId - cannot load recommendations from API');
+        return;
+      }
+
+      setLoadingRecommendations(true);
+      try {
+        // Estrai ID dai searchParams se disponibili
+        const homeTeamId = searchParams.get('homeTeamId');
+        const awayTeamId = searchParams.get('awayTeamId');
+        const leagueId = searchParams.get('leagueId');
+        const seasonId = searchParams.get('seasonId');
+        const homeTeam = searchParams.get('home');
+        const awayTeam = searchParams.get('away');
+
+        if (!homeTeamId || !awayTeamId || !leagueId || !seasonId) {
+          console.warn('⚠️ Missing team/league IDs - cannot load recommendations');
+          return;
+        }
+
+        const response = await fetch(`${ENV.API_URL}/api/betting-recommendations`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fixtureId: parseInt(fixtureIdParam),
+            homeTeamId: parseInt(homeTeamId),
+            awayTeamId: parseInt(awayTeamId),
+            leagueId: parseInt(leagueId),
+            seasonId: parseInt(seasonId),
+            homeTeamName: homeTeam,
+            awayTeamName: awayTeam,
+          }),
+        });
+
+        if (response.ok) {
+          const recsData = await response.json();
+          setRecommendations(recsData.recommendations || []);
+          console.log(`✅ Loaded ${recsData.recommendations?.length || 0} recommendations from API`);
+        }
+      } catch (err) {
+        console.error('Failed to load recommendations:', err);
+      } finally {
+        setLoadingRecommendations(false);
+      }
+    };
+
+    loadRecommendations();
+  }, [data, searchParams]);
 
   const analyzeMatch = async (homeTeam: string, awayTeam: string, forceRecalculate = false, fixtureId?: number) => {
     try {
@@ -283,18 +350,51 @@ export default function AnalysisPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900">
       {/* Header */}
       <header className="bg-gray-900/80 backdrop-blur-sm border-b border-gray-800 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2 sm:py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
           <button
-            onClick={() => router.back()}
-            className="flex items-center space-x-2 text-gray-400 hover:text-white transition"
+            onClick={() => {
+              const filterParams = new URLSearchParams();
+              const startDate = searchParams.get('startDate');
+              const endDate = searchParams.get('endDate');
+              const league = searchParams.get('league');
+              const search = searchParams.get('search');
+              
+              if (startDate) filterParams.set('startDate', startDate);
+              if (endDate) filterParams.set('endDate', endDate);
+              if (league) filterParams.set('league', league);
+              if (search) filterParams.set('search', search);
+              
+              const filterString = filterParams.toString();
+              router.push(filterString ? `/?${filterString}` : '/');
+            }}
+            className="flex items-center space-x-2 text-gray-400 hover:text-white transition text-sm sm:text-base"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
             <span>Indietro</span>
           </button>
           
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            {/* 🔄 Pulsante Refresh Cache */}
+            <button
+              onClick={refreshWithFreshData}
+              disabled={refreshing}
+              className="flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition text-xs sm:text-sm"
+              title="Aggiorna con dati freschi"
+            >
+              <svg 
+                className={`w-3 h-3 sm:w-4 sm:h-4 ${refreshing ? 'animate-spin' : ''}`} 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span className="font-medium hidden sm:inline">{refreshing ? 'Aggiornamento...' : 'Aggiorna Cache'}</span>
+              <span className="font-medium sm:hidden">{refreshing ? 'Agg...' : 'Refresh'}</span>
+            </button>
+            
             {/* 💾 Badge Cache */}
             {fromCache && (
               <div className="flex items-center space-x-2 px-3 py-1.5 bg-green-900/30 border border-green-700 rounded-lg">

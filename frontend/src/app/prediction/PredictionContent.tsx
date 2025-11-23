@@ -257,32 +257,67 @@ export default function PredictionContent() {
   const maxProb = Math.max(data.predictions.homeWin, data.predictions.draw, data.predictions.awayWin);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900 text-white p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900 text-white p-3 sm:p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6 sm:mb-8">
           <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 text-gray-400 hover:text-white transition mb-4"
+            onClick={() => {
+              const filterParams = new URLSearchParams();
+              const startDate = searchParams.get('startDate');
+              const endDate = searchParams.get('endDate');
+              const league = searchParams.get('league');
+              const search = searchParams.get('search');
+              
+              if (startDate) filterParams.set('startDate', startDate);
+              if (endDate) filterParams.set('endDate', endDate);
+              if (league) filterParams.set('league', league);
+              if (search) filterParams.set('search', search);
+              
+              const filterString = filterParams.toString();
+              router.push(filterString ? `/?${filterString}` : '/');
+            }}
+            className="flex items-center gap-2 text-gray-400 hover:text-white transition mb-3 sm:mb-4 text-sm sm:text-base"
           >
             <span>←</span>
             <span>Torna alle partite</span>
           </button>
 
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold mb-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between flex-wrap gap-3 sm:gap-4">
+            <div className="flex-1">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
                 🤖 Predizione Machine Learning
               </h1>
-              <p className="text-gray-400">
+              <p className="text-gray-400 text-xs sm:text-sm md:text-base">
                 Analisi basata su Head-to-Head, Statistiche Stagionali e xG
               </p>
             </div>
-            {fromCache && (
-              <div className="px-4 py-2 bg-blue-900/30 border border-blue-600/30 rounded-lg">
-                <span className="text-blue-400 text-sm">📦 Dalla cache</span>
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              {/* 🔄 Pulsante Refresh Cache */}
+              <button
+                onClick={refreshWithFreshData}
+                disabled={refreshing}
+                className="flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg transition text-xs sm:text-sm"
+                title="Aggiorna con dati freschi"
+              >
+                <svg 
+                  className={`w-3 h-3 sm:w-4 sm:h-4 ${refreshing ? 'animate-spin' : ''}`} 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span className="font-medium hidden sm:inline">{refreshing ? 'Aggiornamento...' : 'Aggiorna Cache'}</span>
+                <span className="font-medium sm:hidden">{refreshing ? 'Agg...' : 'Refresh'}</span>
+              </button>
+              
+              {fromCache && (
+                <div className="px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-900/30 border border-blue-600/30 rounded-lg">
+                  <span className="text-blue-400 text-xs sm:text-sm">📦 Cache</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
