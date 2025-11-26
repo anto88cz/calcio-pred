@@ -7,8 +7,8 @@ const STAKE_PERCENTAGE = 0.30; // 30% del capitale
 const TARGET_ODDS = 1.4; // Target quota moderata
 const MIN_ODDS = 1.4; // Minimo accettabile
 const MAX_ODDS = 4.0; // Massimo accettabile
-const START_DATE = '2025-09-01'; // Data inizio backtest
-const END_DATE = '2025-11-25'; // Data fine backtest
+const START_DATE = '2024-09-01'; // Data inizio backtest
+const END_DATE = '2024-11-25'; // Data fine backtest
 
 // Colori per console
 const colors = {

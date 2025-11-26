@@ -5,8 +5,8 @@ const { promisify } = require('util');
 const execAsync = promisify(exec);
 
 // Configurazione - usa le date dal backtest-multiple.js
-const START_DATE = process.argv[2] || '2025-09-01';
-const END_DATE = process.argv[3] || '2025-11-25';
+const START_DATE = process.argv[2] || '2024-09-01';
+const END_DATE = process.argv[3] || '2024-11-25';
 
 // Colori
 const colors = {

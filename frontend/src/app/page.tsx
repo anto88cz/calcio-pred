@@ -501,7 +501,13 @@ function MainApp() {
               </div>
             </div>
             
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-4">
+              <a
+                href="/backtest"
+                className="text-sm text-gray-300 hover:text-blue-400 transition-colors font-medium"
+              >
+                📊 Backtest
+              </a>
               <span className="flex items-center space-x-1 text-xs text-gray-400">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                 <span>Live</span>
