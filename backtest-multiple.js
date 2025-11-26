@@ -4,11 +4,11 @@ const moment = require('moment-timezone');
 const API_URL = process.env.API_URL || 'http://localhost:3001';
 const INITIAL_CAPITAL = 100; // €100 iniziali
 const STAKE_PERCENTAGE = 0.30; // 30% del capitale
-const TARGET_ODDS = 1.8; // Target quota moderata
+const TARGET_ODDS = 1.4; // Target quota moderata
 const MIN_ODDS = 1.4; // Minimo accettabile
 const MAX_ODDS = 4.0; // Massimo accettabile
 const START_DATE = '2025-09-01'; // Data inizio backtest
-const END_DATE = '2025-11-23'; // Data fine backtest
+const END_DATE = '2025-11-25'; // Data fine backtest
 
 // Colori per console
 const colors = {
@@ -49,59 +49,68 @@ async function generateMultipleForDate(date) {
       return null;
     }
     
-    // Limita a 20 partite per velocizzare (prendi le prime 20)
-    const limitedFixtures = finishedFixtures.slice(0, 20);
-    
-    // 2. Per ogni partita, carica raccomandazioni
+    // 2. Per ogni partita, carica raccomandazioni IN CHUNKS (IDENTICO A UPTEST)
     const allEvents = [];
+    const chunkSize = Math.ceil(finishedFixtures.length / 3);
     
-    for (const fixture of limitedFixtures) {
+    for (let i = 0; i < finishedFixtures.length; i += chunkSize) {
+      const chunk = finishedFixtures.slice(i, i + chunkSize);
+      console.log(`  📦 Processando chunk ${Math.floor(i / chunkSize) + 1}/3 (${chunk.length} partite)...`);
       
-      const homeTeamId = fixture.homeTeam?.id;
-      const awayTeamId = fixture.awayTeam?.id;
-      const leagueId = fixture.league?.id;
-      const seasonId = fixture.league?.season;
-      
-      if (!homeTeamId || !awayTeamId || !leagueId || !seasonId) {
-        continue;
-      }
-      
-      try {
-        const recsResponse = await fetch(`${API_URL}/api/betting-recommendations`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fixtureId: fixture.id,
-            homeTeamId,
-            awayTeamId,
-            leagueId,
-            seasonId,
-            homeTeamName: fixture.homeTeam.name,
-            awayTeamName: fixture.awayTeam.name
-          })
-        });
+      const fixturePromises = chunk.map(async (fixture) => {
+        const homeTeamId = fixture.homeTeam?.id;
+        const awayTeamId = fixture.awayTeam?.id;
+        const leagueId = fixture.league?.id;
+        const seasonId = fixture.league?.season;
         
-        if (!recsResponse.ok) {
-          continue;
+        if (!homeTeamId || !awayTeamId || !leagueId || !seasonId) {
+          return null;
         }
         
-        const recsData = await recsResponse.json();
-        
-        if (recsData.recommendations && recsData.recommendations.length > 0) {
-          // 🔥 USA DIRETTAMENTE LE RACCOMANDAZIONI DAL BACKEND
-          // Il backend già applica tutti i filtri necessari (EV, confidence, valueRating)
-          // Prendi semplicemente la prima (già ordinata per importanza dal backend)
-          const bestRec = recsData.recommendations[0];
-          
-          allEvents.push({
-            fixture,
-            recommendation: bestRec,
-            actualResult: `${fixture.score.home}-${fixture.score.away}` // formato "2-1"
+        try {
+          const recsResponse = await fetch(`${API_URL}/api/betting-recommendations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fixtureId: fixture.id,
+              homeTeamId,
+              awayTeamId,
+              leagueId,
+              seasonId,
+              homeTeamName: fixture.homeTeam.name,
+              awayTeamName: fixture.awayTeam.name
+            })
           });
+          
+          if (!recsResponse.ok) {
+            return null;
+          }
+          
+          const recsData = await recsResponse.json();
+          
+          if (recsData.recommendations && recsData.recommendations.length > 0) {
+            // 🔥 USA DIRETTAMENTE LE RACCOMANDAZIONI DAL BACKEND (ALLINEATO A UPTEST)
+            // Il backend già applica tutti i filtri necessari (EV, confidence, valueRating)
+            // Prendi semplicemente la prima (già ordinata per importanza dal backend)
+            const bestRec = recsData.recommendations[0];
+            
+            return {
+              fixture,
+              recommendation: bestRec,
+              actualResult: `${fixture.score.home}-${fixture.score.away}` // formato "2-1"
+            };
+          }
+          return null;
+        } catch (error) {
+          return null;
         }
-      } catch (error) {
-        // Salta partite con errori
-        continue;
+      });
+      
+      const chunkResults = await Promise.all(fixturePromises);
+      allEvents.push(...chunkResults.filter(event => event !== null));
+      
+      if (i + chunkSize < finishedFixtures.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
     
@@ -112,8 +121,13 @@ async function generateMultipleForDate(date) {
     
     console.log(`  ✓ ${allEvents.length} eventi con raccomandazioni valide`);
     
-    // 3. Ordina per score e seleziona i migliori
-    allEvents.sort((a, b) => b.recommendation.score - a.recommendation.score);
+    // 3. Ordina per expectedValue (valore atteso) - criterio principale del backend
+    // Ordine secondario: confidence (per parità di EV)
+    allEvents.sort((a, b) => {
+      const evDiff = b.recommendation.expectedValue - a.recommendation.expectedValue;
+      if (Math.abs(evDiff) > 0.001) return evDiff;
+      return b.recommendation.confidence - a.recommendation.confidence;
+    });
     
     // 4. STRATEGIA FLESSIBILE: Cerca di raggiungere quota ~2.0 con 1-3 partite
     let bestMultiple = null;

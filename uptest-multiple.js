@@ -3,7 +3,7 @@ const moment = require('moment-timezone');
 // 📅 UPTEST - Predizioni per date future (ALLINEATO A BACKTEST)
 const API_URL = process.env.API_URL || 'http://localhost:3001';
 const STAKE_PERCENTAGE = 0.30; // 30% del capitale (identico a backtest)
-const TARGET_ODDS = 1.8;
+const TARGET_ODDS = 1.4; // ALLINEATO A BACKTEST
 const MIN_ODDS = 1.4;
 const MAX_ODDS = 4.0;
 
@@ -42,24 +42,22 @@ async function generatePredictionsForDate(date) {
     
     console.log(`${colors.green}  ✓ ${fixturesData.fixtures.length} partite trovate${colors.reset}\n`);
     
-    // Filtra solo partite in programma (non ancora giocate)
-    const upcomingFixtures = fixturesData.fixtures.filter(f => 
-      f.status !== 'FT' && f.status !== 'POSTP' && f.status !== 'CANCL'
-    );
+    // Usa tutte le partite (permette di testare anche su date passate simulando il futuro)
+    const fixtures = fixturesData.fixtures;
     
-    if (upcomingFixtures.length === 0) {
-      console.log(`${colors.yellow}  ⚠️  Nessuna partita in programma per ${date}${colors.reset}`);
+    if (fixtures.length === 0) {
+      console.log(`${colors.yellow}  ⚠️  Nessuna partita per ${date}${colors.reset}`);
       return null;
     }
     
-    console.log(`${colors.blue}🎯 Analisi raccomandazioni per ${upcomingFixtures.length} partite...${colors.reset}\n`);
+    console.log(`${colors.blue}🎯 Analisi raccomandazioni per ${fixtures.length} partite...${colors.reset}\n`);
     
     // 2. Per ogni partita, carica raccomandazioni IN CHUNKS
     const allEvents = [];
-    const chunkSize = Math.ceil(upcomingFixtures.length / 3);
+    const chunkSize = Math.ceil(fixtures.length / 3);
     
-    for (let i = 0; i < upcomingFixtures.length; i += chunkSize) {
-      const chunk = upcomingFixtures.slice(i, i + chunkSize);
+    for (let i = 0; i < fixtures.length; i += chunkSize) {
+      const chunk = fixtures.slice(i, i + chunkSize);
       console.log(`  📦 Processando chunk ${Math.floor(i / chunkSize) + 1}/3 (${chunk.length} partite)...`);
       
       const fixturePromises = chunk.map(async (fixture) => {
@@ -113,7 +111,7 @@ async function generatePredictionsForDate(date) {
       const chunkResults = await Promise.all(fixturePromises);
       allEvents.push(...chunkResults.filter(event => event !== null));
       
-      if (i + chunkSize < upcomingFixtures.length) {
+      if (i + chunkSize < fixtures.length) {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
@@ -125,8 +123,13 @@ async function generatePredictionsForDate(date) {
     
     console.log(`\n${colors.green}  ✓ ${allEvents.length} eventi con raccomandazioni valide${colors.reset}\n`);
     
-    // 3. Ordina per score e seleziona i migliori (IDENTICO A BACKTEST)
-    allEvents.sort((a, b) => b.recommendation.score - a.recommendation.score);
+    // 3. Ordina per expectedValue (valore atteso) - criterio principale del backend (IDENTICO A BACKTEST)
+    // Ordine secondario: confidence (per parità di EV)
+    allEvents.sort((a, b) => {
+      const evDiff = b.recommendation.expectedValue - a.recommendation.expectedValue;
+      if (Math.abs(evDiff) > 0.001) return evDiff;
+      return b.recommendation.confidence - a.recommendation.confidence;
+    });
     
     // 4. STRATEGIA FLESSIBILE: Cerca di raggiungere quota ~1.8 con 1-3 partite (IDENTICO A BACKTEST)
     let bestMultiple = null;

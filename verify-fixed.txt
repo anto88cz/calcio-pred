@@ -1,0 +1,8 @@
+[1m[36m═══════════════════════════════════════════════════════[0m
+[1m[36m  🔬 VERIFICATION: UPTEST vs BACKTEST ALIGNMENT[0m
+[1m[36m═══════════════════════════════════════════════════════[0m
+[36m  Period: 2025-09-01 to 2025-11-25[0m
+
+[34m[1m📊 Step 1: Running backtest-multiple for entire period...[0m
+[33m   (This will take a few minutes - backtest runs ONCE for all dates)[0m
+

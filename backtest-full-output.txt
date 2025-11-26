@@ -1,0 +1,681 @@
+[1m[34m
+╔════════════════════════════════════════════════════════╗
+║    BACKTESTING MULTIPLE - SISTEMA ORIGINALE            ║
+╚════════════════════════════════════════════════════════╝
+[0m
+💰 Capitale iniziale: €100
+📊 Stake per schedina: 30% del capitale
+🎯 Target quota: 1.4x (range: 1.4-4)
+🏆 Eventi per multipla: 1-3 partite (flessibile)
+📅 Periodo: dal 2025-09-01 al 2025-11-25
+
+📊 Totale giorni da analizzare: 86
+
+
+[36m📅 Elaborazione 2025-09-01...[0m
+  ⚠️  Nessuna partita trovata per 2025-09-01
+
+[36m📅 Elaborazione 2025-09-02...[0m
+  ⚠️  Nessuna partita trovata per 2025-09-02
+
+[36m📅 Elaborazione 2025-09-03...[0m
+  ⚠️  Nessuna partita trovata per 2025-09-03
+
+[36m📅 Elaborazione 2025-09-04...[0m
+  ⚠️  Nessuna partita trovata per 2025-09-04
+
+[36m📅 Elaborazione 2025-09-05...[0m
+  ⚠️  Nessuna partita trovata per 2025-09-05
+
+[36m📅 Elaborazione 2025-09-06...[0m
+  ✓ 1 partite trovate
+  ✓ 1 partite finite
+  📦 Processando chunk 1/3 (1 partite)...
+  ⚠️  Nessun evento con raccomandazioni valide
+
+[36m📅 Elaborazione 2025-09-07...[0m
+  ⚠️  Nessuna partita trovata per 2025-09-07
+
+[36m📅 Elaborazione 2025-09-08...[0m
+  ⚠️  Nessuna partita trovata per 2025-09-08
+
+[36m📅 Elaborazione 2025-09-09...[0m
+  ⚠️  Nessuna partita trovata per 2025-09-09
+
+[36m📅 Elaborazione 2025-09-10...[0m
+  ⚠️  Nessuna partita trovata per 2025-09-10
+
+[36m📅 Elaborazione 2025-09-11...[0m
+  ⚠️  Nessuna partita trovata per 2025-09-11
+
+[36m📅 Elaborazione 2025-09-12...[0m
+  ✓ 8 partite trovate
+  ✓ 8 partite finite
+  📦 Processando chunk 1/3 (3 partite)...
+  📦 Processando chunk 2/3 (3 partite)...
+  📦 Processando chunk 3/3 (2 partite)...
+  ⚠️  Nessun evento con raccomandazioni valide
+
+[36m📅 Elaborazione 2025-09-13...[0m
+  ✓ 54 partite trovate
+  ✓ 54 partite finite
+  📦 Processando chunk 1/3 (18 partite)...
+  📦 Processando chunk 2/3 (18 partite)...
+  📦 Processando chunk 3/3 (18 partite)...
+  ✓ 4 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.52[0m
+  ✅ [32mVINTA[0m - Stake: €30.00 | Quota: 1.52 | Profit: [1m+€15.60[0m | Capitale: €115.60
+    [32m✓[0m FSV Mainz 05 vs RB Leipzig: X2 @1.52 (0-1)
+
+[36m📅 Elaborazione 2025-09-14...[0m
+  ✓ 36 partite trovate
+  ✓ 36 partite finite
+  📦 Processando chunk 1/3 (12 partite)...
+  📦 Processando chunk 2/3 (12 partite)...
+  📦 Processando chunk 3/3 (12 partite)...
+  ✓ 3 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.57[0m
+  ❌ [31mPERSA[0m - Stake: €34.68 | Quota: 1.57 | Profit: [1m€-34.68[0m | Capitale: €80.92
+    [31m✗[0m Silkeborg IF vs Odense BK: X2 @1.57 (2-1)
+
+[36m📅 Elaborazione 2025-09-15...[0m
+  ✓ 5 partite trovate
+  ✓ 5 partite finite
+  📦 Processando chunk 1/3 (2 partite)...
+  📦 Processando chunk 2/3 (2 partite)...
+  📦 Processando chunk 3/3 (1 partite)...
+  ⚠️  Nessun evento con raccomandazioni valide
+
+[36m📅 Elaborazione 2025-09-16...[0m
+  ✓ 6 partite trovate
+  ✓ 6 partite finite
+  📦 Processando chunk 1/3 (2 partite)...
+  📦 Processando chunk 2/3 (2 partite)...
+  📦 Processando chunk 3/3 (2 partite)...
+  ⚠️  Nessun evento con raccomandazioni valide
+
+[36m📅 Elaborazione 2025-09-17...[0m
+  ✓ 10 partite trovate
+  ✓ 10 partite finite
+  📦 Processando chunk 1/3 (4 partite)...
+  📦 Processando chunk 2/3 (4 partite)...
+  📦 Processando chunk 3/3 (2 partite)...
+  ⚠️  Nessun evento con raccomandazioni valide
+
+[36m📅 Elaborazione 2025-09-18...[0m
+  ✓ 6 partite trovate
+  ✓ 6 partite finite
+  📦 Processando chunk 1/3 (2 partite)...
+  📦 Processando chunk 2/3 (2 partite)...
+  📦 Processando chunk 3/3 (2 partite)...
+  ✓ 1 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.61[0m
+  ✅ [32mVINTA[0m - Stake: €24.28 | Quota: 1.61 | Profit: [1m+€14.81[0m | Capitale: €95.73
+    [32m✓[0m FC København vs Bayer 04 Leverkusen: 1X @1.61 (2-2)
+
+[36m📅 Elaborazione 2025-09-19...[0m
+  ✓ 11 partite trovate
+  ✓ 11 partite finite
+  📦 Processando chunk 1/3 (4 partite)...
+  📦 Processando chunk 2/3 (4 partite)...
+  📦 Processando chunk 3/3 (3 partite)...
+  ✓ 1 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 2.36[0m
+  ✅ [32mVINTA[0m - Stake: €28.72 | Quota: 2.36 | Profit: [1m+€39.06[0m | Capitale: €134.79
+    [32m✓[0m Sparta Rotterdam vs FC Twente: 2 @2.36 (1-5)
+
+[36m📅 Elaborazione 2025-09-20...[0m
+  ✓ 49 partite trovate
+  ✓ 48 partite finite
+  📦 Processando chunk 1/3 (16 partite)...
+  📦 Processando chunk 2/3 (16 partite)...
+  📦 Processando chunk 3/3 (16 partite)...
+  ✓ 5 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.48[0m
+  ❌ [31mPERSA[0m - Stake: €40.44 | Quota: 1.48 | Profit: [1m€-40.44[0m | Capitale: €94.35
+    [31m✗[0m Manchester United vs Chelsea: X2 @1.48 (2-1)
+
+[36m📅 Elaborazione 2025-09-21...[0m
+  ✓ 37 partite trovate
+  ✓ 37 partite finite
+  📦 Processando chunk 1/3 (13 partite)...
+  📦 Processando chunk 2/3 (13 partite)...
+  📦 Processando chunk 3/3 (11 partite)...
+  ✓ 5 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.50[0m
+  ✅ [32mVINTA[0m - Stake: €28.30 | Quota: 1.50 | Profit: [1m+€14.15[0m | Capitale: €108.50
+    [32m✓[0m Fiorentina vs Como: X2 @1.50 (1-2)
+
+[36m📅 Elaborazione 2025-09-22...[0m
+  ✓ 6 partite trovate
+  ✓ 6 partite finite
+  📦 Processando chunk 1/3 (2 partite)...
+  📦 Processando chunk 2/3 (2 partite)...
+  📦 Processando chunk 3/3 (2 partite)...
+  ⚠️  Nessun evento con raccomandazioni valide
+
+[36m📅 Elaborazione 2025-09-23...[0m
+  ✓ 5 partite trovate
+  ✓ 5 partite finite
+  📦 Processando chunk 1/3 (2 partite)...
+  📦 Processando chunk 2/3 (2 partite)...
+  📦 Processando chunk 3/3 (1 partite)...
+  ⚠️  Nessun evento con raccomandazioni valide
+
+[36m📅 Elaborazione 2025-09-24...[0m
+  ✓ 14 partite trovate
+  ✓ 14 partite finite
+  📦 Processando chunk 1/3 (5 partite)...
+  📦 Processando chunk 2/3 (5 partite)...
+  📦 Processando chunk 3/3 (4 partite)...
+  ✓ 3 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.58[0m
+  ✅ [32mVINTA[0m - Stake: €32.55 | Quota: 1.58 | Profit: [1m+€18.88[0m | Capitale: €127.38
+    [32m✓[0m Crvena Zvezda vs Celtic: X2 @1.58 (1-1)
+
+[36m📅 Elaborazione 2025-09-25...[0m
+  ✓ 11 partite trovate
+  ✓ 11 partite finite
+  📦 Processando chunk 1/3 (4 partite)...
+  📦 Processando chunk 2/3 (4 partite)...
+  📦 Processando chunk 3/3 (3 partite)...
+  ✓ 2 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.55[0m
+  ✅ [32mVINTA[0m - Stake: €38.21 | Quota: 1.55 | Profit: [1m+€21.02[0m | Capitale: €148.40
+    [32m✓[0m Rangers vs Genk: X2 @1.55 (0-1)
+
+[36m📅 Elaborazione 2025-09-26...[0m
+  ✓ 8 partite trovate
+  ✓ 8 partite finite
+  📦 Processando chunk 1/3 (3 partite)...
+  📦 Processando chunk 2/3 (3 partite)...
+  📦 Processando chunk 3/3 (2 partite)...
+  ✓ 1 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.50[0m
+  ✅ [32mVINTA[0m - Stake: €44.52 | Quota: 1.50 | Profit: [1m+€22.26[0m | Capitale: €170.66
+    [32m✓[0m Girona vs Espanyol: X2 @1.50 (0-0)
+
+[36m📅 Elaborazione 2025-09-27...[0m
+  ✓ 52 partite trovate
+  ✓ 52 partite finite
+  📦 Processando chunk 1/3 (18 partite)...
+  📦 Processando chunk 2/3 (18 partite)...
+  📦 Processando chunk 3/3 (16 partite)...
+  ✓ 4 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.48[0m
+  ✅ [32mVINTA[0m - Stake: €51.20 | Quota: 1.48 | Profit: [1m+€24.57[0m | Capitale: €195.23
+    [32m✓[0m VfL Wolfsburg vs RB Leipzig: X2 @1.48 (0-1)
+
+[36m📅 Elaborazione 2025-09-28...[0m
+  ✓ 36 partite trovate
+  ✓ 36 partite finite
+  📦 Processando chunk 1/3 (12 partite)...
+  📦 Processando chunk 2/3 (12 partite)...
+  📦 Processando chunk 3/3 (12 partite)...
+  ✓ 4 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.50[0m
+  ✅ [32mVINTA[0m - Stake: €58.57 | Quota: 1.50 | Profit: [1m+€29.29[0m | Capitale: €224.52
+    [32m✓[0m FC Köln vs VfB Stuttgart: X2 @1.50 (1-2)
+
+[36m📅 Elaborazione 2025-09-29...[0m
+  ✓ 6 partite trovate
+  ✓ 6 partite finite
+  📦 Processando chunk 1/3 (2 partite)...
+  📦 Processando chunk 2/3 (2 partite)...
+  📦 Processando chunk 3/3 (2 partite)...
+  ⚠️  Nessun evento con raccomandazioni valide
+
+[36m📅 Elaborazione 2025-09-30...[0m
+  ✓ 24 partite trovate
+  ✓ 24 partite finite
+  📦 Processando chunk 1/3 (8 partite)...
+  📦 Processando chunk 2/3 (8 partite)...
+  📦 Processando chunk 3/3 (8 partite)...
+  ✓ 3 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.74[0m
+  ✅ [32mVINTA[0m - Stake: €67.36 | Quota: 1.74 | Profit: [1m+€49.84[0m | Capitale: €274.36
+    [32m✓[0m Hull City vs Preston North End: X2 @1.74 (2-2)
+
+[36m📅 Elaborazione 2025-10-01...[0m
+  ✓ 17 partite trovate
+  ✓ 17 partite finite
+  📦 Processando chunk 1/3 (6 partite)...
+  📦 Processando chunk 2/3 (6 partite)...
+  📦 Processando chunk 3/3 (5 partite)...
+  ✓ 4 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.59[0m
+  ✅ [32mVINTA[0m - Stake: €82.31 | Quota: 1.59 | Profit: [1m+€48.56[0m | Capitale: €322.93
+    [32m✓[0m Portsmouth vs Watford: X2 @1.59 (2-2)
+
+[36m📅 Elaborazione 2025-10-02...[0m
+  ✓ 18 partite trovate
+  ✓ 18 partite finite
+  📦 Processando chunk 1/3 (6 partite)...
+  📦 Processando chunk 2/3 (6 partite)...
+  📦 Processando chunk 3/3 (6 partite)...
+  ⚠️  Nessun evento con raccomandazioni valide
+
+[36m📅 Elaborazione 2025-10-03...[0m
+  ✓ 11 partite trovate
+  ✓ 11 partite finite
+  📦 Processando chunk 1/3 (4 partite)...
+  📦 Processando chunk 2/3 (4 partite)...
+  📦 Processando chunk 3/3 (3 partite)...
+  ✓ 2 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.62[0m
+  ✅ [32mVINTA[0m - Stake: €96.88 | Quota: 1.62 | Profit: [1m+€60.06[0m | Capitale: €382.99
+    [32m✓[0m Odense BK vs Sønderjyske Fodbold: X2 @1.62 (1-1)
+
+[36m📅 Elaborazione 2025-10-04...[0m
+  ✓ 47 partite trovate
+  ✓ 47 partite finite
+  📦 Processando chunk 1/3 (16 partite)...
+  📦 Processando chunk 2/3 (16 partite)...
+  📦 Processando chunk 3/3 (15 partite)...
+  ✓ 4 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.49[0m
+  ✅ [32mVINTA[0m - Stake: €114.90 | Quota: 1.49 | Profit: [1m+€56.30[0m | Capitale: €439.29
+    [32m✓[0m Swansea City vs Leicester City: X2 @1.49 (1-3)
+
+[36m📅 Elaborazione 2025-10-05...[0m
+  ✓ 45 partite trovate
+  ✓ 45 partite finite
+  📦 Processando chunk 1/3 (15 partite)...
+  📦 Processando chunk 2/3 (15 partite)...
+  📦 Processando chunk 3/3 (15 partite)...
+  ✓ 3 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.50[0m
+  ✅ [32mVINTA[0m - Stake: €131.79 | Quota: 1.50 | Profit: [1m+€65.89[0m | Capitale: €505.18
+    [32m✓[0m Go Ahead Eagles vs NEC Nijmegen: X2 @1.50 (1-1)
+
+[36m📅 Elaborazione 2025-10-06...[0m
+  ⚠️  Nessuna partita trovata per 2025-10-06
+
+[36m📅 Elaborazione 2025-10-07...[0m
+  ⚠️  Nessuna partita trovata per 2025-10-07
+
+[36m📅 Elaborazione 2025-10-08...[0m
+  ⚠️  Nessuna partita trovata per 2025-10-08
+
+[36m📅 Elaborazione 2025-10-09...[0m
+  ⚠️  Nessuna partita trovata per 2025-10-09
+
+[36m📅 Elaborazione 2025-10-10...[0m
+  ⚠️  Nessuna partita trovata per 2025-10-10
+
+[36m📅 Elaborazione 2025-10-11...[0m
+  ⚠️  Nessuna partita trovata per 2025-10-11
+
+[36m📅 Elaborazione 2025-10-12...[0m
+  ⚠️  Nessuna partita trovata per 2025-10-12
+
+[36m📅 Elaborazione 2025-10-13...[0m
+  ⚠️  Nessuna partita trovata per 2025-10-13
+
+[36m📅 Elaborazione 2025-10-14...[0m
+  ⚠️  Nessuna partita trovata per 2025-10-14
+
+[36m📅 Elaborazione 2025-10-15...[0m
+  ⚠️  Nessuna partita trovata per 2025-10-15
+
+[36m📅 Elaborazione 2025-10-16...[0m
+  ⚠️  Nessuna partita trovata per 2025-10-16
+
+[36m📅 Elaborazione 2025-10-17...[0m
+  ✓ 6 partite trovate
+  ✓ 6 partite finite
+  📦 Processando chunk 1/3 (2 partite)...
+  📦 Processando chunk 2/3 (2 partite)...
+  📦 Processando chunk 3/3 (2 partite)...
+  ✓ 1 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.40[0m
+  ✅ [32mVINTA[0m - Stake: €151.55 | Quota: 1.40 | Profit: [1m+€60.62[0m | Capitale: €565.80
+    [32m✓[0m Real Oviedo vs Espanyol: X2 @1.40 (0-2)
+
+[36m📅 Elaborazione 2025-10-18...[0m
+  ✓ 50 partite trovate
+  ✓ 50 partite finite
+  📦 Processando chunk 1/3 (17 partite)...
+  📦 Processando chunk 2/3 (17 partite)...
+  📦 Processando chunk 3/3 (16 partite)...
+  ✓ 7 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.48[0m
+  ✅ [32mVINTA[0m - Stake: €169.74 | Quota: 1.48 | Profit: [1m+€81.48[0m | Capitale: €647.28
+    [32m✓[0m FSV Mainz 05 vs Bayer 04 Leverkusen: X2 @1.48 (3-4)
+
+[36m📅 Elaborazione 2025-10-19...[0m
+  ✓ 33 partite trovate
+  ✓ 33 partite finite
+  📦 Processando chunk 1/3 (11 partite)...
+  📦 Processando chunk 2/3 (11 partite)...
+  📦 Processando chunk 3/3 (11 partite)...
+  ✓ 2 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.47[0m
+  ✅ [32mVINTA[0m - Stake: €194.18 | Quota: 1.47 | Profit: [1m+€91.27[0m | Capitale: €738.55
+    [32m✓[0m St. Pauli vs TSG Hoffenheim: X2 @1.47 (0-3)
+
+[36m📅 Elaborazione 2025-10-20...[0m
+  ✓ 5 partite trovate
+  ✓ 5 partite finite
+  📦 Processando chunk 1/3 (2 partite)...
+  📦 Processando chunk 2/3 (2 partite)...
+  📦 Processando chunk 3/3 (1 partite)...
+  ✓ 1 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 2.58[0m
+  ✅ [32mVINTA[0m - Stake: €221.56 | Quota: 2.58 | Profit: [1m+€350.07[0m | Capitale: €1088.62
+    [32m✓[0m West Ham United vs Brentford: 2 @2.58 (0-2)
+
+[36m📅 Elaborazione 2025-10-21...[0m
+  ✓ 17 partite trovate
+  ✓ 17 partite finite
+  📦 Processando chunk 1/3 (6 partite)...
+  📦 Processando chunk 2/3 (6 partite)...
+  📦 Processando chunk 3/3 (5 partite)...
+  ✓ 1 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.66[0m
+  ✅ [32mVINTA[0m - Stake: €326.59 | Quota: 1.66 | Profit: [1m+€215.55[0m | Capitale: €1304.16
+    [32m✓[0m PSV vs Napoli: 1X @1.66 (6-2)
+
+[36m📅 Elaborazione 2025-10-22...[0m
+  ✓ 15 partite trovate
+  ✓ 15 partite finite
+  📦 Processando chunk 1/3 (5 partite)...
+  📦 Processando chunk 2/3 (5 partite)...
+  📦 Processando chunk 3/3 (5 partite)...
+  ✓ 1 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.69[0m
+  ✅ [32mVINTA[0m - Stake: €391.25 | Quota: 1.69 | Profit: [1m+€269.96[0m | Capitale: €1574.13
+    [32m✓[0m Swansea City vs Queens Park Rangers: X2 @1.69 (0-1)
+
+[36m📅 Elaborazione 2025-10-23...[0m
+  ✓ 18 partite trovate
+  ✓ 18 partite finite
+  📦 Processando chunk 1/3 (6 partite)...
+  📦 Processando chunk 2/3 (6 partite)...
+  📦 Processando chunk 3/3 (6 partite)...
+  ✓ 2 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 2.11[0m
+  ✅ [32mVINTA[0m - Stake: €472.24 | Quota: 2.11 | Profit: [1m+€524.18[0m | Capitale: €2098.31
+    [32m✓[0m Brann vs Rangers: 1 @2.11 (3-0)
+
+[36m📅 Elaborazione 2025-10-24...[0m
+  ✓ 11 partite trovate
+  ✓ 11 partite finite
+  📦 Processando chunk 1/3 (4 partite)...
+  📦 Processando chunk 2/3 (4 partite)...
+  📦 Processando chunk 3/3 (3 partite)...
+  ✓ 2 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.66[0m
+  ✅ [32mVINTA[0m - Stake: €629.49 | Quota: 1.66 | Profit: [1m+€415.47[0m | Capitale: €2513.78
+    [32m✓[0m Real Sociedad vs Sevilla: 12 @1.66 (2-1)
+
+[36m📅 Elaborazione 2025-10-25...[0m
+  ✓ 48 partite trovate
+  ✓ 48 partite finite
+  📦 Processando chunk 1/3 (16 partite)...
+  📦 Processando chunk 2/3 (16 partite)...
+  📦 Processando chunk 3/3 (16 partite)...
+  ✓ 7 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.44[0m
+  ✅ [32mVINTA[0m - Stake: €754.13 | Quota: 1.44 | Profit: [1m+€331.82[0m | Capitale: €2845.60
+    [32m✓[0m Valencia vs Villarreal: X2 @1.44 (0-2)
+
+[36m📅 Elaborazione 2025-10-26...[0m
+  ✓ 39 partite trovate
+  ✓ 39 partite finite
+  📦 Processando chunk 1/3 (13 partite)...
+  📦 Processando chunk 2/3 (13 partite)...
+  📦 Processando chunk 3/3 (13 partite)...
+  ✓ 1 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.44[0m
+  ✅ [32mVINTA[0m - Stake: €853.68 | Quota: 1.44 | Profit: [1m+€375.62[0m | Capitale: €3221.21
+    [32m✓[0m Fiorentina vs Bologna: X2 @1.44 (2-2)
+
+[36m📅 Elaborazione 2025-10-27...[0m
+  ✓ 5 partite trovate
+  ✓ 5 partite finite
+  📦 Processando chunk 1/3 (2 partite)...
+  📦 Processando chunk 2/3 (2 partite)...
+  📦 Processando chunk 3/3 (1 partite)...
+  ⚠️  Nessun evento con raccomandazioni valide
+
+[36m📅 Elaborazione 2025-10-28...[0m
+  ✓ 8 partite trovate
+  ✓ 8 partite finite
+  📦 Processando chunk 1/3 (3 partite)...
+  📦 Processando chunk 2/3 (3 partite)...
+  📦 Processando chunk 3/3 (2 partite)...
+  ⚠️  Nessun evento con raccomandazioni valide
+
+[36m📅 Elaborazione 2025-10-29...[0m
+  ✓ 18 partite trovate
+  ✓ 18 partite finite
+  📦 Processando chunk 1/3 (6 partite)...
+  📦 Processando chunk 2/3 (6 partite)...
+  📦 Processando chunk 3/3 (6 partite)...
+  ⚠️  Nessun evento con raccomandazioni valide
+
+[36m📅 Elaborazione 2025-10-30...[0m
+  ✓ 2 partite trovate
+  ✓ 2 partite finite
+  📦 Processando chunk 1/3 (1 partite)...
+  📦 Processando chunk 2/3 (1 partite)...
+  ⚠️  Nessun evento con raccomandazioni valide
+
+[36m📅 Elaborazione 2025-10-31...[0m
+  ✓ 6 partite trovate
+  ✓ 6 partite finite
+  📦 Processando chunk 1/3 (2 partite)...
+  📦 Processando chunk 2/3 (2 partite)...
+  📦 Processando chunk 3/3 (2 partite)...
+  ✓ 1 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 2.14[0m
+  ❌ [31mPERSA[0m - Stake: €966.36 | Quota: 2.14 | Profit: [1m€-966.36[0m | Capitale: €2254.85
+    [31m✗[0m Wrexham vs Coventry City: 2 @2.14 (3-2)
+
+[36m📅 Elaborazione 2025-11-01...[0m
+  ✓ 50 partite trovate
+  ✓ 50 partite finite
+  📦 Processando chunk 1/3 (17 partite)...
+  📦 Processando chunk 2/3 (17 partite)...
+  📦 Processando chunk 3/3 (16 partite)...
+  ✓ 4 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.60[0m
+  ✅ [32mVINTA[0m - Stake: €676.45 | Quota: 1.60 | Profit: [1m+€405.87[0m | Capitale: €2660.72
+    [32m✓[0m St. Pauli vs Borussia Mönchengladbach: X2 @1.60 (0-4)
+
+[36m📅 Elaborazione 2025-11-02...[0m
+  ✓ 38 partite trovate
+  ✓ 38 partite finite
+  📦 Processando chunk 1/3 (13 partite)...
+  📦 Processando chunk 2/3 (13 partite)...
+  📦 Processando chunk 3/3 (12 partite)...
+  ✓ 4 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.48[0m
+  ✅ [32mVINTA[0m - Stake: €798.22 | Quota: 1.48 | Profit: [1m+€383.14[0m | Capitale: €3043.87
+    [32m✓[0m Arouca vs Moreirense: X2 @1.48 (0-2)
+
+[36m📅 Elaborazione 2025-11-03...[0m
+  ✓ 9 partite trovate
+  ✓ 9 partite finite
+  📦 Processando chunk 1/3 (3 partite)...
+  📦 Processando chunk 2/3 (3 partite)...
+  📦 Processando chunk 3/3 (3 partite)...
+  ✓ 1 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 2.47[0m
+  ❌ [31mPERSA[0m - Stake: €913.16 | Quota: 2.47 | Profit: [1m€-913.16[0m | Capitale: €2130.71
+    [31m✗[0m Real Oviedo vs Osasuna: 2 @2.47 (0-0)
+
+[36m📅 Elaborazione 2025-11-04...[0m
+  ✓ 17 partite trovate
+  ✓ 17 partite finite
+  📦 Processando chunk 1/3 (6 partite)...
+  📦 Processando chunk 2/3 (6 partite)...
+  📦 Processando chunk 3/3 (5 partite)...
+  ✓ 2 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.58[0m
+  ✅ [32mVINTA[0m - Stake: €639.21 | Quota: 1.58 | Profit: [1m+€370.74[0m | Capitale: €2501.45
+    [32m✓[0m Paris Saint Germain vs FC Bayern München: X2 @1.58 (1-2)
+
+[36m📅 Elaborazione 2025-11-05...[0m
+  ✓ 13 partite trovate
+  ✓ 13 partite finite
+  📦 Processando chunk 1/3 (5 partite)...
+  📦 Processando chunk 2/3 (5 partite)...
+  📦 Processando chunk 3/3 (3 partite)...
+  ✓ 1 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 2.09[0m
+  ✅ [32mVINTA[0m - Stake: €750.43 | Quota: 2.09 | Profit: [1m+€817.97[0m | Capitale: €3319.42
+    [32m✓[0m Ajax vs Galatasaray: 2 @2.09 (0-3)
+
+[36m📅 Elaborazione 2025-11-06...[0m
+  ✓ 18 partite trovate
+  ✓ 18 partite finite
+  📦 Processando chunk 1/3 (6 partite)...
+  📦 Processando chunk 2/3 (6 partite)...
+  📦 Processando chunk 3/3 (6 partite)...
+  ✓ 3 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.45[0m
+  ✅ [32mVINTA[0m - Stake: €995.83 | Quota: 1.45 | Profit: [1m+€448.12[0m | Capitale: €3767.55
+    [32m✓[0m Nice vs SC Freiburg: X2 @1.45 (1-3)
+
+[36m📅 Elaborazione 2025-11-07...[0m
+  ✓ 10 partite trovate
+  ✓ 10 partite finite
+  📦 Processando chunk 1/3 (4 partite)...
+  📦 Processando chunk 2/3 (4 partite)...
+  📦 Processando chunk 3/3 (2 partite)...
+  ⚠️  Nessun evento con raccomandazioni valide
+
+[36m📅 Elaborazione 2025-11-08...[0m
+  ✓ 50 partite trovate
+  ✓ 50 partite finite
+  📦 Processando chunk 1/3 (17 partite)...
+  📦 Processando chunk 2/3 (17 partite)...
+  📦 Processando chunk 3/3 (16 partite)...
+  ✓ 3 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.70[0m
+  ❌ [31mPERSA[0m - Stake: €1130.26 | Quota: 1.70 | Profit: [1m€-1130.26[0m | Capitale: €2637.28
+    [31m✗[0m Girona vs Deportivo Alavés: X2 @1.70 (1-0)
+
+[36m📅 Elaborazione 2025-11-09...[0m
+  ✓ 43 partite trovate
+  ✓ 43 partite finite
+  📦 Processando chunk 1/3 (15 partite)...
+  📦 Processando chunk 2/3 (15 partite)...
+  📦 Processando chunk 3/3 (13 partite)...
+  ✓ 1 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.55[0m
+  ✅ [32mVINTA[0m - Stake: €791.18 | Quota: 1.55 | Profit: [1m+€435.15[0m | Capitale: €3072.43
+    [32m✓[0m FC Utrecht vs Ajax: 1X @1.55 (2-1)
+
+[36m📅 Elaborazione 2025-11-10...[0m
+  ⚠️  Nessuna partita trovata per 2025-11-10
+
+[36m📅 Elaborazione 2025-11-11...[0m
+  ⚠️  Nessuna partita trovata per 2025-11-11
+
+[36m📅 Elaborazione 2025-11-12...[0m
+  ⚠️  Nessuna partita trovata per 2025-11-12
+
+[36m📅 Elaborazione 2025-11-13...[0m
+  ⚠️  Nessuna partita trovata per 2025-11-13
+
+[36m📅 Elaborazione 2025-11-14...[0m
+  ⚠️  Nessuna partita trovata per 2025-11-14
+
+[36m📅 Elaborazione 2025-11-15...[0m
+  ⚠️  Nessuna partita trovata per 2025-11-15
+
+[36m📅 Elaborazione 2025-11-16...[0m
+  ⚠️  Nessuna partita trovata per 2025-11-16
+
+[36m📅 Elaborazione 2025-11-17...[0m
+  ⚠️  Nessuna partita trovata per 2025-11-17
+
+[36m📅 Elaborazione 2025-11-18...[0m
+  ⚠️  Nessuna partita trovata per 2025-11-18
+
+[36m📅 Elaborazione 2025-11-19...[0m
+  ⚠️  Nessuna partita trovata per 2025-11-19
+
+[36m📅 Elaborazione 2025-11-20...[0m
+  ⚠️  Nessuna partita trovata per 2025-11-20
+
+[36m📅 Elaborazione 2025-11-21...[0m
+  ✓ 6 partite trovate
+  ✓ 6 partite finite
+  📦 Processando chunk 1/3 (2 partite)...
+  📦 Processando chunk 2/3 (2 partite)...
+  📦 Processando chunk 3/3 (2 partite)...
+  ✓ 1 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.52[0m
+  ✅ [32mVINTA[0m - Stake: €921.73 | Quota: 1.52 | Profit: [1m+€479.30[0m | Capitale: €3551.73
+    [32m✓[0m FSV Mainz 05 vs TSG Hoffenheim: X2 @1.52 (1-1)
+
+[36m📅 Elaborazione 2025-11-22...[0m
+  ✓ 47 partite trovate
+  ✓ 47 partite finite
+  📦 Processando chunk 1/3 (16 partite)...
+  📦 Processando chunk 2/3 (16 partite)...
+  📦 Processando chunk 3/3 (15 partite)...
+  ✓ 4 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.52[0m
+  ✅ [32mVINTA[0m - Stake: €1065.52 | Quota: 1.52 | Profit: [1m+€554.07[0m | Capitale: €4105.80
+    [32m✓[0m Kayserispor vs Gaziantep F.K.: X2 @1.52 (0-3)
+
+[36m📅 Elaborazione 2025-11-23...[0m
+  ✓ 33 partite trovate
+  ✓ 33 partite finite
+  📦 Processando chunk 1/3 (11 partite)...
+  📦 Processando chunk 2/3 (11 partite)...
+  📦 Processando chunk 3/3 (11 partite)...
+  ⚠️  Nessun evento con raccomandazioni valide
+
+[36m📅 Elaborazione 2025-11-24...[0m
+  ✓ 8 partite trovate
+  ✓ 8 partite finite
+  📦 Processando chunk 1/3 (3 partite)...
+  📦 Processando chunk 2/3 (3 partite)...
+  📦 Processando chunk 3/3 (2 partite)...
+  ⚠️  Nessun evento con raccomandazioni valide
+
+[36m📅 Elaborazione 2025-11-25...[0m
+  ✓ 16 partite trovate
+  ✓ 16 partite finite
+  📦 Processando chunk 1/3 (6 partite)...
+  📦 Processando chunk 2/3 (6 partite)...
+  📦 Processando chunk 3/3 (4 partite)...
+  ✓ 3 eventi con raccomandazioni valide
+  [1m📊 Multipla generata: 1 eventi, quota 1.65[0m
+  ✅ [32mVINTA[0m - Stake: €1231.74 | Quota: 1.65 | Profit: [1m+€800.63[0m | Capitale: €4906.44
+    [32m✓[0m Swansea City vs Derby County: X2 @1.65 (1-2)
+
+[1m[34m═══════════════════════════════════════════════════════[0m
+[1m                   REPORT FINALE[0m
+[34m═══════════════════════════════════════════════════════[0m
+
+📊 [1mMultiple giocate:[0m 38
+[32m✅ Vinte: 33[0m
+[31m❌ Perse: 5[0m
+📈 [1mWin Rate: 86.8%[0m
+
+💵 Capitale iniziale: €100.00
+💰 [1mCapitale finale: €4906.44[0m
+[32m📈 Profitto/Perdita: +€4806.44[0m
+📊 ROI: [1m+4806.44%[0m
+
+💸 Totale investito: €15949.23
+💎 Totale vinto: €20755.66
+
+📈 Quota media: 1.66
+🎯 Eventi medi per multipla: 1.0
+
+[1m[33m💡 ANALISI PERFORMANCE[0m
+
+[32m✅ Win rate eccellente (>50%)![0m
+[32m✅ ROI positivo (+4806.44%)! La strategia è profittevole[0m
+[32m📈 Crescita capitale: +4806.44%[0m
+
+[1m[36mConclusione:[0m
+[32m🎉 Ottimo! Il capitale è cresciuto del 4806.4%[0m

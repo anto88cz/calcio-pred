@@ -1,0 +1,495 @@
+[1m[36m═══════════════════════════════════════════════════════[0m
+[1m[36m  🔬 VERIFICATION: UPTEST vs BACKTEST ALIGNMENT[0m
+[1m[36m═══════════════════════════════════════════════════════[0m
+[36m  Period: 2025-09-01 to 2025-11-25[0m
+
+[34m[1m📊 Step 1: Running backtest-multiple for entire period...[0m
+[33m   (This will take a few minutes - backtest runs ONCE for all dates)[0m
+
+[32m✓ Backtest completed in 123.4s[0m
+
+[34m📝 Backtest output sample (first 500 chars):[0m
+
+╔════════════════════════════════════════════════════════╗
+║    BACKTESTING MULTIPLE - SISTEMA ORIGINALE            ║
+╚════════════════════════════════════════════════════════╝
+
+💰 Capitale iniziale: €100
+📊 Stake per schedina: 30% del capitale
+🎯 Target quota: 1.4x (range: 1.4-4)
+🏆 Eventi per multipla: 1-3 partite (flessibile)
+📅 Periodo: dal 2025-09-01 al 2025-11-25
+
+📊 Totale giorni da analizzare: 86
+
+
+📅 Elaborazione 2025-09-01...
+  ⚠️  Nessuna partita trovata per 202
+[34m...[0m
+
+[34m📋 Step 2: Extracting recommendations from backtest...[0m
+[32m✓ Extracted 86 dates from backtest[0m
+[34m   Sample dates found:[0m
+   - 2025-09-01: NO REC
+   - 2025-09-02: NO REC
+   - 2025-09-03: NO REC
+   - 2025-09-04: NO REC
+   - 2025-09-05: NO REC
+
+[34m[1m🔮 Step 3: Running uptest for each date (86 dates)...[0m
+[33m   (Each uptest runs independently)[0m
+
+[36m[1/86] Testing 2025-09-01...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.2s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[2/86] Testing 2025-09-02...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[3/86] Testing 2025-09-03...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[4/86] Testing 2025-09-04...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[5/86] Testing 2025-09-05...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[6/86] Testing 2025-09-06...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[7/86] Testing 2025-09-07...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[8/86] Testing 2025-09-08...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[9/86] Testing 2025-09-09...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.2s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[10/86] Testing 2025-09-10...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.2s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[11/86] Testing 2025-09-11...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[12/86] Testing 2025-09-12...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (2.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[13/86] Testing 2025-09-13...[0m
+  [34mBacktest: FSV Mainz 05 vs RB Leipzig - X2[0m
+  [34mUptest:   Brøndby IF vs FC København - 1X (2.1s)[0m
+  [31m❌ DISALIGNED:[0m
+     Uptest:   Brøndby IF vs FC København - 1X @1.77
+     Backtest: FSV Mainz 05 vs RB Leipzig - X2 @1.52
+[36m[14/86] Testing 2025-09-14...[0m
+  [34mBacktest: Silkeborg IF vs Odense BK - X2[0m
+  [34mUptest:   Arouca vs Casa Pia - X2 (2.1s)[0m
+  [31m❌ DISALIGNED:[0m
+     Uptest:   Arouca vs Casa Pia - X2 @1.73
+     Backtest: Silkeborg IF vs Odense BK - X2 @1.57
+[36m[15/86] Testing 2025-09-15...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (2.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[16/86] Testing 2025-09-16...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (2.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[17/86] Testing 2025-09-17...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (2.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[18/86] Testing 2025-09-18...[0m
+  [34mBacktest: FC København vs Bayer 04 Lever - 1X[0m
+  [34mUptest:   FC København vs Bayer 04 Lever - 1X (2.1s)[0m
+  [32m✓ ALIGNED: 1X @1.61[0m
+[36m[19/86] Testing 2025-09-19...[0m
+  [34mBacktest: Sparta Rotterdam vs FC Twente - 2[0m
+  [34mUptest:   Sparta Rotterdam vs FC Twente - 2 (2.1s)[0m
+  [32m✓ ALIGNED: 2 @2.36[0m
+[36m[20/86] Testing 2025-09-20...[0m
+  [34mBacktest: Manchester United vs Chelsea - X2[0m
+  [34mUptest:   Norwich City vs Wrexham - X2 (4.9s)[0m
+  [31m❌ DISALIGNED:[0m
+     Uptest:   Norwich City vs Wrexham - X2 @1.81
+     Backtest: Manchester United vs Chelsea - X2 @1.48
+[36m[21/86] Testing 2025-09-21...[0m
+  [34mBacktest: Fiorentina vs Como - X2[0m
+  [34mUptest:   Tondela vs Estrela Amadora - X2 (2.1s)[0m
+  [31m❌ DISALIGNED:[0m
+     Uptest:   Tondela vs Estrela Amadora - X2 @1.68
+     Backtest: Fiorentina vs Como - X2 @1.5
+[36m[22/86] Testing 2025-09-22...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (2.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[23/86] Testing 2025-09-23...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (2.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[24/86] Testing 2025-09-24...[0m
+  [34mBacktest: Crvena Zvezda vs Celtic - X2[0m
+  [34mUptest:   Crvena Zvezda vs Celtic - X2 (2.1s)[0m
+  [32m✓ ALIGNED: X2 @1.58[0m
+[36m[25/86] Testing 2025-09-25...[0m
+  [34mBacktest: Rangers vs Genk - X2[0m
+  [34mUptest:   VfB Stuttgart vs Celta de Vigo - X2 (2.1s)[0m
+  [31m❌ DISALIGNED:[0m
+     Uptest:   VfB Stuttgart vs Celta de Vigo - X2 @1.77
+     Backtest: Rangers vs Genk - X2 @1.55
+[36m[26/86] Testing 2025-09-26...[0m
+  [34mBacktest: Girona vs Espanyol - X2[0m
+  [34mUptest:   Girona vs Espanyol - X2 (2.1s)[0m
+  [32m✓ ALIGNED: X2 @1.5[0m
+[36m[27/86] Testing 2025-09-27...[0m
+  [34mBacktest: VfL Wolfsburg vs RB Leipzig - X2[0m
+  [34mUptest:   Swansea City vs Millwall - X2 (2.1s)[0m
+  [31m❌ DISALIGNED:[0m
+     Uptest:   Swansea City vs Millwall - X2 @1.65
+     Backtest: VfL Wolfsburg vs RB Leipzig - X2 @1.48
+[36m[28/86] Testing 2025-09-28...[0m
+  [34mBacktest: FC Köln vs VfB Stuttgart - X2[0m
+  [34mUptest:   Nice vs Paris - X2 (2.1s)[0m
+  [31m❌ DISALIGNED:[0m
+     Uptest:   Nice vs Paris - X2 @1.74
+     Backtest: FC Köln vs VfB Stuttgart - X2 @1.5
+[36m[29/86] Testing 2025-09-29...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (2.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[30/86] Testing 2025-09-30...[0m
+  [34mBacktest: Hull City vs Preston North End - X2[0m
+  [34mUptest:   Reggiana vs Spezia - 1X (2.1s)[0m
+  [31m❌ DISALIGNED:[0m
+     Uptest:   Reggiana vs Spezia - 1X @1.83
+     Backtest: Hull City vs Preston North End - X2 @1.74
+[36m[31/86] Testing 2025-10-01...[0m
+  [34mBacktest: Portsmouth vs Watford - X2[0m
+  [34mUptest:   Qarabağ vs FC København - 1X (2.1s)[0m
+  [31m❌ DISALIGNED:[0m
+     Uptest:   Qarabağ vs FC København - 1X @1.7
+     Backtest: Portsmouth vs Watford - X2 @1.59
+[36m[32/86] Testing 2025-10-02...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (2.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[33/86] Testing 2025-10-03...[0m
+  [34mBacktest: Odense BK vs Sønderjyske Fodbo - X2[0m
+  [34mUptest:   Osasuna vs Getafe - X2 (2.1s)[0m
+  [31m❌ DISALIGNED:[0m
+     Uptest:   Osasuna vs Getafe - X2 @1.67
+     Backtest: Odense BK vs Sønderjyske Fodbold - X2 @1.62
+[36m[34/86] Testing 2025-10-04...[0m
+  [34mBacktest: Swansea City vs Leicester City - X2[0m
+  [34mUptest:   Atalanta vs Como - X2 (2.1s)[0m
+  [31m❌ DISALIGNED:[0m
+     Uptest:   Atalanta vs Como - X2 @1.67
+     Backtest: Swansea City vs Leicester City - X2 @1.49
+[36m[35/86] Testing 2025-10-05...[0m
+  [34mBacktest: Go Ahead Eagles vs NEC Nijmege - X2[0m
+  [34mUptest:   Go Ahead Eagles vs NEC Nijmege - X2 (2.1s)[0m
+  [32m✓ ALIGNED: X2 @1.5[0m
+[36m[36/86] Testing 2025-10-06...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.2s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[37/86] Testing 2025-10-07...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[38/86] Testing 2025-10-08...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.2s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[39/86] Testing 2025-10-09...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[40/86] Testing 2025-10-10...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[41/86] Testing 2025-10-11...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[42/86] Testing 2025-10-12...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[43/86] Testing 2025-10-13...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[44/86] Testing 2025-10-14...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[45/86] Testing 2025-10-15...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[46/86] Testing 2025-10-16...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[47/86] Testing 2025-10-17...[0m
+  [34mBacktest: Real Oviedo vs Espanyol - X2[0m
+  [34mUptest:   Real Oviedo vs Espanyol - X2 (2.1s)[0m
+  [32m✓ ALIGNED: X2 @1.4[0m
+[36m[48/86] Testing 2025-10-18...[0m
+  [34mBacktest: FSV Mainz 05 vs Bayer 04 Lever - X2[0m
+  [34mUptest:   Ajax vs AZ - X2 (2.1s)[0m
+  [31m❌ DISALIGNED:[0m
+     Uptest:   Ajax vs AZ - X2 @1.74
+     Backtest: FSV Mainz 05 vs Bayer 04 Leverkusen - X2 @1.48
+[36m[49/86] Testing 2025-10-19...[0m
+  [34mBacktest: St. Pauli vs TSG Hoffenheim - X2[0m
+  [34mUptest:   St. Pauli vs TSG Hoffenheim - X2 (2.1s)[0m
+  [32m✓ ALIGNED: X2 @1.47[0m
+[36m[50/86] Testing 2025-10-20...[0m
+  [34mBacktest: West Ham United vs Brentford - 2[0m
+  [34mUptest:   West Ham United vs Brentford - 2 (2.1s)[0m
+  [32m✓ ALIGNED: 2 @2.58[0m
+[36m[51/86] Testing 2025-10-21...[0m
+  [34mBacktest: PSV vs Napoli - 1X[0m
+  [34mUptest:   PSV vs Napoli - 1X (2.1s)[0m
+  [32m✓ ALIGNED: 1X @1.66[0m
+[36m[52/86] Testing 2025-10-22...[0m
+  [34mBacktest: Swansea City vs Queens Park Ra - X2[0m
+  [34mUptest:   Swansea City vs Queens Park Ra - X2 (2.1s)[0m
+  [32m✓ ALIGNED: X2 @1.69[0m
+[36m[53/86] Testing 2025-10-23...[0m
+  [34mBacktest: Brann vs Rangers - 1[0m
+  [34mUptest:   Brann vs Rangers - 1 (2.1s)[0m
+  [32m✓ ALIGNED: 1 @2.11[0m
+[36m[54/86] Testing 2025-10-24...[0m
+  [34mBacktest: Real Sociedad vs Sevilla - 12[0m
+  [34mUptest:   Real Sociedad vs Sevilla - 12 (2.1s)[0m
+  [32m✓ ALIGNED: 12 @1.66[0m
+[36m[55/86] Testing 2025-10-25...[0m
+  [34mBacktest: Valencia vs Villarreal - X2[0m
+  [34mUptest:   Girona vs Real Oviedo - 1X (2.1s)[0m
+  [31m❌ DISALIGNED:[0m
+     Uptest:   Girona vs Real Oviedo - 1X @1.83
+     Backtest: Valencia vs Villarreal - X2 @1.44
+[36m[56/86] Testing 2025-10-26...[0m
+  [34mBacktest: Fiorentina vs Bologna - X2[0m
+  [34mUptest:   Fiorentina vs Bologna - X2 (2.1s)[0m
+  [32m✓ ALIGNED: X2 @1.44[0m
+[36m[57/86] Testing 2025-10-27...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (2.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[58/86] Testing 2025-10-28...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (2.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[59/86] Testing 2025-10-29...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (2.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[60/86] Testing 2025-10-30...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (1.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[61/86] Testing 2025-10-31...[0m
+  [34mBacktest: Wrexham vs Coventry City - 2[0m
+  [34mUptest:   Wrexham vs Coventry City - 2 (2.1s)[0m
+  [32m✓ ALIGNED: 2 @2.14[0m
+[36m[62/86] Testing 2025-11-01...[0m
+  [34mBacktest: St. Pauli vs Borussia Möncheng - X2[0m
+  [34mUptest:   Casa Pia vs Estrela Amadora - X2 (2.1s)[0m
+  [31m❌ DISALIGNED:[0m
+     Uptest:   Casa Pia vs Estrela Amadora - X2 @1.63
+     Backtest: St. Pauli vs Borussia Mönchengladbach - X2 @1.6
+[36m[63/86] Testing 2025-11-02...[0m
+  [34mBacktest: Arouca vs Moreirense - X2[0m
+  [34mUptest:   Konyaspor vs Samsunspor - X2 (2.1s)[0m
+  [31m❌ DISALIGNED:[0m
+     Uptest:   Konyaspor vs Samsunspor - X2 @1.51
+     Backtest: Arouca vs Moreirense - X2 @1.48
+[36m[64/86] Testing 2025-11-03...[0m
+  [34mBacktest: Real Oviedo vs Osasuna - 2[0m
+  [34mUptest:   Real Oviedo vs Osasuna - 2 (2.1s)[0m
+  [32m✓ ALIGNED: 2 @2.47[0m
+[36m[65/86] Testing 2025-11-04...[0m
+  [34mBacktest: Paris Saint Germain vs FC Baye - X2[0m
+  [34mUptest:   Paris Saint Germain vs FC Baye - X2 (2.1s)[0m
+  [32m✓ ALIGNED: X2 @1.58[0m
+[36m[66/86] Testing 2025-11-05...[0m
+  [34mBacktest: Ajax vs Galatasaray - 2[0m
+  [34mUptest:   Ajax vs Galatasaray - 2 (2.1s)[0m
+  [32m✓ ALIGNED: 2 @2.09[0m
+[36m[67/86] Testing 2025-11-06...[0m
+  [34mBacktest: Nice vs SC Freiburg - X2[0m
+  [34mUptest:   Viktoria Plzeň vs Fenerbahçe - 1X (2.1s)[0m
+  [31m❌ DISALIGNED:[0m
+     Uptest:   Viktoria Plzeň vs Fenerbahçe - 1X @1.66
+     Backtest: Nice vs SC Freiburg - X2 @1.45
+[36m[68/86] Testing 2025-11-07...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (2.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[69/86] Testing 2025-11-08...[0m
+  [34mBacktest: Girona vs Deportivo Alavés - X2[0m
+  [34mUptest:   Monaco vs Lens - X2 (2.1s)[0m
+  [31m❌ DISALIGNED:[0m
+     Uptest:   Monaco vs Lens - X2 @1.79
+     Backtest: Girona vs Deportivo Alavés - X2 @1.7
+[36m[70/86] Testing 2025-11-09...[0m
+  [34mBacktest: FC Utrecht vs Ajax - 1X[0m
+  [34mUptest:   FC Utrecht vs Ajax - 1X (2.1s)[0m
+  [32m✓ ALIGNED: 1X @1.55[0m
+[36m[71/86] Testing 2025-11-10...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.2s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[72/86] Testing 2025-11-11...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[73/86] Testing 2025-11-12...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.2s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[74/86] Testing 2025-11-13...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[75/86] Testing 2025-11-14...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[76/86] Testing 2025-11-15...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.2s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[77/86] Testing 2025-11-16...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.2s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[78/86] Testing 2025-11-17...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.2s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[79/86] Testing 2025-11-18...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[80/86] Testing 2025-11-19...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[81/86] Testing 2025-11-20...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (0.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[82/86] Testing 2025-11-21...[0m
+  [34mBacktest: FSV Mainz 05 vs TSG Hoffenheim - X2[0m
+  [34mUptest:   FSV Mainz 05 vs TSG Hoffenheim - X2 (2.1s)[0m
+  [32m✓ ALIGNED: X2 @1.52[0m
+[36m[83/86] Testing 2025-11-22...[0m
+  [34mBacktest: Kayserispor vs Gaziantep F.K. - X2[0m
+  [34mUptest:   Portsmouth vs Millwall - X2 (2.1s)[0m
+  [31m❌ DISALIGNED:[0m
+     Uptest:   Portsmouth vs Millwall - X2 @1.56
+     Backtest: Kayserispor vs Gaziantep F.K. - X2 @1.52
+[36m[84/86] Testing 2025-11-23...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (2.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[85/86] Testing 2025-11-24...[0m
+  [34mBacktest: NO REC[0m
+  [34mUptest:   NO REC (2.1s)[0m
+  [33m⚠️  Both empty (ALIGNED)[0m
+[36m[86/86] Testing 2025-11-25...[0m
+  [34mBacktest: Swansea City vs Derby County - X2[0m
+  [34mUptest:   Bodø / Glimt vs Juventus - 1X (2.1s)[0m
+  [31m❌ DISALIGNED:[0m
+     Uptest:   Bodø / Glimt vs Juventus - 1X @1.7
+     Backtest: Swansea City vs Derby County - X2 @1.65
+
+[1m[36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+[1m[36m  📊 SUMMARY[0m
+[1m[36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+
+[1mTotal days tested: 86[0m
+[32m✓ Aligned: 67 (77.9%)[0m
+[31m✗ Disaligned: 19 (22.1%)[0m
+
+[33mDisaligned dates:[0m
+  [31m2025-09-13[0m - different_teams
+    Uptest: Brøndby IF vs FC København - 1X
+    Backtest: FSV Mainz 05 vs RB Leipzig - X2
+  [31m2025-09-14[0m - different_teams
+    Uptest: Arouca vs Casa Pia - X2
+    Backtest: Silkeborg IF vs Odense BK - X2
+  [31m2025-09-20[0m - different_teams
+    Uptest: Norwich City vs Wrexham - X2
+    Backtest: Manchester United vs Chelsea - X2
+  [31m2025-09-21[0m - different_teams
+    Uptest: Tondela vs Estrela Amadora - X2
+    Backtest: Fiorentina vs Como - X2
+  [31m2025-09-25[0m - different_teams
+    Uptest: VfB Stuttgart vs Celta de Vigo - X2
+    Backtest: Rangers vs Genk - X2
+  [31m2025-09-27[0m - different_teams
+    Uptest: Swansea City vs Millwall - X2
+    Backtest: VfL Wolfsburg vs RB Leipzig - X2
+  [31m2025-09-28[0m - different_teams
+    Uptest: Nice vs Paris - X2
+    Backtest: FC Köln vs VfB Stuttgart - X2
+  [31m2025-09-30[0m - different_teams
+    Uptest: Reggiana vs Spezia - 1X
+    Backtest: Hull City vs Preston North End - X2
+  [31m2025-10-01[0m - different_teams
+    Uptest: Qarabağ vs FC København - 1X
+    Backtest: Portsmouth vs Watford - X2
+  [31m2025-10-03[0m - different_teams
+    Uptest: Osasuna vs Getafe - X2
+    Backtest: Odense BK vs Sønderjyske Fodbold - X2
+  [31m2025-10-04[0m - different_teams
+    Uptest: Atalanta vs Como - X2
+    Backtest: Swansea City vs Leicester City - X2
+  [31m2025-10-18[0m - different_teams
+    Uptest: Ajax vs AZ - X2
+    Backtest: FSV Mainz 05 vs Bayer 04 Leverkusen - X2
+  [31m2025-10-25[0m - different_teams
+    Uptest: Girona vs Real Oviedo - 1X
+    Backtest: Valencia vs Villarreal - X2
+  [31m2025-11-01[0m - different_teams
+    Uptest: Casa Pia vs Estrela Amadora - X2
+    Backtest: St. Pauli vs Borussia Mönchengladbach - X2
+  [31m2025-11-02[0m - different_teams
+    Uptest: Konyaspor vs Samsunspor - X2
+    Backtest: Arouca vs Moreirense - X2
+  [31m2025-11-06[0m - different_teams
+    Uptest: Viktoria Plzeň vs Fenerbahçe - 1X
+    Backtest: Nice vs SC Freiburg - X2
+  [31m2025-11-08[0m - different_teams
+    Uptest: Monaco vs Lens - X2
+    Backtest: Girona vs Deportivo Alavés - X2
+  [31m2025-11-22[0m - different_teams
+    Uptest: Portsmouth vs Millwall - X2
+    Backtest: Kayserispor vs Gaziantep F.K. - X2
+  [31m2025-11-25[0m - different_teams
+    Uptest: Bodø / Glimt vs Juventus - 1X
+    Backtest: Swansea City vs Derby County - X2
+
+[1m[36m═══════════════════════════════════════════════════════[0m
+
+[31m[1m❌ POOR ALIGNMENT (77.9%), fix required[0m
+
