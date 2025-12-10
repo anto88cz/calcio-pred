@@ -13,7 +13,7 @@ const router = Router();
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { fixtureId, homeTeamId, awayTeamId, leagueId, seasonId, homeTeamName, awayTeamName, fixtureDate } = req.body;
+    const { fixtureId, homeTeamId, awayTeamId, leagueId, seasonId, homeTeamName, awayTeamName, fixtureDate, skipCache } = req.body;
     
     if (!fixtureId || !homeTeamId || !awayTeamId) {
       return res.status(400).json({
@@ -21,16 +21,20 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
     
-    // 🔄 CACHE: Check Redis first for complete betting recommendations
+    // 🔄 CACHE: Check Redis first for complete betting recommendations (skip if skipCache=true)
     const cacheKey = `betting_recs:${fixtureId}:${homeTeamId}:${awayTeamId}`;
-    try {
-      const cached = await redis?.get(cacheKey);
-      if (cached) {
-        logger.info(`✅ Cache HIT for betting recommendations fixture ${fixtureId}`);
-        return res.json(JSON.parse(cached));
+    if (!skipCache) {
+      try {
+        const cached = await redis?.get(cacheKey);
+        if (cached) {
+          logger.info(`✅ Cache HIT for betting recommendations fixture ${fixtureId}`);
+          return res.json(JSON.parse(cached));
+        }
+      } catch (cacheErr) {
+        logger.warn('Redis cache read error (proceeding with fresh data):', cacheErr);
       }
-    } catch (cacheErr) {
-      logger.warn('Redis cache read error (proceeding with fresh data):', cacheErr);
+    } else {
+      logger.info(`🔄 FRESH MODE: Skipping cache for fixture ${fixtureId}`);
     }
     
     logger.info(`🎲 Generating betting recommendations for fixture ${fixtureId}`);

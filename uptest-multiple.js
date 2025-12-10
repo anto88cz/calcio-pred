@@ -7,6 +7,20 @@ const TARGET_ODDS = 1.4; // ALLINEATO A BACKTEST
 const MIN_ODDS = 1.4;
 const MAX_ODDS = 4.0;
 
+// 🔧 PARAMETRO: Esclude partite già giocate (status FT)
+// true = considera solo partite non ancora giocate (NS, SCHEDULED)
+// false = considera tutte le partite (anche quelle finite)
+const EXCLUDE_FINISHED_MATCHES = true;
+
+// 🔧 PARAMETRO: Esclude partite già iniziate (orario passato)
+// true = considera solo partite che devono ancora iniziare
+// false = considera tutte le partite indipendentemente dall'orario
+const EXCLUDE_STARTED_MATCHES = true;
+
+// 🔧 PARAMETRO: Forza quote fresche (bypass cache)
+// Impostato dinamicamente via --fresh flag
+let FRESH_ODDS = false;
+
 // Colori per console
 const colors = {
   reset: '\x1b[0m',
@@ -42,11 +56,34 @@ async function generatePredictionsForDate(date) {
     
     console.log(`${colors.green}  ✓ ${fixturesData.fixtures.length} partite trovate${colors.reset}\n`);
     
-    // Usa tutte le partite (permette di testare anche su date passate simulando il futuro)
-    const fixtures = fixturesData.fixtures;
+    // Filtra partite in base al parametro EXCLUDE_FINISHED_MATCHES
+    let fixtures = fixturesData.fixtures;
+    
+    if (EXCLUDE_FINISHED_MATCHES) {
+      const beforeFilter = fixtures.length;
+      fixtures = fixtures.filter(f => f.status !== 'FT');
+      const excluded = beforeFilter - fixtures.length;
+      if (excluded > 0) {
+        console.log(`${colors.yellow}  ⏭️  ${excluded} partite già giocate escluse${colors.reset}`);
+      }
+    }
+    
+    // Filtra partite in base al parametro EXCLUDE_STARTED_MATCHES
+    if (EXCLUDE_STARTED_MATCHES) {
+      const now = moment();
+      const beforeFilter = fixtures.length;
+      fixtures = fixtures.filter(f => {
+        const matchTime = moment(f.date);
+        return matchTime.isAfter(now);
+      });
+      const excluded = beforeFilter - fixtures.length;
+      if (excluded > 0) {
+        console.log(`${colors.yellow}  ⏭️  ${excluded} partite già iniziate escluse (ora: ${now.format('HH:mm')})${colors.reset}`);
+      }
+    }
     
     if (fixtures.length === 0) {
-      console.log(`${colors.yellow}  ⚠️  Nessuna partita per ${date}${colors.reset}`);
+      console.log(`${colors.yellow}  ⚠️  Nessuna partita disponibile per ${date}${colors.reset}`);
       return null;
     }
     
@@ -82,6 +119,7 @@ async function generatePredictionsForDate(date) {
               seasonId,
               homeTeamName: fixture.homeTeam.name,
               awayTeamName: fixture.awayTeam.name,
+              skipCache: FRESH_ODDS, // 🔄 Bypass cache se --fresh
             })
           });
           
@@ -295,10 +333,18 @@ async function main() {
   // Parse argomenti
   const args = process.argv.slice(2);
   
+  // Check for --fresh flag
+  const freshIndex = args.indexOf('--fresh');
+  if (freshIndex !== -1) {
+    FRESH_ODDS = true;
+    args.splice(freshIndex, 1); // Rimuovi il flag dagli args
+  }
+  
   if (args.length === 0) {
     console.log(`${colors.red}❌ Errore: devi specificare una data${colors.reset}`);
-    console.log(`${colors.cyan}Uso: node uptest-multiple.js <data>${colors.reset}`);
+    console.log(`${colors.cyan}Uso: node uptest-multiple.js <data> [--fresh]${colors.reset}`);
     console.log(`${colors.cyan}Esempio: node uptest-multiple.js 22/11/2025${colors.reset}`);
+    console.log(`${colors.cyan}         node uptest-multiple.js 22/11/2025 --fresh  (quote aggiornate)${colors.reset}`);
     console.log(`${colors.cyan}Formati accettati: DD/MM/YYYY, YYYY-MM-DD${colors.reset}`);
     process.exit(1);
   }
@@ -342,6 +388,9 @@ async function main() {
   console.log(`   Target Odds: ${TARGET_ODDS.toFixed(2)}`);
   console.log(`   Range Odds: ${MIN_ODDS.toFixed(2)} - ${MAX_ODDS.toFixed(2)}`);
   console.log(`   Stake: ${(STAKE_PERCENTAGE * 100).toFixed(0)}% del capitale`);
+  if (FRESH_ODDS) {
+    console.log(`   ${colors.yellow}🔄 FRESH MODE: Quote aggiornate (no cache)${colors.reset}`);
+  }
   
   const startTime = Date.now();
   
@@ -351,8 +400,53 @@ async function main() {
   // Visualizza schedina
   displayBettingSlip(multiple, targetDate);
   
+  // 📝 LOG RACCOMANDAZIONI SU DATABASE
+  if (multiple && multiple.events.length > 0) {
+    await logRecommendationsToDatabase(multiple, targetDate);
+  }
+  
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log(`${colors.cyan}⏱️  Tempo di elaborazione: ${elapsed}s${colors.reset}\n`);
+}
+
+// Logga le raccomandazioni sul database per tracking storico
+async function logRecommendationsToDatabase(multiple, targetDate) {
+  try {
+    const recommendations = multiple.events.map(event => ({
+      fixtureId: event.fixture.id,
+      fixtureApiId: event.fixture.id,
+      homeTeam: event.fixture.homeTeam.name,
+      awayTeam: event.fixture.awayTeam.name,
+      leagueName: event.fixture.league.name,
+      leagueId: event.fixture.league.id,
+      matchDate: event.fixture.date,
+      matchTime: formatMatchTime(event.fixture.date),
+      prediction: event.recommendation.prediction,
+      odds: event.recommendation.odds,
+      confidence: event.recommendation.confidence,
+      expectedValue: event.recommendation.expectedValue,
+      valueRating: event.recommendation.valueRating || 3,
+    }));
+
+    const response = await fetch(`${API_URL}/api/recommendation-logs/log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        date: targetDate,
+        recommendations,
+        totalOdds: multiple.totalOdds,
+        stakePercent: STAKE_PERCENTAGE,
+      }),
+    });
+
+    if (response.ok) {
+      console.log(`${colors.green}✅ Raccomandazioni salvate nel database per ${targetDate}${colors.reset}`);
+    } else {
+      console.log(`${colors.yellow}⚠️  Impossibile salvare raccomandazioni: ${response.status}${colors.reset}`);
+    }
+  } catch (error) {
+    console.log(`${colors.yellow}⚠️  Errore salvataggio raccomandazioni: ${error.message}${colors.reset}`);
+  }
 }
 
 main().catch(error => {

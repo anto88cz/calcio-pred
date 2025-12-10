@@ -14,6 +14,7 @@ import bettingRecommendationsRouter from './routes/betting-recommendations.route
 import jobsRouter from './routes/jobs.routes';
 import teamsRouter from './routes/teams.routes';
 import backtestRouter from './routes/backtest';
+import recommendationLogsRouter from './routes/recommendation-logs.routes';
 import { startScheduler } from './jobs/scheduler';
 
 // Inizializza Express
@@ -77,6 +78,7 @@ app.use('/api/ml-prediction', mlPredictionRouter);
 app.use('/api/betting-recommendations', bettingRecommendationsRouter);
 app.use('/api/jobs', jobsRouter);
 app.use('/api/teams', teamsRouter);
+app.use('/api/recommendation-logs', recommendationLogsRouter);
 app.use('/api', backtestRouter);
 
 // 404 handler

@@ -480,3 +480,78 @@ enum JobStatus {
   FAILED
   PARTIAL // Alcuni items falliti ma job completato
 }
+
+// ============================================
+// RACCOMANDAZIONI LOGGGATE (Recommendation Logs)
+// ============================================
+// Salva ogni raccomandazione generata per tracking storico e backtest realistico
+model RecommendationLog {
+  id Int @id @default(autoincrement())
+
+  // Identificativo unico per la schedina del giorno
+  dailyBetId String // formato: YYYY-MM-DD (una schedina per giorno)
+
+  // Info partita
+  fixtureId     Int
+  fixtureApiId  Int // ID da API per riferimento esterno
+  homeTeam      String
+  awayTeam      String
+  leagueName    String
+  leagueId      Int
+  matchDate     DateTime
+  matchTime     String // HH:MM
+
+  // Raccomandazione
+  prediction    String // "1", "X", "2", "1X", "X2", "12", "Over 2.5", etc.
+  odds          Float
+  confidence    Float // 0-1
+  expectedValue Float // EV al momento della generazione
+  valueRating   Int // 1-5
+
+  // Risultato (compilato dopo la partita)
+  actualResult String? // "1-2", "3-0", etc.
+  won          Boolean? // true/false/null (se partita non ancora giocata)
+
+  // Stake/Capitale (per tracciare la schedina)
+  stakePercentage Float @default(0.30) // % del capitale
+  combinedOdds    Float? // Quota totale della schedina (se multipla)
+
+  // Metadata
+  generatedAt DateTime @default(now()) // Quando è stata generata
+  verifiedAt  DateTime? // Quando è stato verificato il risultato
+
+  @@unique([dailyBetId, fixtureId]) // Una sola raccomandazione per partita per giorno
+  @@index([dailyBetId])
+  @@index([matchDate])
+  @@index([won])
+  @@index([generatedAt])
+  @@map("recommendation_logs")
+}
+
+// ============================================
+// SCHEDINE GIORNALIERE (Daily Bets)
+// ============================================
+// Aggrega le raccomandazioni in schedine giornaliere
+model DailyBet {
+  id String @id // formato: YYYY-MM-DD
+
+  // Info schedina
+  date           DateTime @unique
+  totalOdds      Float
+  eventsCount    Int
+  stakePercent   Float    @default(0.30)
+
+  // Risultato (compilato dopo)
+  won            Boolean?
+  profit         Float? // Profitto/perdita in % del capitale
+  capitalBefore  Float? // Capitale prima della scommessa
+  capitalAfter   Float? // Capitale dopo la scommessa
+
+  // Tracking
+  generatedAt    DateTime @default(now())
+  settledAt      DateTime? // Quando il risultato è stato verificato
+
+  @@index([date])
+  @@index([won])
+  @@map("daily_bets")
+}

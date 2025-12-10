@@ -26,6 +26,7 @@ const ALLOWED_LEAGUES = [
   387,  // Serie B (Italy) 🆕
   564,  // La Liga (Spain)
   566,  // La Liga 2 (Spain)
+  570,  // Copa del Rey (Spain) 🆕
   82,   // Bundesliga (Germany)
   83,   // 2. Bundesliga (Germany)
   301,  // Ligue 1 (France)
@@ -38,8 +39,8 @@ const ALLOWED_LEAGUES = [
   463,  // 1. Lig (Turkey)
   307,  // Pro League (Belgium)
   266,  // Superliga (Denmark)
-  2,    // Champions League
-  5,    // Europa League
+  // 2,    // Champions League ❌ RIMOSSA
+  // 5,    // Europa League ❌ RIMOSSA
   848,  // Conference League
   600,  // Nations League
   // Serie B Italy, Championship England, etc. - più coverage
