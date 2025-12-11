@@ -1,4 +1,6 @@
 const moment = require('moment-timezone');
+const fs = require('fs');
+const path = require('path');
 
 // Configurazione
 const API_URL = process.env.API_URL || 'http://localhost:3001';
@@ -8,7 +10,10 @@ const TARGET_ODDS = 1.4; // Target quota moderata
 const MIN_ODDS = 1.4; // Minimo accettabile
 const MAX_ODDS = 4.0; // Massimo accettabile
 const START_DATE = '2025-09-01'; // Data inizio backtest
-const END_DATE = '2025-12-06'; // Data fine backtest
+const END_DATE = '2025-12-10'; // Data fine backtest
+const API_DELAY_MS = 2000; // Delay tra chiamate API (2 secondi)
+const RETRY_DELAY_MS = 60000; // Delay dopo rate limit 429 (60 secondi)
+const MAX_RETRIES = 3; // Numero massimo tentativi dopo 429
 
 // Colori per console
 const colors = {
@@ -21,6 +26,34 @@ const colors = {
   cyan: '\x1b[36m',
 };
 
+// Funzione sleep per delay
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Funzione fetch con retry su 429
+async function fetchWithRetry(url, options = {}, retries = MAX_RETRIES) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(url, options);
+      
+      if (response.status === 429) {
+        console.log(`  ${colors.yellow}⏳ Rate limit hit (429), attendo ${RETRY_DELAY_MS/1000}s prima di riprovare... (tentativo ${i+1}/${retries})${colors.reset}`);
+        await sleep(RETRY_DELAY_MS);
+        continue;
+      }
+      
+      return response;
+    } catch (err) {
+      if (i === retries - 1) throw err;
+      console.log(`  ${colors.yellow}⚠️  Errore rete, riprovo tra ${API_DELAY_MS/1000}s...${colors.reset}`);
+      await sleep(API_DELAY_MS);
+    }
+  }
+  
+  throw new Error('Max retries reached');
+}
+
 // 🔥 RIMOSSO calculateScore - usa solo filtri del backend API
 // Il backend già applica filtri ottimali su EV, confidence e valueRating
 
@@ -29,8 +62,9 @@ async function generateMultipleForDate(date) {
   console.log(`\n${colors.cyan}📅 Elaborazione ${date}...${colors.reset}`);
   
   try {
-    // 1. Carica partite del giorno
-    const fixturesResponse = await fetch(`${API_URL}/api/fixtures/sm/range?startDate=${date}&endDate=${date}`);
+    // 1. Carica partite del giorno CON RETRY
+    await sleep(API_DELAY_MS); // Delay prima di ogni chiamata
+    const fixturesResponse = await fetchWithRetry(`${API_URL}/api/fixtures/sm/range?startDate=${date}&endDate=${date}`);
     const fixturesData = await fixturesResponse.json();
     
     if (!fixturesData.fixtures || fixturesData.fixtures.length === 0) {
@@ -68,7 +102,8 @@ async function generateMultipleForDate(date) {
         }
         
         try {
-          const recsResponse = await fetch(`${API_URL}/api/betting-recommendations`, {
+          await sleep(API_DELAY_MS); // Delay tra raccomandazioni
+          const recsResponse = await fetchWithRetry(`${API_URL}/api/betting-recommendations`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -109,8 +144,9 @@ async function generateMultipleForDate(date) {
       const chunkResults = await Promise.all(fixturePromises);
       allEvents.push(...chunkResults.filter(event => event !== null));
       
+      // Delay più lungo tra chunks
       if (i + chunkSize < finishedFixtures.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await sleep(API_DELAY_MS * 2);
       }
     }
     
@@ -379,8 +415,8 @@ async function runBacktest() {
       });
     }
     
-    // Rate limiting
-    await new Promise(resolve => setTimeout(resolve, 200));
+    // Delay tra giorni per evitare rate limit
+    await sleep(API_DELAY_MS);
   }
   
   // Genera report finale
@@ -453,6 +489,64 @@ async function runBacktest() {
     console.log(`${colors.yellow}⚠️  Il capitale è leggermente diminuito (${((currentCapital/INITIAL_CAPITAL - 1) * 100).toFixed(1)}%)${colors.reset}`);
   } else {
     console.log(`${colors.red}❌ Attenzione! Il capitale è diminuito significativamente (${((currentCapital/INITIAL_CAPITAL - 1) * 100).toFixed(1)}%)${colors.reset}`);
+  }
+  
+  // ========================================
+  // 💾 SALVATAGGIO RISULTATI
+  // ========================================
+  
+  const backtestData = {
+    metadata: {
+      startDate: START_DATE,
+      endDate: END_DATE,
+      initialCapital: INITIAL_CAPITAL,
+      stakePercentage: STAKE_PERCENTAGE,
+      targetOdds: TARGET_ODDS,
+      minOdds: MIN_ODDS,
+      maxOdds: MAX_ODDS,
+      timestamp: new Date().toISOString(),
+    },
+    summary: {
+      totalMultiples,
+      totalWon: wonMultiples,
+      totalLost: lostMultiples,
+      winRate,
+      initialCapital: INITIAL_CAPITAL,
+      finalCapital: currentCapital,
+      profitLoss: currentCapital - INITIAL_CAPITAL,
+      roi,
+      totalStaked,
+      totalWonAmount: totalWon,
+      avgOdds,
+      avgEventsPerMultiple,
+      capitalGrowth,
+    },
+    detailedResults: results.map(r => ({
+      date: r.date,
+      events: r.events.map(e => ({
+        match: e.match,
+        prediction: e.prediction,
+        odds: e.odds,
+        result: e.result,
+        won: e.won,
+      })),
+      totalOdds: r.totalOdds,
+      stake: r.stake,
+      profit: r.profit,
+      capitalAfter: r.capitalAfter,
+      won: r.won,
+    })),
+  };
+  
+  // Nome file con timestamp e periodo
+  const filename = `backtest-result-${START_DATE}_to_${END_DATE}-${new Date().toISOString().split('T')[0]}.json`;
+  const filepath = path.join(__dirname, filename);
+  
+  try {
+    fs.writeFileSync(filepath, JSON.stringify(backtestData, null, 2), 'utf-8');
+    console.log(`\n${colors.green}💾 Risultati salvati in: ${filename}${colors.reset}`);
+  } catch (err) {
+    console.error(`${colors.red}❌ Errore nel salvataggio: ${err.message}${colors.reset}`);
   }
 }
 

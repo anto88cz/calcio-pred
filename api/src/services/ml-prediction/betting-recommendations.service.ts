@@ -658,10 +658,11 @@ export class BettingRecommendationsService {
     const odds1X = this.calculateDoubleChanceOdds(odds.home, odds.draw);
     const ev1X = this.calculateEV(prob1X, odds1X);
     
-    // 🔴 Q1 FIX: Soglia più alta in inverno (più imprevedibile)
-    const threshold1X = (month >= 1 && month <= 3) ? 0.70 : 0.65;
+    // 🎯 OPTIMAL THRESHOLD: Filtro P(2) < 33% (92.9% win rate atteso)
+    const threshold1X = (month >= 1 && month <= 3) ? 0.70 : 0.67;
+    const maxProb2 = 0.33; // Massima probabilità accettabile per vittoria trasferta
     
-    if (prob1X > threshold1X) {
+    if (prob1X > threshold1X && mlData.predictions.awayWin < maxProb2) {
       recs.push({
         id: 'double_1x',
         type: 'double_chance',
@@ -674,7 +675,7 @@ export class BettingRecommendationsService {
         impliedProbability: this.oddsToProb(odds1X),
         modelProbability: prob1X * 100,
         expectedValue: ev1X,
-        reason: `Alta probabilità che ${_homeTeam} non perda (${(prob1X * 100).toFixed(0)}%)`,
+        reason: `Alta probabilità che ${_homeTeam} non perda (${(prob1X * 100).toFixed(0)}%) e basso rischio trasferta (P(2)=${(mlData.predictions.awayWin * 100).toFixed(0)}%)`,
       });
     }
     
@@ -683,11 +684,12 @@ export class BettingRecommendationsService {
     const odds12 = this.calculateDoubleChanceOdds(odds.home, odds.away);
     const ev12 = this.calculateEV(prob12, odds12);
     
-    // 🔴 Q1 FIX: Soglie più stringenti per 12 (loss analysis: 76% worst losses erano DC)
-    const drawThreshold = (month >= 1 && month <= 5) ? 0.35 : 0.30; // Q1-Q2: più conservativo
-    const minOdds12 = 1.45; // Evita quote troppo basse (loss analysis: 12 @ 1.40-1.43 perde su pareggi)
+    // 🎯 OPTIMAL THRESHOLD: Filtro P(X) < 20% per evitare perdite su pareggi
+    // Loss analysis Q1 2025: 53% perdite 12→DRAW con P(X)=25-27%
+    const drawThreshold = 0.20; // Soglia fissa: NO pareggi se P(X) > 20%
+    const minOdds12 = 1.45; // Evita quote troppo basse
     
-    if (prob12 > 0.60 && mlData.predictions.draw < drawThreshold && odds12 >= minOdds12) {
+    if (prob12 > 0.67 && mlData.predictions.draw < drawThreshold && odds12 >= minOdds12) {
       recs.push({
         id: 'double_12',
         type: 'double_chance',
@@ -700,7 +702,7 @@ export class BettingRecommendationsService {
         impliedProbability: this.oddsToProb(odds12),
         modelProbability: prob12 * 100,
         expectedValue: ev12,
-        reason: `Bassa probabilità di pareggio (${(mlData.predictions.draw * 100).toFixed(0)}%)`,
+        reason: `Bassa probabilità di pareggio (P(X)=${(mlData.predictions.draw * 100).toFixed(0)}% < 20%)`,
       });
     }
     
@@ -709,10 +711,12 @@ export class BettingRecommendationsService {
     const oddsX2 = this.calculateDoubleChanceOdds(odds.draw, odds.away);
     const evX2 = this.calculateEV(probX2, oddsX2);
     
-    // 🔴 Q1 FIX: Soglia MOLTO più alta per X2 (loss analysis: 38/50 worst losses)
-    const thresholdX2 = (month >= 1 && month <= 3) ? 0.75 : 0.65;
+    // 🎯 OPTIMAL THRESHOLD: Filtro P(1) < 32% (92.9% win rate atteso)
+    // Loss analysis: X2 con P(1)=33-34% perde nel 25.5% dei casi
+    const thresholdX2 = (month >= 1 && month <= 3) ? 0.70 : 0.67;
+    const maxProb1 = 0.32; // Massima probabilità accettabile per vittoria casa
     
-    if (probX2 > thresholdX2) {
+    if (probX2 > thresholdX2 && mlData.predictions.homeWin < maxProb1) {
       recs.push({
         id: 'double_x2',
         type: 'double_chance',
@@ -725,7 +729,7 @@ export class BettingRecommendationsService {
         impliedProbability: this.oddsToProb(oddsX2),
         modelProbability: probX2 * 100,
         expectedValue: evX2,
-        reason: `Alta probabilità che ${_awayTeam} non perda (${(probX2 * 100).toFixed(0)}%)`,
+        reason: `Alta probabilità che ${_awayTeam} non perda (${(probX2 * 100).toFixed(0)}%) e basso rischio casa (P(1)=${(mlData.predictions.homeWin * 100).toFixed(0)}%)`,
       });
     }
     
