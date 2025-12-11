@@ -41,7 +41,7 @@ const ALLOWED_LEAGUES = [
   266,  // Superliga (Denmark)
   // 2,    // Champions League ❌ RIMOSSA
   // 5,    // Europa League ❌ RIMOSSA
-  848,  // Conference League
+  // 848,  // Conference League ❌ RIMOSSA
   600,  // Nations League
   // Serie B Italy, Championship England, etc. - più coverage
 ];
