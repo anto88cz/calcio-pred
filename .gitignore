@@ -47,16 +47,15 @@ dump.rdb
 *.tsbuildinfo
 
 # Development & Analysis Scripts (non-production)
+# But KEEP essential testing tools (backtest-*.js, uptest-*.js)
 analyze-*.js
 test-*.js
-backtest-*.js
 check-*.js
 diagnose-*.js
 compare-*.js
 verify-*.js
 demo-*.js
 quick-*.js
-*-test.js
 *-analysis*.js
 enhanced-api-server.js
 ml-predictor.js
@@ -64,9 +63,28 @@ kelly-*.js
 value-betting-*.js
 roi-*.js
 loss-analyzer.js
-update-results.js
-uptest-*.js
 recalculate-*.js
 restart-backend.sh
 system-explanation.js
 supported-leagues-config.js
+update-results.js
+validate-*.js
+detective-*.js
+detailed-*.js
+
+# Test output files (but not test scripts)
+test-output.txt
+test-response.json
+test-prediction.json
+backtest-full-output.txt
+backtest-month-output.txt
+
+# Script variations that are debug-only
+backtest-3-days-test.js
+backtest-fixes.js
+backtest-optimize-params*.js
+backtest-today-*.js
+backtest-recommendations-*.js
+backtest-month.mjs
+backtest-q*.txt
+backtest-set-*.txt
