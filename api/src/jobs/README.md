@@ -5,14 +5,14 @@ Sistema di job schedulati per automazione predizioni calcio.
 ## 📅 Jobs
 
 ### 1. **Daily Fixtures** (06:00)
-Carica fixtures giornaliere da API-FOOTBALL.
+Carica fixtures giornaliere da Sportsmonks.
 
 **Timing:** Ogni giorno alle 06:00 (timezone configurabile)  
 **Cron:** `0 6 * * *`  
 **Lock TTL:** 10 minuti
 
 **Cosa fa:**
-1. Fetch fixtures da API-FOOTBALL per le leghe configurate
+1. Fetch fixtures da Sportsmonks per le leghe configurate
 2. Filtra solo partite di oggi
 3. Salva fixtures nel DB (upsert)
 4. Assicura che i team esistano
@@ -38,7 +38,7 @@ Aggiorna lineup e ricalcola predizioni 2 ore prima del match.
 
 **Cosa fa:**
 1. Trova fixtures tra 2 e 3 ore
-2. Fetch lineup da API-FOOTBALL
+2. Fetch lineup da Sportsmonks
 3. Se lineup completa (2 squadre), ricalcola predizione
 4. Log job esecuzione
 
@@ -276,7 +276,7 @@ for (const fixture of fixtures) {
 
 ### Daily Fixtures Job
 - **Tempo stimato:** 5-15 min (dipende da N fixtures)
-- **Rate limiting:** 10 req/min API-FOOTBALL
+- **Rate limiting:** 10 req/min Sportsmonks
 - **Lock TTL:** 10 min (estendibile)
 
 ### Lineup Refresh Job

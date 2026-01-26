@@ -1,6 +1,6 @@
 # 🧠 Prediction Engine
 
-Motore di calcolo delle percentuali di pronostico basato su **dati storici reali** (API-FOOTBALL).
+Motore di calcolo delle percentuali di pronostico basato su **dati storici reali** (Sportsmonks).
 
 ## 📐 Architettura
 
@@ -11,7 +11,7 @@ prediction/
 ├── poisson.ts       # Distribuzione Poisson + Dixon-Coles
 ├── confidence.ts    # Sistema confidence a 5 fattori
 ├── strength.ts      # Classificazione forza (GIOCALA/STRONG/MEDIUM/NEUTRAL/ND)
-├── blender.ts       # Blend 60% Empirico + 40% Poisson
+├── blender.ts       # Blend 55% Empirico + 45% Poisson
 └── index.ts         # Exports
 ```
 
@@ -86,7 +86,7 @@ console.log('Strength:', prediction.market1X2.strength);
   dataQuality: 'EXCELLENT',
   hasInjuries: true,
   hasLineup: true,
-  provider: 'API-FOOTBALL'
+  provider: 'Sportsmonks'
 }
 ```
 
@@ -101,7 +101,7 @@ Coordina tutti i moduli:
 3. Valuta qualità dati
 4. Calcola empirico
 5. Calcola Poisson
-6. Blend 60/40
+6. Blend 55/45
 7. Calcola confidence
 8. Classifica forza
 9. Costruisce response

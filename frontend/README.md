@@ -69,8 +69,8 @@ Mostra al passaggio del mouse:
 - Qualità dati
 - Formazioni disponibili
 - Infortuni presenti
-- Sorgente: API-FOOTBALL
-- Metodo: 60% Empirico + 40% Poisson
+- Sorgente: Sportsmonks
+- Metodo: 55% Empirico + 45% Poisson
 
 ---
 

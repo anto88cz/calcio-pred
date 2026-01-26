@@ -81,7 +81,7 @@ calcio-pred/
 │   │   ├── utils/               # Logger, RedisLock
 │   │   ├── types/               # TypeScript types
 │   │   ├── services/
-│   │   │   ├── api-football/   # Client API-FOOTBALL (7 modules)
+│   │   │   ├── sportsmonks/    # Client Sportsmonks (7 modules)
 │   │   │   └── prediction/     # Motore predizioni (6 modules)
 │   │   ├── routes/              # Express routes
 │   │   ├── jobs/                # Cron scheduler (3 jobs)
@@ -602,8 +602,8 @@ Vedi `.env.example` per la lista completa. Principali:
 - `HISTORY_GAMES=20`: Numero di partite storiche da analizzare
 - `HOME_ADV_GOALS=0.20`: Vantaggio casa (gol)
 - `CONFIDENCE_MIN=0.60`: Soglia minima confidence per badge GIOCALA
-- `BLEND_EMPIRIC=0.6`: Peso analisi empirica
-- `BLEND_POISSON=0.4`: Peso modello Poisson
+- `BLEND_EMPIRIC=0.55`: Peso analisi empirica
+- `BLEND_POISSON=0.45`: Peso modello Poisson
 
 ## 📅 Job Automatici
 
