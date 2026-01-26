@@ -45,3 +45,28 @@ dump.rdb
 
 # Typescript
 *.tsbuildinfo
+
+# Development & Analysis Scripts (non-production)
+analyze-*.js
+test-*.js
+backtest-*.js
+check-*.js
+diagnose-*.js
+compare-*.js
+verify-*.js
+demo-*.js
+quick-*.js
+*-test.js
+*-analysis*.js
+enhanced-api-server.js
+ml-predictor.js
+kelly-*.js
+value-betting-*.js
+roi-*.js
+loss-analyzer.js
+update-results.js
+uptest-*.js
+recalculate-*.js
+restart-backend.sh
+system-explanation.js
+supported-leagues-config.js
