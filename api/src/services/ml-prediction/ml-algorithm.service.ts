@@ -110,8 +110,10 @@ export class MLPredictionAlgorithm {
     // Recupera tutti i dati necessari
     const [h2hMatches, homeStats, awayStats, homeXGMatches, awayXGMatches, homeForm, awayForm] = await Promise.all([
       mlDataFetcher.getHeadToHeadData(input.homeTeamId, input.awayTeamId, maxDate),
-      mlDataFetcher.getTeamSeasonStats(input.homeTeamId, input.seasonId, input.leagueId),
-      mlDataFetcher.getTeamSeasonStats(input.awayTeamId, input.seasonId, input.leagueId),
+      // maxDate: senza, le statistiche stagionali sono i TOTALI DI FINE
+      // STAGIONE, cioe' il risultato del campionato dentro la predizione
+      mlDataFetcher.getTeamSeasonStats(input.homeTeamId, input.seasonId, input.leagueId, maxDate),
+      mlDataFetcher.getTeamSeasonStats(input.awayTeamId, input.seasonId, input.leagueId, maxDate),
       mlDataFetcher.getTeamRecentXGMatches(input.homeTeamId, input.seasonId, 10, maxDate),
       mlDataFetcher.getTeamRecentXGMatches(input.awayTeamId, input.seasonId, 10, maxDate),
       mlDataFetcher.getTeamRecentForm(input.homeTeamId, input.seasonId, 7, maxDate), // 🆕 Recent form

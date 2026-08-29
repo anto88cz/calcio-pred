@@ -1,4 +1,6 @@
 import { getSportsmonksClient } from '../sportsmonks/client';
+import { getTeamHistory, type MatchHistoryData } from '../sportsmonks/statistics';
+import { redis } from '../../lib/redis';
 
 export interface HeadToHeadMatch {
   id: number;
@@ -58,6 +60,54 @@ export interface FormMatch {
 
 export class MLDataFetcherService {
   private client = getSportsmonksClient();
+
+  /**
+   * Storico partite della squadra, gia' tagliato alla data richiesta.
+   *
+   * Unico punto di accesso ai dati storici del predittore C. Passa dallo
+   * stesso statisticsService del motore A, quindi: endpoint per squadra
+   * (una chiamata per 12 mesi), taglio temporale reale e cache Redis
+   * condivisa. I metodi che seguono ci si appoggiano invece di interrogare
+   * /teams/{id}?include=latest, che restituisce le ultime partite rispetto a
+   * OGGI: in backtest quell'include riporta partite successive a quella da
+   * predire e il filtro per data le scarta quasi tutte, lasciando la forma vuota.
+   */
+  private async getHistory(
+    teamId: number,
+    seasonId: number,
+    maxDate?: Date
+  ): Promise<MatchHistoryData[]> {
+    const history = await getTeamHistory(teamId, seasonId, 0, undefined, maxDate);
+
+    // Difesa in profondita': mai partite oltre il cutoff, qualunque cosa arrivi
+    const withinCutoff = maxDate
+      ? history.filter(m => new Date(m.date) < maxDate)
+      : history;
+
+    return withinCutoff.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+  }
+
+  /** Prospettiva della squadra su una partita dello storico. */
+  private perspective(match: MatchHistoryData, teamId: number) {
+    const isHome = match.homeTeamId === teamId;
+    const goalsScored = isHome ? match.goalsHome : match.goalsAway;
+    const goalsConceded = isHome ? match.goalsAway : match.goalsHome;
+
+    return {
+      isHome,
+      goalsScored,
+      goalsConceded,
+      opponentId: isHome ? match.awayTeamId : match.homeTeamId,
+      opponentName: isHome ? match.awayTeamName : match.homeTeamName,
+      result: (goalsScored > goalsConceded
+        ? 'win'
+        : goalsScored < goalsConceded
+        ? 'loss'
+        : 'draw') as 'win' | 'draw' | 'loss',
+    };
+  }
 
   /**
    * Recupera lo storico dei testa a testa tra due squadre
@@ -133,7 +183,73 @@ export class MLDataFetcherService {
   /**
    * Recupera le statistiche di una squadra per una stagione specifica
    */
-  async getTeamSeasonStats(teamId: number, seasonId: number, leagueId?: number): Promise<TeamSeasonStats | null> {
+  async getTeamSeasonStats(
+    teamId: number,
+    seasonId: number,
+    leagueId?: number,
+    maxDate?: Date
+  ): Promise<TeamSeasonStats | null> {
+    // Con un cutoff le statistiche stagionali si ricostruiscono dalle partite
+    // GIOCATE FINO A QUEL MOMENTO.
+    //
+    // L'endpoint /statistics/seasons/teams/{id} restituisce gli aggregati
+    // DELL'INTERA stagione: su una stagione conclusa sono i totali finali.
+    // Usarli per predire una partita di ottobre significa conoscere come e'
+    // finito il campionato — il look-ahead piu' grave possibile, perche' entra
+    // direttamente nella forza attribuita alle squadre.
+    if (maxDate) {
+      const history = (await this.getHistory(teamId, seasonId, maxDate))
+        .filter(m => !seasonId || m.seasonId === seasonId);
+
+      if (history.length === 0) {
+        console.warn(`Nessuna partita prima del cutoff per team ${teamId}, stagione ${seasonId}`);
+        return null;
+      }
+
+      let goalsScored = 0, goalsConceded = 0, wins = 0, draws = 0, losses = 0;
+      let cleanSheets = 0, failedToScore = 0;
+
+      for (const match of history) {
+        const p = this.perspective(match, teamId);
+        goalsScored += p.goalsScored;
+        goalsConceded += p.goalsConceded;
+        if (p.result === 'win') wins++;
+        else if (p.result === 'draw') draws++;
+        else losses++;
+        if (p.goalsConceded === 0) cleanSheets++;
+        if (p.goalsScored === 0) failedToScore++;
+      }
+
+      const matchesPlayed = history.length;
+
+      console.log(`📊 Stats team ${teamId} da ${matchesPlayed} partite prima del ${maxDate.toISOString().slice(0, 10)}`);
+
+      return {
+        teamId,
+        seasonId,
+        goalsScored,
+        goalsConceded,
+        wins,
+        draws,
+        losses,
+        matchesPlayed,
+        avgGoalsScored: goalsScored / matchesPlayed,
+        avgGoalsConceded: goalsConceded / matchesPlayed,
+        winRate: wins / matchesPlayed,
+        cleanSheets,
+        failedToScore,
+        // Non ricavabili dallo storico partite. Non sono usati dall'algoritmo
+        // (analyzeSeasonStats legge solo medie gol e winRate), restano a 0
+        // invece di essere inventati.
+        shotsPerGame: 0,
+        shotsOnTargetPerGame: 0,
+        corners: 0,
+        fouls: 0,
+        yellowCards: 0,
+        redCards: 0,
+      };
+    }
+
     try {
       console.log(`📊 Fetching season stats for team ${teamId}, season ${seasonId}, league ${leagueId}`);
       
@@ -335,76 +451,116 @@ export class MLDataFetcherService {
    * Recupera le ultime N partite di una squadra con dati xG
    */
   async getTeamRecentXGMatches(
-    teamId: number, 
-    seasonId: number, 
+    teamId: number,
+    seasonId: number,
     limit: number = 10,
-    maxDate?: Date // 🆕 Optional: max date for backtesting
+    maxDate?: Date
   ): Promise<FixtureXGData[]> {
     try {
-      console.log(`📊 Fetching recent xG matches for team ${teamId}, season ${seasonId}`);
-      if (maxDate) {
-        console.log(`   🕐 BACKTEST MODE: maxDate=${maxDate.toISOString().split('T')[0]}`);
-      }
-      
-      // Step 1: Ottieni le ultime partite del team (senza xG, che non è supportato in /teams)
-      const response = await this.client.get<any>(
-        `/teams/${teamId}`,
-        {
-          include: 'latest.participants;latest.scores;latest.state',
-        }
-      );
+      // Le ultime N partite giocate PRIMA del cutoff, con il loro xG.
+      //
+      // Prima: /teams/{id}?include=latest (= ultime rispetto a oggi) e poi UNA
+      // CHIAMATA PER PARTITA per l'xG, cioe' fino a 10 chiamate per squadra e
+      // ~20 per pronostico. Ora: una sola richiesta per squadra sull'endpoint
+      // per intervallo, con l'include xGFixture, e lo storico arriva dalla
+      // cache condivisa.
+      const history = (await this.getHistory(teamId, seasonId, maxDate)).slice(0, limit);
+      if (history.length === 0) return [];
 
-      console.log(`📦 API Response for team ${teamId} latest matches`);
+      const xgByFixture = await this.getXGForTeamRange(teamId, history);
 
-      if (!response.data || !response.data.latest || !Array.isArray(response.data.latest)) {
-        console.warn(`No recent matches found for team ${teamId}`);
-        return [];
-      }
-
-      const matches = response.data.latest;
-      
-      // Filtra solo partite finite (state_id === 5) + maxDate filter
-      const finishedMatches = matches
-        .filter((fixture: any) => {
-          // Solo partite finite
-          if (fixture.state_id !== 5) return false;
-          
-          // 🆕 BACKTEST FIX: Filtra per maxDate
-          if (maxDate) {
-            const fixtureDate = new Date(fixture.starting_at);
-            if (fixtureDate >= maxDate) return false;
-          }
-          
-          return true;
-        })
-        .sort((a: any, b: any) => new Date(b.starting_at).getTime() - new Date(a.starting_at).getTime())
-        .slice(0, limit);
-      
-      console.log(`📋 Found ${finishedMatches.length} finished matches for team ${teamId}`);
-
-      // Step 2: Per ogni partita, recupera i dati xG con una chiamata separata
       const xgMatches: FixtureXGData[] = [];
-      
-      for (const fixture of finishedMatches) {
-        try {
-          const xgData = await this.getFixtureXGData(fixture.id);
-          if (xgData) {
-            xgMatches.push(xgData);
-            console.log(`  ✅ Fixture ${fixture.id}: homeXG=${xgData.homeXG.toFixed(2)}, awayXG=${xgData.awayXG.toFixed(2)}`);
-          }
-        } catch (error) {
-          console.warn(`  ⚠️ Could not fetch xG for fixture ${fixture.id}`);
-        }
+      for (const match of history) {
+        const xg = xgByFixture.get(match.fixtureId);
+        if (!xg) continue; // senza xG reale non si inventa un valore
+
+        xgMatches.push({
+          fixtureId: match.fixtureId,
+          homeTeamId: match.homeTeamId,
+          awayTeamId: match.awayTeamId,
+          homeXG: xg.home,
+          awayXG: xg.away,
+          homeScore: match.goalsHome,
+          awayScore: match.goalsAway,
+          date: typeof match.date === 'string' ? match.date : match.date.toISOString(),
+        });
       }
 
-      console.log(`✅ Found ${xgMatches.length} matches with xG data for team ${teamId}`);
-
+      console.log(`✅ ${xgMatches.length}/${history.length} partite con xG per team ${teamId}`);
       return xgMatches;
     } catch (error) {
       console.error(`Error fetching recent xG matches for team ${teamId}:`, error);
       return [];
     }
   }
+
+  /**
+   * xG delle partite passate di una squadra, in UNA chiamata.
+   *
+   * Copre l'intervallo che va dalla piu' vecchia alla piu' recente delle
+   * partite richieste. Se l'include xGFixture non e' disponibile sul piano,
+   * torna una mappa vuota e il chiamante lavora senza xG invece di usare un
+   * surrogato.
+   */
+  private async getXGForTeamRange(
+    teamId: number,
+    matches: MatchHistoryData[]
+  ): Promise<Map<number, { home: number; away: number }>> {
+    const out = new Map<number, { home: number; away: number }>();
+    if (matches.length === 0) return out;
+
+    const dates = matches.map(m => new Date(m.date).getTime());
+    const from = new Date(Math.min(...dates));
+    const to = new Date(Math.max(...dates));
+    const fromStr = from.toISOString().slice(0, 10);
+    const toStr = to.toISOString().slice(0, 10);
+
+    const cacheKey = `mlxg:team-range:${teamId}:${fromStr}:${toStr}`;
+    try {
+      const cached = await redis?.get(cacheKey);
+      if (cached) {
+        for (const [id, v] of JSON.parse(cached)) out.set(Number(id), v);
+        return out;
+      }
+    } catch {
+      // cache assente: si prosegue
+    }
+
+    try {
+      const response = await this.client.get<any>(
+        `/fixtures/between/${fromStr}/${toStr}/${teamId}`,
+        { include: 'participants;xGFixture', per_page: 50 }
+      );
+
+      const fixtures: any[] = response?.data || [];
+      const XG_TYPE = 5304;
+
+      for (const f of fixtures) {
+        const rows = f.xgfixture;
+        if (!Array.isArray(rows)) continue;
+
+        const pick = (location: 'home' | 'away') =>
+          rows.find((r: any) => r.location === location && r.type_id === XG_TYPE)?.data?.value;
+
+        const home = pick('home');
+        const away = pick('away');
+        if (typeof home === 'number' && typeof away === 'number') {
+          out.set(f.id, { home, away });
+        }
+      }
+
+      try {
+        await redis?.setex(cacheKey, 60 * 60 * 24 * 30, JSON.stringify([...out]));
+      } catch {
+        // ignorabile
+      }
+    } catch (error: any) {
+      console.warn(`xG storico non disponibile per team ${teamId}: ${error.message}`);
+    }
+
+    return out;
+  }
+
 
   /**
    * 🆕 Recupera le ultime N partite di una squadra (vs qualsiasi avversario)
@@ -417,95 +573,41 @@ export class MLDataFetcherService {
     maxDate?: Date
   ): Promise<FormMatch[]> {
     try {
-      console.log(`📊 Fetching recent form (last ${limit} matches) for team ${teamId}, season ${seasonId}`);
-      if (maxDate) {
-        console.log(`   🕐 BACKTEST MODE: maxDate=${maxDate.toISOString().split('T')[0]}`);
-      }
+      // Stesso motivo di getTeamRecentXGMatches: l'include `latest` guarda a
+      // oggi, quindi in backtest la forma usciva vuota e l'algoritmo cadeva
+      // sui valori di default.
+      const history = await this.getHistory(teamId, seasonId, maxDate);
 
-      // Ottieni le ultime partite del team
-      const response = await this.client.get<any>(
-        `/teams/${teamId}`,
-        {
-          include: 'latest.participants;latest.scores;latest.state',
-        }
-      );
+      // Forma = stagione in corso. Se la stagione e' appena iniziata e le
+      // partite sono poche, si allarga agli ultimi 12 mesi invece di
+      // restituire quasi nulla.
+      const seasonMatches = seasonId
+        ? history.filter(m => m.seasonId === seasonId)
+        : history;
+      const source = seasonMatches.length >= 3 ? seasonMatches : history;
 
-      if (!response.data || !response.data.latest || !Array.isArray(response.data.latest)) {
-        console.warn(`No recent matches found for team ${teamId}`);
-        return [];
-      }
-
-      const matches = response.data.latest;
-
-      // Filtra solo partite finite della stagione corrente + maxDate filter
-      const finishedMatches = matches
-        .filter((fixture: any) => {
-          // Solo partite finite
-          if (fixture.state_id !== 5) return false;
-
-          // Solo stagione corretta
-          if (fixture.season_id !== seasonId) return false;
-
-          // 🆕 BACKTEST FIX: Filtra per maxDate
-          if (maxDate) {
-            const fixtureDate = new Date(fixture.starting_at);
-            if (fixtureDate >= maxDate) return false;
-          }
-
-          return true;
-        })
-        .sort((a: any, b: any) => new Date(b.starting_at).getTime() - new Date(a.starting_at).getTime())
-        .slice(0, limit);
-
-      console.log(`📋 Found ${finishedMatches.length} recent form matches for team ${teamId}`);
-
-      // Converte in FormMatch con dettagli
-      const formMatches: FormMatch[] = finishedMatches.map((fixture: any) => {
-        const homeParticipant = fixture.participants?.find((p: any) => p.meta?.location === 'home');
-        const awayParticipant = fixture.participants?.find((p: any) => p.meta?.location === 'away');
-
-        const isHome = homeParticipant?.id === teamId;
-        const opponentId = isHome ? awayParticipant?.id : homeParticipant?.id;
-        const opponentName = isHome ? awayParticipant?.name : homeParticipant?.name;
-
-        const homeScore = fixture.scores?.find((s: any) =>
-          s.participant_id === homeParticipant?.id && s.description === 'CURRENT'
-        )?.score?.goals || 0;
-
-        const awayScore = fixture.scores?.find((s: any) =>
-          s.participant_id === awayParticipant?.id && s.description === 'CURRENT'
-        )?.score?.goals || 0;
-
-        const goalsScored = isHome ? homeScore : awayScore;
-        const goalsConceded = isHome ? awayScore : homeScore;
-
-        let result: 'win' | 'draw' | 'loss';
-        if (goalsScored > goalsConceded) result = 'win';
-        else if (goalsScored < goalsConceded) result = 'loss';
-        else result = 'draw';
-
+      const formMatches: FormMatch[] = source.slice(0, limit).map(match => {
+        const p = this.perspective(match, teamId);
         return {
-          id: fixture.id,
-          date: fixture.starting_at,
-          isHome,
-          opponentId: opponentId || 0,
-          opponentName: opponentName || 'Unknown',
-          goalsScored,
-          goalsConceded,
-          result,
-          // xG sarà aggiunto successivamente se necessario
+          id: match.fixtureId,
+          date: typeof match.date === 'string' ? match.date : match.date.toISOString(),
+          isHome: p.isHome,
+          opponentId: p.opponentId,
+          opponentName: p.opponentName,
+          goalsScored: p.goalsScored,
+          goalsConceded: p.goalsConceded,
+          result: p.result,
         };
       });
 
-      console.log(`✅ Fetched ${formMatches.length} form matches for team ${teamId}`);
-      console.log(`   Recent results: ${formMatches.map(m => m.result[0].toUpperCase()).join('-')}`);
-
+      console.log(`✅ Forma team ${teamId}: ${formMatches.map(m => m.result[0].toUpperCase()).join('-') || 'nessuna partita'}`);
       return formMatches;
     } catch (error) {
       console.error(`Error fetching recent form for team ${teamId}:`, error);
       return [];
     }
   }
+
 }
 
 export const mlDataFetcher = new MLDataFetcherService();

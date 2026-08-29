@@ -101,9 +101,9 @@ async function main() {
     console.log('✅ ACCURACY:');
     console.log(`   Overall 1X2:    ${report.accuracy.overall1X2.toFixed(2)}%`);
     console.log(`   - GIOCALA:      ${report.accuracy.byStrength.GIOCALA.toFixed(2)}%`);
-    console.log(`   - FORTE:        ${report.accuracy.byStrength.FORTE.toFixed(2)}%`);
-    console.log(`   - MEDIO:        ${report.accuracy.byStrength.MEDIO.toFixed(2)}%`);
-    console.log(`   - NEUTRALE:     ${report.accuracy.byStrength.NEUTRALE.toFixed(2)}%\n`);
+    console.log(`   - STRONG:       ${report.accuracy.byStrength.STRONG.toFixed(2)}%`);
+    console.log(`   - MEDIUM:       ${report.accuracy.byStrength.MEDIUM.toFixed(2)}%`);
+    console.log(`   - NEUTRAL:      ${report.accuracy.byStrength.NEUTRAL.toFixed(2)}%\n`);
     
     console.log('📈 BRIER SCORE (lower is better):');
     console.log(`   Overall:        ${report.brierScore.overall.toFixed(4)}`);
@@ -137,8 +137,8 @@ async function main() {
     console.log('💰 ROI SIMULATION:');
     console.log(`   Flat Betting (all):     ${report.roi.flatBetting.toFixed(2)}%`);
     console.log(`   Kelly Betting (all):    ${report.roi.kellyBetting.toFixed(2)}%`);
-    console.log(`   Flat (GIOCALA/FORTE):   ${report.roi.strengthFiltered.flatBetting.toFixed(2)}%`);
-    console.log(`   Kelly (GIOCALA/FORTE):  ${report.roi.strengthFiltered.kellyBetting.toFixed(2)}%\n`);
+    console.log(`   Flat (GIOCALA/STRONG):   ${report.roi.strengthFiltered.flatBetting.toFixed(2)}%`);
+    console.log(`   Kelly (GIOCALA/STRONG):  ${report.roi.strengthFiltered.kellyBetting.toFixed(2)}%\n`);
     
     console.log('🏆 BY LEAGUE:');
     Object.entries(report.byLeague).forEach(([league, stats]) => {

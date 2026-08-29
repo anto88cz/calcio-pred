@@ -87,13 +87,36 @@ export class PredictionEngine {
       // dei dati storici (anche di stagioni precedenti se necessario).
 
       // 2. Fetch xG data (priorità alta - necessario per lambda calibration)
+      //
+      // ATTENZIONE: getExpectedGoals legge l'xG DELLA PARTITA STESSA, che
+      // esiste solo a gara giocata. In backtest (fixtureDate valorizzato)
+      // usarlo significa predire una partita con il 30% del suo stesso
+      // risultato dentro lambda (vedi poisson.calibrateWithXG): e' il
+      // look-ahead che gonfiava il ROI. In produzione, su una partita futura,
+      // quell'xG non esiste e la calibrazione non scatta comunque: saltarla
+      // qui rende il backtest fedele a cio' che succede davvero live.
+      //
+      // Per usare l'xG in modo legittimo servirebbe la media xG delle partite
+      // PRECEDENTI delle due squadre: e' un lavoro a parte, non un fix.
       logger.debug('Step 2/5: Fetching xG data');
-      const xgData = await this.fetchExpectedGoals(input.fixtureId);
+      const isBacktest = !!input.fixtureDate;
+      const xgData = isBacktest ? null : await this.fetchExpectedGoals(input.fixtureId);
+
+      if (isBacktest) {
+        logger.debug({ fixtureId: input.fixtureId }, '🕐 BACKTEST: xG della partita target escluso (look-ahead)');
+      }
 
       // 3. Raccogli infortuni e lineup (opzionali - possono fallire)
+      //
+      // In backtest si saltano: getTeamSidelined restituisce gli indisponibili
+      // di OGGI, non quelli alla data della partita, quindi applicherebbe a una
+      // gara del 2025 le assenze del 2026. Non e' ricostruibile a posteriori
+      // con questa API: meglio nessun aggiustamento che uno anacronistico.
+      // Conseguenza da tenere presente leggendo i risultati: il backtest misura
+      // il modello SENZA correzioni per assenze e formazioni.
       logger.debug('Step 3/5: Fetching injuries and lineups');
-      const injuries = await this.fetchInjuries(input.fixtureId);
-      const lineups = await this.fetchLineups(input.fixtureId);
+      const injuries = isBacktest ? [] : await this.fetchInjuries(input.fixtureId);
+      const lineups = isBacktest ? [] : await this.fetchLineups(input.fixtureId);
 
       // 4. Valuta qualità dati
       const dataQuality = this.assessDataQuality(homeHistory, awayHistory);
@@ -137,7 +160,13 @@ export class PredictionEngine {
 
       // 5. Fetch H2H stats (SEQUENZIALE - ultima API call prima calcoli)
       logger.debug('Step 5/5: Fetching H2H data from Sportsmonks');
-      const h2hMatches = await statisticsService.getHeadToHead(input.homeTeamId, input.awayTeamId, 10);
+      // maxDate: in backtest gli scontri diretti successivi alla partita sono look-ahead
+      const h2hMatches = await statisticsService.getHeadToHead(
+        input.homeTeamId,
+        input.awayTeamId,
+        10,
+        input.fixtureDate ? new Date(input.fixtureDate) : undefined
+      );
       const h2hStats = this.calculateH2HStats(h2hMatches, input.homeTeamId, input.awayTeamId);
       
       logger.info({
@@ -159,10 +188,15 @@ export class PredictionEngine {
       );
 
       // 6. Calcola Poisson (con calibrazione xG)
-      const poissonResult = poissonEngine.calculate(
+      // NB: mutabile - viene ricostruito al punto 6.9 dai lambda finali
+      let poissonResult = poissonEngine.calculate(
         homeHistory,
         awayHistory,
-        calculationConfig.homeAdvGoals,
+        // Nessun vantaggio casa additivo: homeHistory contiene SOLO le partite
+        // giocate in casa (getTeamHistoryByVenue), quindi il lambda che ne
+        // deriva incorpora gia' il vantaggio del campo. Sommare homeAdvGoals
+        // lo conterebbe due volte.
+        0,
         xgData ? {
           xgHome: xgData.home.xg,
           xgAway: xgData.away.xg,
@@ -289,6 +323,26 @@ export class PredictionEngine {
         },
       }, '🏆 League strength adjustment applied');
 
+      // 6.9. RICALCOLO matrice e mercati dai lambda FINALI
+      // I punti 6.5-6.8 mutano solo poissonResult.lambdaHome/lambdaAway: senza
+      // questo passaggio forma, H2H, infortuni e forza lega non toccherebbero
+      // nessuna probabilita' (matrice e mercati sono gia' stati calcolati al
+      // punto 6 con i lambda di partenza).
+      poissonResult = poissonEngine.computeFromLambdas(
+        poissonResult.lambdaHome,
+        poissonResult.lambdaAway,
+        poissonResult.homeAdvantage
+      );
+
+      logger.info({
+        lambdaHome: poissonResult.lambdaHome.toFixed(2),
+        lambdaAway: poissonResult.lambdaAway.toFixed(2),
+        prob1: (poissonResult.prob1 * 100).toFixed(1) + '%',
+        probX: (poissonResult.probX * 100).toFixed(1) + '%',
+        prob2: (poissonResult.prob2 * 100).toFixed(1) + '%',
+        over25: (poissonResult.underOver['2.5'].over * 100).toFixed(1) + '%',
+      }, '🔄 Matrice Poisson ricalcolata sui lambda finali');
+
       // 7. Blend risultati
       const blendedResult = blender.blend(
         empiricResult,
@@ -336,13 +390,36 @@ export class PredictionEngine {
             away: realOdds.odds1X2.away.toFixed(2),
           }, '✅ Real odds fetched from Sportsmonks');
           
+          // De-vig Over/Under 2.5: 1/quota include il margine del bookmaker,
+          // quindi over + under sommerebbero ~1.05. Si normalizza in modo
+          // proporzionale, come gia' fatto per l'1X2 in sportsmonks/odds.ts.
+          let marketOver25 = blendedResult.final.underOver['2.5'].over;
+          let marketUnder25 = blendedResult.final.underOver['2.5'].under;
+          
+          if (realOdds.oddsOverUnder) {
+            const rawOver25 = 1 / realOdds.oddsOverUnder.over25;
+            const rawUnder25 = 1 / realOdds.oddsOverUnder.under25;
+            const overroundOU = rawOver25 + rawUnder25;
+            
+            marketOver25 = rawOver25 / overroundOU;
+            marketUnder25 = rawUnder25 / overroundOU;
+            
+            logger.debug({
+              rawOver25: rawOver25.toFixed(4),
+              rawUnder25: rawUnder25.toFixed(4),
+              overroundOU: overroundOU.toFixed(4),
+              devigOver25: marketOver25.toFixed(4),
+              devigUnder25: marketUnder25.toFixed(4),
+            }, 'Over/Under 2.5 de-vigged');
+          }
+          
           // Converti in formato MarketOdds per calibrazione
           marketOdds = {
             prob1: realOdds.odds1X2.prob1,
             probX: realOdds.odds1X2.probX,
             prob2: realOdds.odds1X2.prob2,
-            over25: realOdds.oddsOverUnder ? 1 / realOdds.oddsOverUnder.over25 : blendedResult.final.underOver['2.5'].over,
-            under25: realOdds.oddsOverUnder ? 1 / realOdds.oddsOverUnder.under25 : blendedResult.final.underOver['2.5'].under,
+            over25: marketOver25,
+            under25: marketUnder25,
             rawOdds: {
               home: realOdds.odds1X2.home,
               draw: realOdds.odds1X2.draw,

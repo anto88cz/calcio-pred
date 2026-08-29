@@ -17,13 +17,16 @@ import { predictionEngine } from '../prediction/engine';
 import prisma from '../../lib/prisma';
 import logger from '../../utils/logger';
 import { FixtureStatus } from '@prisma/client';
+import { fetchClosingOdds1X2, type ClosingOdds1X2 } from './closing-odds';
 
 export interface BacktestConfig {
   startDate: string;      // ISO date
   endDate: string;        // ISO date
   leagues: number[];      // League IDs
   limit?: number;         // Max fixtures to test (default: all)
-  strengthFilter?: string; // 'GIOCALA' | 'FORTE' | 'ALL'
+  strengthFilter?: string; // 'GIOCALA' | 'STRONG' | 'ALL'
+  /** Pausa tra una partita e l'altra, per non saturare il rate limit. */
+  delayMs?: number;
 }
 
 export interface BacktestResult {
@@ -50,6 +53,10 @@ export interface BacktestResult {
     strength: string;
   };
   
+  // Quote di chiusura reali del bookmaker (null se non disponibili).
+  // Senza queste il ROI non e' calcolabile: vedi calculateROI.
+  closingOdds: ClosingOdds1X2 | null;
+
   // Metriche
   correct1X2: boolean;
   brierScore: number;
@@ -68,9 +75,9 @@ export interface BacktestReport {
     overall1X2: number;           // % predizioni 1X2 corrette
     byStrength: {
       GIOCALA: number;
-      FORTE: number;
-      MEDIO: number;
-      NEUTRALE: number;
+      STRONG: number;
+      MEDIUM: number;
+      NEUTRAL: number;
     };
     overUnder25: number;          // % predizioni O/U 2.5 corrette
     btts: number;                 // % predizioni BTTS corrette
@@ -159,9 +166,12 @@ export class Backtester {
           }, 'Backtest progress');
         }
         
-        // Rate limit rispetto (6 sec delay tra predizioni)
-        if (i < fixtures.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 6000));
+        // Pausa tra predizioni. 6s fissi erano ~3 ore di sola attesa su una
+        // stagione intera; ora e' configurabile e il grosso del costo sono le
+        // chiamate vere, non l'attesa.
+        const delayMs = config.delayMs ?? 300;
+        if (delayMs > 0 && i < fixtures.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, delayMs));
         }
         
       } catch (error) {
@@ -222,15 +232,31 @@ export class Backtester {
    * Backtest singolo fixture
    */
   private async backtestSingleFixture(fixture: any): Promise<BacktestResult> {
-    // Calcola predizione usando dati PRE-MATCH
+    // Calcola predizione usando dati PRE-MATCH.
+    //
+    // fixtureId dev'essere l'ID Sportmonks (apiId), non la chiave primaria di
+    // Postgres: l'engine lo usa per interrogare l'API. Prima si passava
+    // fixture.id, quindi ogni chiamata a xG/quote puntava a una partita diversa.
+    //
+    // fixtureDate e' cio' che attiva il taglio temporale in fetchHistoricalData:
+    // senza, lo storico squadre parte da OGGI e include partite giocate dopo
+    // quella da predire.
     const prediction = await predictionEngine.calculatePrediction({
-      fixtureId: fixture.id,
+      fixtureId: fixture.apiId,
       homeTeamId: fixture.homeTeam.apiId,
       awayTeamId: fixture.awayTeam.apiId,
       leagueId: fixture.leagueId,
       season: fixture.leagueSeason,
+      homeTeamName: fixture.homeTeam.name,
+      awayTeamName: fixture.awayTeam.name,
+      leagueName: fixture.leagueName,
+      fixtureDate: fixture.date,
     });
-    
+
+    // Quote di chiusura reali: il ROI va calcolato su quello che il bookmaker
+    // pagava davvero, non su 1/probabilita' del modello.
+    const closingOdds = await fetchClosingOdds1X2(fixture.apiId, fixture.date);
+
     // Determina outcome reale
     const actualOutcome = 
       fixture.homeGoals > fixture.awayGoals ? '1' :
@@ -274,6 +300,8 @@ export class Backtester {
         strength: prediction.market1X2.strength,
       },
       
+      closingOdds,
+
       correct1X2: predictedOutcome === actualOutcome,
       brierScore,
     };
@@ -315,11 +343,14 @@ export class Backtester {
     const accuracy = (correct / results.length) * 100;
     
     // Accuracy by strength
+    // I valori sono quelli dell'enum Prisma PredictionStrength.
+    // Prima si filtrava su 'FORTE'/'MEDIO'/'NEUTRALE', stringhe che il codice
+    // non produce mai: quei conteggi erano sempre vuoti.
     const byStrength = {
       GIOCALA: this.calculateAccuracyByStrength(results, 'GIOCALA'),
-      FORTE: this.calculateAccuracyByStrength(results, 'FORTE'),
-      MEDIO: this.calculateAccuracyByStrength(results, 'MEDIO'),
-      NEUTRALE: this.calculateAccuracyByStrength(results, 'NEUTRALE'),
+      STRONG: this.calculateAccuracyByStrength(results, 'STRONG'),
+      MEDIUM: this.calculateAccuracyByStrength(results, 'MEDIUM'),
+      NEUTRAL: this.calculateAccuracyByStrength(results, 'NEUTRAL'),
     };
     
     // Overall Brier Score
@@ -463,8 +494,8 @@ export class Backtester {
     const kellyBetting = this.simulateKellyBetting(results);
     
     // Strength filtered (solo GIOCALA/FORTE)
-    const strongPredictions = results.filter(r => 
-      r.prediction.strength === 'GIOCALA' || r.prediction.strength === 'FORTE'
+    const strongPredictions = results.filter(r =>
+      r.prediction.strength === 'GIOCALA' || r.prediction.strength === 'STRONG'
     );
     
     return {
@@ -478,65 +509,85 @@ export class Backtester {
   }
   
   /**
-   * Simula flat betting (1€ per bet)
+   * Flat betting: 1 unita' sull'esito piu' probabile, pagata alla quota REALE.
+   *
+   * Prima si pagava a `fairOdds = 1 / maxProb`, cioe' alla quota implicita del
+   * modello stesso. Due conseguenze: (a) se il modello fosse calibrato il ROI
+   * sarebbe 0 esatto per costruzione, quindi il numero misurava l'errore di
+   * calibrazione e non la profittabilita'; (b) spariva il margine del
+   * bookmaker (~5-7%), che e' la soglia vera da battere.
+   *
+   * Le partite senza quote pre-match vengono SALTATE, non contate come stake:
+   * includerle a quota fittizia falserebbe di nuovo il risultato.
    */
   private simulateFlatBetting(results: BacktestResult[]): number {
-    // Assume fair odds: 1 / probability
-    let totalStaked = results.length;
-    let totalReturned = 0;
-    
+    const oddsFor = (r: BacktestResult): number | null => {
+      if (!r.closingOdds) return null;
+      if (r.prediction.predictedOutcome === '1') return r.closingOdds.home;
+      if (r.prediction.predictedOutcome === 'X') return r.closingOdds.draw;
+      return r.closingOdds.away;
+    };
+
+    let staked = 0;
+    let returned = 0;
+
     results.forEach(r => {
-      if (r.correct1X2) {
-        // Win: ottieni odds * stake
-        const maxProb = Math.max(r.prediction.prob1, r.prediction.probX, r.prediction.prob2);
-        const fairOdds = 1 / maxProb;
-        totalReturned += fairOdds * 1; // 1€ stake
-      }
-      // Loss: return = 0
+      const odds = oddsFor(r);
+      if (odds === null) return;
+
+      staked += 1;
+      if (r.correct1X2) returned += odds;
     });
-    
-    const profit = totalReturned - totalStaked;
-    const roi = (profit / totalStaked) * 100;
-    
-    return roi;
+
+    if (staked === 0) return 0;
+    return ((returned - staked) / staked) * 100;
   }
-  
+
   /**
-   * Simula Kelly betting
+   * Kelly betting sulle quote reali.
+   *
+   * Con le quote del modello si aveva b = (1-p)/p e quindi
+   * (b*p - q) / b = (q - q) / b = 0: la frazione di Kelly era identicamente
+   * zero, lo stake sempre zero e il ROI Kelly esattamente 0 su ogni run.
+   * Con la quota del bookmaker l'edge esiste solo se p * odds > 1.
+   *
+   * Si usa half-Kelly con cap al 10% del bankroll, che e' la pratica comune
+   * per contenere la varianza quando p e' stimata e non nota.
    */
   private simulateKellyBetting(results: BacktestResult[]): number {
-    // Kelly Criterion: f = (bp - q) / b
-    // f = frazione bankroll da scommettere
-    // b = odds - 1
-    // p = probabilità predetta
-    // q = 1 - p
-    
-    let bankroll = 100; // Start with 100€
-    
+    const KELLY_FRACTION = 0.5;
+    const MAX_STAKE = 0.10;
+
+    let bankroll = 100;
+
     results.forEach(r => {
-      const maxProb = Math.max(r.prediction.prob1, r.prediction.probX, r.prediction.prob2);
-      const fairOdds = 1 / maxProb;
-      const b = fairOdds - 1;
-      const p = maxProb;
+      if (!r.closingOdds) return;
+
+      const outcome = r.prediction.predictedOutcome;
+      const odds =
+        outcome === '1' ? r.closingOdds.home :
+        outcome === 'X' ? r.closingOdds.draw :
+        r.closingOdds.away;
+
+      const p =
+        outcome === '1' ? r.prediction.prob1 :
+        outcome === 'X' ? r.prediction.probX :
+        r.prediction.prob2;
+
+      const b = odds - 1;
+      if (b <= 0) return;
+
       const q = 1 - p;
-      
-      // Kelly fraction (con cap a 10% bankroll per safety)
-      const kellyFraction = Math.min(0.10, Math.max(0, (b * p - q) / b));
-      const stake = bankroll * kellyFraction;
-      
-      if (r.correct1X2) {
-        // Win
-        bankroll += stake * b;
-      } else {
-        // Loss
-        bankroll -= stake;
-      }
+      const edge = (b * p - q) / b;
+      if (edge <= 0) return; // nessun value: non si punta
+
+      const fraction = Math.min(MAX_STAKE, edge * KELLY_FRACTION);
+      const stake = bankroll * fraction;
+
+      bankroll += r.correct1X2 ? stake * b : -stake;
     });
-    
-    const profit = bankroll - 100;
-    const roi = profit; // Already in %
-    
-    return roi;
+
+    return bankroll - 100; // profitto in % del bankroll iniziale (100)
   }
   
   /**
