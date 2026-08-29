@@ -1,5 +1,6 @@
 import { getSportsmonksClient } from './client';
 import { redis } from '../../lib/redis';
+import { ALLOWED_LEAGUES } from '../../config/supported-leagues';
 
 /**
  * Sportsmonks Statistics Service
@@ -172,72 +173,133 @@ export async function getFixtureStatistics(fixtureId: number): Promise<MatchStat
   }
 }
 
+/** type_id Sportmonks dentro l'include xGFixture (verificati su /core/types) */
+const XG_TYPE_ID = 5304;   // Expected Goals (xG)
+const XGOT_TYPE_ID = 5305; // Expected Goals on Target (xGoT)
+
+/**
+ * Legge l'xG REALE dall'include `xGFixture`.
+ *
+ * L'add-on xG NON aggiunge una statistica "Expected Goals" dentro `statistics`:
+ * espone un include separato, `xGFixture`, con una riga per squadra e per
+ * metrica (type_id 5304 = xG, 5305 = xGoT) e il campo `location` per il lato.
+ * Cercarlo tra le statistiche non lo trova mai e fa scattare in silenzio la
+ * stima dai tiri, che e' molto piu' rozza dell'xG pagato.
+ */
+async function fetchXGFromFixture(fixtureId: number): Promise<{
+  home: { xg: number | null; xgot: number | null };
+  away: { xg: number | null; xgot: number | null };
+} | null> {
+  try {
+    const client = getSportsmonksClient();
+    const response = await client.get<any>(`/fixtures/${fixtureId}`, {
+      include: 'xGFixture',
+    });
+
+    const rows = response?.data?.xgfixture;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return null;
+    }
+
+    const pick = (location: 'home' | 'away', typeId: number): number | null => {
+      const row = rows.find((r: any) => r.location === location && r.type_id === typeId);
+      const value = row?.data?.value;
+      return typeof value === 'number' ? value : null;
+    };
+
+    return {
+      home: { xg: pick('home', XG_TYPE_ID), xgot: pick('home', XGOT_TYPE_ID) },
+      away: { xg: pick('away', XG_TYPE_ID), xgot: pick('away', XGOT_TYPE_ID) },
+    };
+  } catch (error: any) {
+    console.error(`❌ Error fetching xGFixture for ${fixtureId}:`, error.message);
+    return null;
+  }
+}
+
 /**
  * Get expected goals data for a fixture
  * NOTE: Sportsmonks requires xG add-on package. If not available, estimates xG from shots.
  */
 export async function getExpectedGoals(fixtureId: number): Promise<ExpectedGoalsData | null> {
-  const stats = await getFixtureStatistics(fixtureId);
-  
+  const [stats, realXg] = await Promise.all([
+    getFixtureStatistics(fixtureId),
+    fetchXGFromFixture(fixtureId),
+  ]);
+
   if (!stats) {
+    // Senza statistiche non c'e' il ripiego sui tiri, ma l'xG vero puo' esserci
+    // lo stesso: viaggia su un include diverso.
     return {
       home: {
         teamId: 0,
         teamName: '',
-        xg: null,
-        xgot: null,
+        xg: realXg?.home.xg ?? null,
+        xgot: realXg?.home.xgot ?? null,
       },
       away: {
         teamId: 0,
         teamName: '',
-        xg: null,
-        xgot: null,
+        xg: realXg?.away.xg ?? null,
+        xgot: realXg?.away.xgot ?? null,
       },
-      missingXg: true,
+      missingXg: realXg?.home.xg == null || realXg?.away.xg == null,
       fixtureId,
-      homeXg: 0,
-      awayXg: 0,
-      totalXg: 0,
+      homeXg: realXg?.home.xg ?? 0,
+      awayXg: realXg?.away.xg ?? 0,
+      totalXg: (realXg?.home.xg ?? 0) + (realXg?.away.xg ?? 0),
     };
   }
-  
-  // Try to get real xG from statistics (requires xG add-on)
-  let homeXg = stats.home.expected_goals;
-  let awayXg = stats.away.expected_goals;
-  
-  // If xG not available, estimate from shots
+
+  // 1) xG reale dall'include xGFixture (add-on xG)
+  // 2) statistica "Expected Goals", se un giorno comparisse nel set
+  let homeXg = realXg?.home.xg ?? stats.home.expected_goals;
+  let awayXg = realXg?.away.xg ?? stats.away.expected_goals;
+
+  // 3) ultimo ripiego: stima dai tiri.
   // Formula: xG ≈ (shots_on_target * 0.35) + (shots_total * 0.05)
-  // This is a rough approximation based on historical conversion rates
+  // Approssimazione grezza sui tassi di conversione storici: NON e' xG, e va
+  // trattata come tale a valle (missingXg non la distingue, vedi sotto).
+  let estimatedFromShots = false;
+
   if (homeXg === null && stats.home.shots) {
     const shotsOnTarget = stats.home.shots.onTarget || 0;
     const shotsTotal = stats.home.shots.total || 0;
     homeXg = (shotsOnTarget * 0.35) + (shotsTotal * 0.05);
+    estimatedFromShots = true;
     console.log(`⚠️ xG not available for home team, estimated from shots: ${homeXg.toFixed(2)}`);
   }
-  
+
   if (awayXg === null && stats.away.shots) {
     const shotsOnTarget = stats.away.shots.onTarget || 0;
     const shotsTotal = stats.away.shots.total || 0;
     awayXg = (shotsOnTarget * 0.35) + (shotsTotal * 0.05);
+    estimatedFromShots = true;
     console.log(`⚠️ xG not available for away team, estimated from shots: ${awayXg.toFixed(2)}`);
   }
-  
+
+  if (realXg?.home.xg != null && realXg?.away.xg != null) {
+    console.log(`✅ Real xG from xGFixture — home ${realXg.home.xg.toFixed(2)}, away ${realXg.away.xg.toFixed(2)}`);
+  } else if (estimatedFromShots) {
+    console.log(`⚠️ Fixture ${fixtureId}: xG stimato dai tiri, non e' l'xG dell'add-on`);
+  }
+
   const missingXg = homeXg === null || awayXg === null;
   const homeXgValue = homeXg ?? 0;
   const awayXgValue = awayXg ?? 0;
-  
+
   return {
     home: {
       teamId: stats.home.teamId,
       teamName: '',
       xg: homeXg,
-      xgot: null,
+      xgot: realXg?.home.xgot ?? null,
     },
     away: {
       teamId: stats.away.teamId,
       teamName: '',
       xg: awayXg,
-      xgot: null,
+      xgot: realXg?.away.xgot ?? null,
     },
     missingXg,
     fixtureId,
@@ -259,8 +321,13 @@ export async function getTeamHistory(
   teamName?: string, // Optional: for ID mapping
   maxDate?: Date // 🆕 Optional: max date for historical data (for backtesting)
 ): Promise<MatchHistoryData[]> {
-  const cacheKey = `sportsmonks:history:${teamId}:${seasonId}:${limit}`;
-  
+  // maxDate DEVE far parte della chiave: due backtest della stessa squadra a
+  // date diverse hanno storici diversi. Senza, la prima partita elaborata
+  // fissava in cache il suo storico e tutte le successive riusavano quello,
+  // reintroducendo il look-ahead che maxDate serviva a evitare.
+  const cutoff = maxDate ? maxDate.toISOString().slice(0, 10) : 'now';
+  const cacheKey = `sportsmonks:history:${teamId}:${seasonId}:${limit}:${cutoff}`;
+
   try {
     const cached = await redis?.get(cacheKey);
     if (cached) {
@@ -289,158 +356,104 @@ export async function getTeamHistory(
     }
     
     const client = getSportsmonksClient();
-    
-    // 🔧 STRATEGIA ALTERNATIVA per piani limitati:
-    // Non possiamo usare /fixtures/between/{start}/{end}/{teamId} (non accessibile)
-    // Invece usiamo /fixtures/between per le leghe supportate e filtriamo lato client
-    
-    // Leghe supportate - stesso array di ALLOWED_LEAGUES
-    const ALLOWED_LEAGUES = [8, 9, 384, 387, 564, 82, 301, 72, 2, 5, 271, 600, 462]; // 🆕 Aggiunto 9 (Championship) e 387 (Serie B)
-    
-    // 📊 Recupera fixtures per tutte le leghe supportate e filtra per team
-    // Questo è l'unico modo che funziona con il piano European Plan
+
+    // Endpoint per squadra: /fixtures/between/{from}/{to}/{teamId}.
+    //
+    // Prima si scaricava /fixtures/between SENZA squadra, quindi TUTTE le leghe
+    // del piano, a blocchi di 90 giorni e con un tetto di 3 pagine per blocco:
+    // con 21 leghe quel tetto tagliava via la maggior parte delle partite e lo
+    // storico usciva incompleto in silenzio (difetto G11).
+    //
+    // La finestra scaricata NON dipende dal cutoff: si prende una volta sola
+    // l'intero triennio della squadra e lo si taglia in memoria. Il motivo e'
+    // il rate limit: con una coppia di chiamate per ogni partita da predire,
+    // una stagione di 1751 partite ne chiedeva ~3500 sulla sola entita'
+    // Fixture, contro un budget di 2500/ora. Cosi' invece sono ~3 chiamate per
+    // SQUADRA, una volta, e ogni data di taglio successiva e' gratis.
+    const RAW_YEARS = 3;
+    const rawTo = new Date();
+    const rawFrom = new Date(rawTo);
+    rawFrom.setFullYear(rawFrom.getFullYear() - RAW_YEARS);
+
+    const rawFromStr = rawFrom.toISOString().split('T')[0];
+    const rawToStr = rawTo.toISOString().split('T')[0];
+    const rawCacheKey = `sportsmonks:history-raw:${sportsmonksTeamId}:${RAW_YEARS}y`;
+
     let allFixtures: any[] = [];
-    
-    // ⚠️ LIMITAZIONE API: Il piano non supporta filtri avanzati
-    // E l'endpoint /fixtures/between ha un limite di ~90 giorni per richiesta
-    // Dobbiamo fare multiple chiamate per coprire 12 mesi
-    
-    // 🆕 BACKTESTING FIX: Usa maxDate se fornito (per evitare look-ahead bias)
-    const endDate = maxDate || new Date();
-    const startDate = new Date(endDate);
-    startDate.setMonth(startDate.getMonth() - 12); // Vogliamo 12 mesi di dati
-    
-    console.log(`📊 Fetching fixtures from ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]} for team ${sportsmonksTeamId}...`);
-    if (maxDate) {
-      console.log(`   🕐 BACKTEST MODE: Using maxDate=${maxDate.toISOString().split('T')[0]} (avoiding look-ahead bias)`);
-    }
-    console.log(`⚠️ API limit: max 90 days per request, will split into multiple calls`);
-    
-    // Dividi in blocchi di 90 giorni (3 mesi)
-    const CHUNK_DAYS = 90;
-    const chunks: Array<{start: Date, end: Date}> = [];
-    
-    let currentStart = new Date(startDate);
-    while (currentStart < endDate) {
-      const currentEnd = new Date(currentStart);
-      currentEnd.setDate(currentEnd.getDate() + CHUNK_DAYS);
-      
-      // Non superare endDate
-      if (currentEnd > endDate) {
-        currentEnd.setTime(endDate.getTime());
+    let fromCache = false;
+
+    try {
+      const cachedRaw = await redis?.get(rawCacheKey);
+      if (cachedRaw) {
+        allFixtures = JSON.parse(cachedRaw);
+        fromCache = true;
       }
-      
-      chunks.push({
-        start: new Date(currentStart),
-        end: new Date(currentEnd)
-      });
-      
-      currentStart.setDate(currentStart.getDate() + CHUNK_DAYS + 1);
+    } catch {
+      // cache non disponibile: si scarica
     }
-    
-    console.log(`📦 Split into ${chunks.length} chunks of ~90 days each`);
-    
-    // Recupera fixtures per ogni chunk SEQUENZIALMENTE (per rate limit)
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
-      const startStr = chunk.start.toISOString().split('T')[0];
-      const endStr = chunk.end.toISOString().split('T')[0];
-      
-      console.log(`📥 Fetching chunk ${i + 1}/${chunks.length}: ${startStr} to ${endStr}`);
-      
-      try {
+
+    if (!fromCache) {
+      console.log(`📊 Scarico storico grezzo ${rawFromStr} -> ${rawToStr} per team ${sportsmonksTeamId}`);
+
+      let page = 1;
+      for (;;) {
         const response = await client.get<any>(
-          `/fixtures/between/${startStr}/${endStr}`,
+          `/fixtures/between/${rawFromStr}/${rawToStr}/${sportsmonksTeamId}`,
           {
             include: 'participants;scores;state;season',
-            per_page: 100,
+            per_page: 50,
+            page,
           }
         );
-        
-        if (response.data && Array.isArray(response.data)) {
-          allFixtures = allFixtures.concat(response.data);
-          console.log(`✅ Chunk ${i + 1}: ${response.data.length} fixtures`);
-          
-          // Gestisci paginazione per questo chunk
-          let currentPage = 1;
-          let hasMorePages = response.pagination?.has_more || false;
-          
-          while (hasMorePages && currentPage < 3) { // Max 3 pagine per chunk
-            currentPage++;
-            const pageResponse = await client.get<any>(
-              `/fixtures/between/${startStr}/${endStr}`,
-              {
-                include: 'participants;scores;state;season',
-                per_page: 100,
-                page: currentPage,
-              }
-            );
-            
-            if (pageResponse.data) {
-              allFixtures = allFixtures.concat(pageResponse.data);
-              console.log(`✅ Chunk ${i + 1}, page ${currentPage}: ${pageResponse.data.length} fixtures`);
-            }
-            
-            hasMorePages = pageResponse.pagination?.has_more || false;
-          }
-        } else {
-          console.log(`⚠️ Chunk ${i + 1}: No data`);
-        }
-      } catch (error: any) {
-        console.error(`❌ Error fetching chunk ${i + 1}:`, error.message);
-        // Continua con il prossimo chunk anche se uno fallisce
+
+        if (!response.data || !Array.isArray(response.data)) break;
+        allFixtures = allFixtures.concat(response.data);
+
+        if (!response.pagination?.has_more) break;
+        page += 1;
+        if (page > 20) break; // guardia
       }
-      
-      // Piccola pausa tra i chunk per rate limit (500ms)
-      if (i < chunks.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Le partite passate non cambiano: cache lunga.
+      try {
+        await redis?.setex(rawCacheKey, 60 * 60 * 24 * 7, JSON.stringify(allFixtures));
+      } catch {
+        // ignorabile
       }
     }
-    
-    console.log(`📊 Retrieved ${allFixtures.length} total fixtures across all chunks`);
-    
-    // 🔬 DIAGNOSTICO: Conta quante fixture per lega
-    const leagueCounts: Record<number, number> = {};
-    allFixtures.forEach((f: any) => {
-      leagueCounts[f.league_id] = (leagueCounts[f.league_id] || 0) + 1;
+
+    console.log(`📊 ${allFixtures.length} partite grezze per team ${sportsmonksTeamId}${fromCache ? ' (cache)' : ''}`);
+
+    // Restano solo le leghe che il modello tratta (esclude coppe e amichevoli
+    // fuori perimetro, che hanno dinamiche diverse).
+    const teamFixtures = allFixtures.filter((f: any) => ALLOWED_LEAGUES.includes(f.league_id));
+
+    // Stato "partita conclusa".
+    //
+    // Il campo e' state.short_name / state.state / state.developer_name.
+    // Il codice precedente leggeva `state.short`, che NON esiste nella
+    // risposta v3: il confronto era sempre falso e questa funzione restituiva
+    // sistematicamente zero partite, mandando il motore sui valori di fallback.
+    const isFinished = (f: any): boolean => {
+      const st = f.state?.short_name || f.state?.state || f.state?.developer_name;
+      return st === 'FT' || st === 'AET' || st === 'FT_PEN';
+    };
+
+    const finishedFixtures = teamFixtures.filter(isFinished);
+
+    // Finestra effettiva: 12 mesi che finiscono al cutoff (o a oggi).
+    const endDate = maxDate || new Date();
+    const startDate = new Date(endDate);
+    startDate.setMonth(startDate.getMonth() - 12);
+
+    const withinCutoff = finishedFixtures.filter((f: any) => {
+      const d = new Date(f.starting_at);
+      return d < endDate && d >= startDate;
     });
-    console.log(`📊 Fixtures by league:`, Object.entries(leagueCounts).map(([id, count]) => `${id}:${count}`).join(', '));
+
+    console.log(`🏁 ${withinCutoff.length} partite nella finestra ${startDate.toISOString().split('T')[0]} -> ${endDate.toISOString().split('T')[0]} per team ${sportsmonksTeamId}`);
     
-    // 🔬 DIAGNOSTICO: Analizziamo primi 5 fixtures prima del filtro
-    console.log(`\n🔬 ANALYZING first 5 fixtures from ${allFixtures.length} total:`);
-    for (let idx = 0; idx < Math.min(5, allFixtures.length); idx++) {
-      const f = allFixtures[idx];
-      const participants = f.participants || [];
-      const hasTeam = participants.some((p: any) => p.id === sportsmonksTeamId);
-      const participantIds = participants.map((p: any) => p.id);
-      console.log(`  [${idx}] ID:${f.id} league:${f.league_id} state:${f.state?.short || f.state_id} participants:[${participantIds}] hasTeam:${hasTeam}`);
-    }
-    
-    // 🎯 Filtra solo le partite dove gioca la nostra squadra
-    // E sono nelle leghe supportate per ridurre rumore
-    const teamFixtures = allFixtures.filter((f: any) => {
-      const participants = f.participants || [];
-      const hasTeam = participants.some((p: any) => p.id === sportsmonksTeamId);
-      const isAllowedLeague = ALLOWED_LEAGUES.includes(f.league_id);
-      return hasTeam && isAllowedLeague;
-    });
-    
-    console.log(`✅ Found ${teamFixtures.length} fixtures for team ${sportsmonksTeamId} in supported leagues`);
-    console.log(`   ALLOWED_LEAGUES: [${ALLOWED_LEAGUES}]`);
-    console.log(`   Target team ID: ${sportsmonksTeamId}`);
-    
-    // Filter by finished state ONLY (not by season - we want all historical data)
-    // The seasonId parameter is mainly for league context, not for filtering
-    const finishedFixtures = teamFixtures.filter((f: any) => {
-      // SOLO partite finite (FT = Full Time, AET = After Extra Time)
-      // NON usare state_id perché 5 potrebbe essere "Not Started"!
-      const isFinished = f.state?.short === 'FT' || f.state?.short === 'AET';
-      return isFinished;
-    });
-    
-    console.log(`🏁 Found ${finishedFixtures.length} finished matches (from ${teamFixtures.length} total team fixtures)`);
-    
-    const matchHistory = finishedFixtures
+    const matchHistory = withinCutoff
       .sort((a: any, b: any) => new Date(b.starting_at).getTime() - new Date(a.starting_at).getTime()) // Most recent first
       .slice(0, limit > 0 ? limit : undefined)
       .map((f: any): MatchHistoryData => {
@@ -486,7 +499,12 @@ export async function getTeamHistory(
     console.log(`✅ Found ${matchHistory.length} matches in history for team ${teamId} (season ${seasonId || 'all'})`);
     
     // Cache for 1 hour
-    await redis?.setex(cacheKey, 3600, JSON.stringify(matchHistory));
+    // Uno storico tagliato a una data passata non cambiera' mai piu': si tiene
+    // 30 giorni, cosi' i backtest successivi (o un secondo predittore sulle
+    // stesse partite) girano da cache invece di riscaricare tutto.
+    // Senza cutoff invece resta a 1 ora, perche' "ultimi 12 mesi da oggi" scade.
+    const historyTtl = maxDate ? 60 * 60 * 24 * 30 : 3600;
+    await redis?.setex(cacheKey, historyTtl, JSON.stringify(matchHistory));
     
     return matchHistory;
   } catch (error: any) {
@@ -496,20 +514,39 @@ export async function getTeamHistory(
 }
 
 /**
+ * Applica cutoff e limite allo storico grezzo dei testa a testa.
+ * In backtest gli scontri giocati DOPO la partita da predire sono look-ahead.
+ */
+function sliceH2H(
+  fixtures: MatchHistoryData[],
+  limit: number,
+  maxDate?: Date
+): MatchHistoryData[] {
+  return fixtures
+    .filter(f => !maxDate || new Date(f.date) < maxDate)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, limit);
+}
+
+/**
  * Get head-to-head history between two teams
  */
 export async function getHeadToHead(
   homeTeamId: number,
   awayTeamId: number,
-  limit: number = 10
+  limit: number = 10,
+  maxDate?: Date // taglio temporale per il backtest: solo scontri PRECEDENTI
 ): Promise<MatchHistoryData[]> {
-  const cacheKey = `sportsmonks:h2h:${homeTeamId}:${awayTeamId}:${limit}`;
+  // La cache NON include il cutoff: l'endpoint h2h restituisce tutti gli
+  // scontri diretti, che sono immutabili. Si scarica una volta per coppia e si
+  // taglia in memoria, invece di una chiamata per ogni data di backtest.
+  const cacheKey = `sportsmonks:h2h-raw:${homeTeamId}:${awayTeamId}`;
   
   try {
     const cached = await redis?.get(cacheKey);
     if (cached) {
       console.log(`✅ H2H cache hit for ${homeTeamId} vs ${awayTeamId}`);
-      return JSON.parse(cached);
+      return sliceH2H(JSON.parse(cached), limit, maxDate);
     }
 
     console.log(`🔍 Fetching H2H for teams ${homeTeamId} vs ${awayTeamId}`);
@@ -528,8 +565,12 @@ export async function getHeadToHead(
     }
     
     const fixtures = response.data
-      .filter((f: any) => f.state?.short === 'FT')
-      .slice(0, limit)
+      // state.short non esiste in v3 (il campo e' short_name): il vecchio
+      // confronto scartava sempre tutto e l'H2H era sempre vuoto.
+      .filter((f: any) => {
+        const st = f.state?.short_name || f.state?.state || f.state?.developer_name;
+        return st === 'FT' || st === 'AET' || st === 'FT_PEN';
+      })
       .map((f: any): MatchHistoryData => {
         const participants = f.participants || [];
         const homeTeam = participants.find((p: any) => p.meta?.location === 'home');
@@ -562,10 +603,10 @@ export async function getHeadToHead(
     
     console.log(`✅ Found ${fixtures.length} H2H matches`);
     
-    // Cache for 24 hours
-    await redis?.setex(cacheKey, 86400, JSON.stringify(fixtures));
-    
-    return fixtures;
+    // Scontri diretti passati: immutabili, cache lunga sul GREZZO.
+    await redis?.setex(cacheKey, 60 * 60 * 24 * 7, JSON.stringify(fixtures));
+
+    return sliceH2H(fixtures, limit, maxDate);
   } catch (error: any) {
     console.error(`❌ Error fetching H2H:`, error.message);
     return [];

@@ -11,40 +11,10 @@ import { fetchOddsByFixtureId } from '../services/sportsmonks/odds';
 import { prisma } from '../lib/prisma';
 import { redis } from '../lib/redis';
 import logger from '../utils/logger';
-import { filterSupportedFixtures } from '../config/supported-leagues';
+import { ALLOWED_LEAGUES, filterSupportedFixtures } from '../config/supported-leagues';
 import type { Request, Response, NextFunction } from 'express';
 
 const router = Router();
-
-// IDs delle competizioni principali supportate (Sportsmonks IDs)
-const ALLOWED_LEAGUES = [
-  8,    // Premier League (England)
-  9,    // Championship (England) 🆕
-  10,   // League One (England)
-  11,   // League Two (England)
-  384,  // Serie A (Italy)
-  387,  // Serie B (Italy) 🆕
-  564,  // La Liga (Spain)
-  566,  // La Liga 2 (Spain)
-  570,  // Copa del Rey (Spain) 🆕
-  82,   // Bundesliga (Germany)
-  83,   // 2. Bundesliga (Germany)
-  301,  // Ligue 1 (France)
-  303,  // Ligue 2 (France)
-  72,   // Eredivisie (Netherlands)
-  73,   // Eerste Divisie (Netherlands)
-  271,  // Primeira Liga (Portugal)
-  272,  // Segunda Liga (Portugal)
-  462,  // Super Lig (Turkey)
-  463,  // 1. Lig (Turkey)
-  307,  // Pro League (Belgium)
-  266,  // Superliga (Denmark)
-  // 2,    // Champions League ❌ RIMOSSA
-  // 5,    // Europa League ❌ RIMOSSA
-  // 848,  // Conference League ❌ RIMOSSA
-  600,  // Nations League
-  // Serie B Italy, Championship England, etc. - più coverage
-];
 
 // Schema validazione query params
 const fixturesQuerySchema = z.object({
