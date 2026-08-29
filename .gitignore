@@ -88,3 +88,6 @@ backtest-recommendations-*.js
 backtest-month.mjs
 backtest-q*.txt
 backtest-set-*.txt
+
+# Report generati dai backtest (artefatti, non sorgenti)
+api/backtest-*.json
