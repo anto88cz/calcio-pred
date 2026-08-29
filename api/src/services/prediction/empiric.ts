@@ -218,12 +218,13 @@ export class EmpiricEngine {
     const underOver: { [key: string]: { under: number; over: number } } = {};
 
     thresholds.forEach(threshold => {
-      // Usa distribuzione normale per approssimare
-      const over = this.normalCDF(threshold, expectedGoals, Math.sqrt(avgVariance));
-      
+      // normalCDF(x, mu, sigma) restituisce P(gol <= x), che e' l'UNDER.
+      // L'Over e' il complemento.
+      const under = this.normalCDF(threshold, expectedGoals, Math.sqrt(avgVariance));
+
       underOver[threshold.toString()] = {
-        under: 1 - over,
-        over: over,
+        under,
+        over: 1 - under,
       };
     });
 

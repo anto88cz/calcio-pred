@@ -401,16 +401,27 @@ export function predictMatch(
     // NON dobbiamo moltiplicare per leagueAvg, sono già in quella scala!
     // Formula semplificata: xG = attack * (opponent_defense / league_avg) * home_advantage
     
-    // Normalizza defense come ratio (1.0 = media di lega)
-    const awayDefenseRatio = awayStrength.defense / leagueAvgAway; // >1 = difesa debole
-    const homeDefenseRatio = homeStrength.defense / (leagueAvgHome / homeAdvantage);
+    // Normalizza la difesa avversaria sul lato OPPOSTO della media di lega:
+    // - awayStrength.defense = gol subiti dalla trasferta IN TRASFERTA, cioe'
+    //   i gol segnati dalle squadre di casa -> si normalizza su leagueAvgHome
+    // - homeStrength.defense = gol subiti dalla casa IN CASA, cioe' i gol
+    //   segnati dalle squadre in trasferta -> si normalizza su leagueAvgAway
+    // Prima entrambe erano normalizzate sul lato sbagliato: per una squadra
+    // perfettamente media il ratio valeva ~1.22 invece di 1.0, gonfiando gli
+    // xG di casa del ~40% e il totale del ~19%.
+    const awayDefenseRatio = awayStrength.defense / leagueAvgHome; // >1 = difesa debole
+    const homeDefenseRatio = homeStrength.defense / leagueAvgAway; // >1 = difesa debole
     
-    // Expected goals = attacco squadra * (difesa avversario normalizzata) * home advantage
-    expectedGoalsHome = homeStrength.attack * awayDefenseRatio * homeAdvantage;
+    // Expected goals = attacco squadra * difesa avversario normalizzata
+    // NESSUN moltiplicatore di vantaggio casa: homeStrength.attack e' gia' la
+    // media dei gol segnati IN CASA (lo storico e' separato per campo), quindi
+    // il vantaggio casa e' gia' dentro il dato. Applicarlo di nuovo qui lo
+    // conterebbe due volte.
+    expectedGoalsHome = homeStrength.attack * awayDefenseRatio;
     expectedGoalsAway = awayStrength.attack * homeDefenseRatio;
     
     console.log(`✅ Using historical data - Home xG: ${expectedGoalsHome.toFixed(2)}, Away xG: ${expectedGoalsAway.toFixed(2)}`);
-    console.log(`   Home: attack=${homeStrength.attack.toFixed(2)} * away_def_ratio=${awayDefenseRatio.toFixed(2)} * home_adv=${homeAdvantage.toFixed(2)}`);
+    console.log(`   Home: attack=${homeStrength.attack.toFixed(2)} * away_def_ratio=${awayDefenseRatio.toFixed(2)}`);
     console.log(`   Away: attack=${awayStrength.attack.toFixed(2)} * home_def_ratio=${homeDefenseRatio.toFixed(2)}`);
   }
   

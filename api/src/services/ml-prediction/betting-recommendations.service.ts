@@ -386,7 +386,10 @@ export class BettingRecommendationsService {
       if (r.valueRating === 5 && r.expectedValue < 0.75) adjustedConfidence -= 10;
       
       // 🎯 KELLY CRITERION CALCULATION
-      const modelProbability = Math.max(0.01, Math.min(0.99, r.modelProbability));
+      // r.modelProbability e' memorizzato in PERCENTUALE (0-100): va riportato
+      // in scala 0-1, altrimenti il clamp lo satura sempre a 0.99 e il Kelly
+      // restituisce lo stake massimo su ogni singola scommessa.
+      const modelProbability = Math.max(0.01, Math.min(0.99, r.modelProbability / 100));
       const kellyStake = KellyCriterion.calculateKellyStake(modelProbability, r.odds, 0.5);
       const kellyRecommendation = KellyCriterion.getKellyRecommendation(kellyStake);
       

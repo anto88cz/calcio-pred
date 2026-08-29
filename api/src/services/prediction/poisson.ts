@@ -20,28 +20,23 @@ export class PoissonEngine {
   
   /**
    * Calcola RHO dinamico basato su lambda totali e caratteristiche del match
-   * 
+   *
    * @param lambdaHome - Goal attesi casa
    * @param lambdaAway - Goal attesi trasferta
-   * @returns RHO ottimale per questo match (0.05 a 0.20 - POSITIVO per RIDURRE 1-1)
-   * 
-   * Logica:
-   * - Match ad alto punteggio (>3.0 gol attesi): RHO più alto (0.15)
-   *   → Maggiore correzione per evitare sovrastima di punteggi bassi
-   * 
-   * - Match a basso punteggio (<2.0 gol attesi): RHO più basso (0.08)
-   *   → Correzione più leggera, i punteggi bassi sono già probabili
-   * 
-   * - Match ad altissimo punteggio (>4.0 gol): RHO molto alto (0.18)
-   *   → Forte penalizzazione di 0-0, 1-1 che sono improbabili
-   * 
-   * - Match molto difensivi (<1.5 gol): RHO minimo (0.05)
-   *   → Quasi nessuna correzione, la Poisson pura è già accurata
-   * 
-   * - Match squilibrati (|λhome - λaway| > 1.5): RHO moderato (0.12)
-   *   → Correzione standard con leggero boost per favorito
-   * 
-   * IMPORTANTE: RHO è POSITIVO perché tau11 = 1 - rho DEVE ridurre 1-1
+   * @returns RHO per questo match (-0.16 a -0.05)
+   *
+   * SEGNO: in Dixon & Coles (1997) RHO e' NEGATIVO. I fattori di correzione sono
+   *   tau(0,0) = 1 - lh*la*rho    tau(0,1) = 1 + lh*rho
+   *   tau(1,0) = 1 + la*rho       tau(1,1) = 1 - rho
+   * quindi con rho < 0 la correzione AUMENTA 0-0 e 1-1 (che la Poisson
+   * indipendente sottostima empiricamente) e riduce 1-0 / 0-1.
+   * La versione precedente usava rho positivo, ottenendo l'effetto opposto e
+   * producendo tau(0,0) negativo (quindi probabilita' negative) per ogni match
+   * con lambdaHome * lambdaAway > 1/rho, cioe' gia' da ~2.8 x 2.0 gol attesi.
+   *
+   * MAGNITUDINE: la dipendenza e' piu' forte nelle partite a basso punteggio,
+   * dove la quota di risultati 0-0/1-1 e' maggiore, e si attenua in quelle ad
+   * alto punteggio. Valori nell'intervallo empirico tipico (|rho| ~ 0.03-0.16).
    */
   private calculateDynamicRho(
     lambdaHome: number, 
@@ -53,36 +48,58 @@ export class PoissonEngine {
     // Match ad altissimo punteggio (>4.0 gol attesi totali)
     // Es: Man City (2.8) vs Brighton (1.5) = 4.3 gol
     if (totalLambda > 4.0) {
-      return 0.18; // Forte penalizzazione 0-0, 1-1
+      return -0.05; // Correzione minima: 0-0 e 1-1 sono gia' improbabili
     }
     
     // Match ad alto punteggio (3.0-4.0 gol attesi)
     // Es: Liverpool (2.2) vs Newcastle (1.2) = 3.4 gol
     if (totalLambda > 3.0) {
-      return 0.15; // Correzione aumentata
+      return -0.08; // Correzione leggera
     }
     
     // Match molto difensivi (<1.5 gol attesi totali)
     // Es: Atletico Madrid (0.8) vs Getafe (0.6) = 1.4 gol
     if (totalLambda < 1.5) {
-      return 0.05; // Correzione minima, 0-0 è già probabile
+      return -0.16; // Correzione massima: forte addensamento sui punteggi bassi
     }
     
     // Match a basso punteggio (1.5-2.0 gol attesi)
     // Es: Inter (1.3) vs Milan (0.9) = 2.2 gol
     if (totalLambda < 2.0) {
-      return 0.08; // Correzione leggera
+      return -0.14; // Correzione elevata
     }
     
     // Match molto squilibrati (differenza >1.5 gol)
     // Es: Bayern (2.8) vs Augsburg (0.9) = diff 1.9
     if (lambdaDiff > 1.5) {
-      return 0.12; // Correzione moderata, favorito dominante
+      return -0.10; // Correzione moderata, favorito dominante
     }
     
     // Match equilibrati o standard (2.0-3.0 gol, diff <1.5)
     // Es: Arsenal (1.6) vs Chelsea (1.3) = 2.9 gol
-    return 0.10; // RHO standard (default Dixon-Coles originale)
+    return -0.12; // RHO standard (ordine di grandezza del paper originale)
+  }
+
+  /**
+   * Vincola RHO all'intervallo in cui TUTTI i fattori tau restano >= 0.
+   * Senza questo clamp la matrice puo' contenere probabilita' negative, che la
+   * normalizzazione successiva non rileva.
+   *
+   *   tau(0,0) = 1 - lh*la*rho >= 0  ->  rho <= 1 / (lh*la)
+   *   tau(1,0) = 1 + la*rho    >= 0  ->  rho >= -1 / la
+   *   tau(0,1) = 1 + lh*rho    >= 0  ->  rho >= -1 / lh
+   *   tau(1,1) = 1 - rho       >= 0  ->  rho <= 1
+   */
+  private clampRho(
+    rho: number,
+    lambdaHome: number,
+    lambdaAway: number
+  ): number {
+    const EPS = 1e-6;
+    const minRho = -1 / Math.max(lambdaHome, lambdaAway) + EPS;
+    const maxRho = Math.min(1, 1 / (lambdaHome * lambdaAway)) - EPS;
+    
+    return Math.max(minRho, Math.min(maxRho, rho));
   }
 
   /**
@@ -121,6 +138,29 @@ export class PoissonEngine {
       }, 'Lambda calibrated with xG');
     }
 
+    logger.debug({ lambdaHome, lambdaAway }, 'Base lambda values (pre-adjustments)');
+
+    return this.computeFromLambdas(lambdaHome, lambdaAway, homeAdvantage);
+  }
+
+  /**
+   * Costruisce la matrice punteggi e TUTTI i mercati derivati a partire dai
+   * lambda finali.
+   *
+   * Va richiamato ogni volta che i lambda cambiano: matrice, 1X2, Under/Over,
+   * gol esatti, BTTS e Doppia Chance derivano dai lambda, quindi mutare i soli
+   * campi lambdaHome/lambdaAway di un PoissonResult gia' costruito non aggiorna
+   * nessuna probabilita' (era il caso degli aggiustamenti forma / H2H /
+   * infortuni / forza lega applicati dall'engine).
+   *
+   * NOTA: homeAdvantage viene solo riportato nel risultato, NON sommato ai
+   * lambda: deve essere gia' incluso dal chiamante.
+   */
+  computeFromLambdas(
+    lambdaHome: number,
+    lambdaAway: number,
+    homeAdvantage: number = 0.0
+  ): PoissonResult {
     logger.debug({ lambdaHome, lambdaAway }, 'Final lambda values');
 
     // Genera matrice punteggi (0-6 gol per squadra)
@@ -346,8 +386,13 @@ export class PoissonEngine {
     lambdaHome: number,
     lambdaAway: number
   ): void {
-    // Calcola RHO dinamico per questo match specifico
-    const rho = this.calculateDynamicRho(lambdaHome, lambdaAway);
+    // Calcola RHO dinamico per questo match specifico, vincolato all'intervallo
+    // che garantisce fattori tau non negativi
+    const rho = this.clampRho(
+      this.calculateDynamicRho(lambdaHome, lambdaAway),
+      lambdaHome,
+      lambdaAway
+    );
     
     // Salva le probabilità originali per logging
     const original00 = matrix[0][0];

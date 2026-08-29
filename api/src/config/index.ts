@@ -38,7 +38,9 @@ const configSchema = z.object({
   
   // Parametri Calcolo - CORRETTI
   HISTORY_GAMES: z.string().transform(Number).default('10'), // Compromesso ottimale tra stabilità e volume dati
-  HOME_ADV_GOALS: z.string().transform(Number).default('0.15'), // Vantaggio casa calibrato conservativo
+  // DEPRECATO: lo storico e' gia' separato per campo (getTeamHistoryByVenue),
+  // quindi i lambda incorporano il vantaggio casa. Non piu' usato dall'engine.
+  HOME_ADV_GOALS: z.string().transform(Number).default('0'),
   CONFIDENCE_MIN: z.string().transform(Number).default('0.65'), // Soglia bilanciata per qualità/volume
   BLEND_EMPIRIC: z.string().transform(Number).default('0.55'), // Riequilibrato
   BLEND_POISSON: z.string().transform(Number).default('0.45'), // Riequilibrato
@@ -133,7 +135,11 @@ export const calculationConfig = {
   xgHighThreshold: config.XG_HIGH_THRESHOLD,
   thresholds,
   // Market Odds Calibration
-  oddsCalibrationEnabled: !!config.ODDS_API_KEY,
+  // Le quote arrivano da Sportsmonks, non piu' da The Odds API: la
+  // calibrazione va abilitata sempre e si attiva quando marketOdds e'
+  // effettivamente disponibile. Legarla a ODDS_API_KEY (legacy) la disattivava
+  // in silenzio pur avendo quote valide.
+  oddsCalibrationEnabled: true,
   oddsBlendWeight: 0.30, // 70% model + 30% market
   oddsMinDifferenceForValueBet: 0.10, // 10% difference = value bet
   oddsConfidenceBoostThreshold: 0.05, // If diff < 5%, boost confidence
