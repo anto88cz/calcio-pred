@@ -27,6 +27,16 @@ export interface BacktestConfig {
   strengthFilter?: string; // 'GIOCALA' | 'STRONG' | 'ALL'
   /** Pausa tra una partita e l'altra, per non saturare il rate limit. */
   delayMs?: number;
+  /**
+   * Calibrazione sulle quote di mercato dentro l'engine. Default: false.
+   *
+   * Va tenuta spenta per misurare il modello: il ROI si calcola sulla closing
+   * line, e con la calibrazione attiva il 30% della probabilita' finale viene
+   * proprio da quella quota. Attivarla solo per rispondere alla domanda
+   * diversa "quanto rende il sistema in produzione", sapendo che il numero
+   * non e' una misura del modello.
+   */
+  marketCalibration?: boolean;
 }
 
 export interface BacktestResult {
@@ -51,6 +61,10 @@ export interface BacktestResult {
     predictedOutcome: '1' | 'X' | '2';
     confidence: number;
     strength: string;
+    /** P(Over 2.5). Under = 1 - over. */
+    over25: number;
+    /** P(entrambe segnano) */
+    bttsYes: number;
   };
   
   // Quote di chiusura reali del bookmaker (null se non disponibili).
@@ -59,6 +73,8 @@ export interface BacktestResult {
 
   // Metriche
   correct1X2: boolean;
+  correctOver25: boolean;
+  correctBtts: boolean;
   brierScore: number;
 }
 
@@ -114,6 +130,25 @@ export interface BacktestReport {
     };
   };
   
+  /**
+   * Confronto con il mercato: la sola misura che dice se il modello serve.
+   *
+   * L'accuracy sull'1X2 non basta ("sempre casa" fa ~45%), e un Brier basso in
+   * assoluto non dice niente se le quote de-viggate lo fanno meglio. Il
+   * confronto e' sullo stesso sottoinsieme di partite: solo quelle con closing
+   * line disponibile.
+   */
+  marketComparison: {
+    matchesWithOdds: number;
+    /** margine medio del bookmaker: overround - 1 */
+    avgMargin: number;
+    model: { brier: number; logLoss: number; accuracy: number };
+    market: { brier: number; logLoss: number; accuracy: number };
+    /** modello - mercato: negativo = il modello e' migliore */
+    delta: { brier: number; logLoss: number };
+    beatsMarket: boolean;
+  };
+
   // Detailed results
   results: BacktestResult[];
   
@@ -155,7 +190,7 @@ export class Backtester {
           fixture: `${fixture.homeTeam.name} vs ${fixture.awayTeam.name}`,
         }, 'Processing fixture');
         
-        const result = await this.backtestSingleFixture(fixture);
+        const result = await this.backtestSingleFixture(fixture, config);
         results.push(result);
         
         // Progress log ogni 10 fixtures
@@ -231,7 +266,10 @@ export class Backtester {
   /**
    * Backtest singolo fixture
    */
-  private async backtestSingleFixture(fixture: any): Promise<BacktestResult> {
+  private async backtestSingleFixture(
+    fixture: any,
+    config: BacktestConfig
+  ): Promise<BacktestResult> {
     // Calcola predizione usando dati PRE-MATCH.
     //
     // fixtureId dev'essere l'ID Sportmonks (apiId), non la chiave primaria di
@@ -251,11 +289,17 @@ export class Backtester {
       awayTeamName: fixture.awayTeam.name,
       leagueName: fixture.leagueName,
       fixtureDate: fixture.date,
+      // Senza questo il modello riceverebbe la quota contro cui viene poi
+      // misurato, e per giunta mediata su righe aggiornate a partita in corso.
+      skipMarketCalibration: !config.marketCalibration,
     });
 
     // Quote di chiusura reali: il ROI va calcolato su quello che il bookmaker
     // pagava davvero, non su 1/probabilita' del modello.
     const closingOdds = await fetchClosingOdds1X2(fixture.apiId, fixture.date);
+
+    const totalGoals = fixture.homeGoals + fixture.awayGoals;
+    const bothScored = fixture.homeGoals > 0 && fixture.awayGoals > 0;
 
     // Determina outcome reale
     const actualOutcome = 
@@ -298,11 +342,15 @@ export class Backtester {
         predictedOutcome,
         confidence: prediction.confidence,
         strength: prediction.market1X2.strength,
+        over25: prediction.marketUnderOver['2.5'].final.over,
+        bttsYes: prediction.marketBTTS.final.yes,
       },
       
       closingOdds,
 
       correct1X2: predictedOutcome === actualOutcome,
+      correctOver25: (prediction.marketUnderOver['2.5'].final.over >= 0.5) === (totalGoals > 2.5),
+      correctBtts: (prediction.marketBTTS.final.yes >= 0.5) === bothScored,
       brierScore,
     };
   }
@@ -369,6 +417,9 @@ export class Backtester {
     // ROI simulation
     const roi = this.calculateROI(results);
     
+    // Confronto col mercato
+    const marketComparison = this.compareWithMarket(results);
+
     // By league analysis
     const byLeague = this.analyzeByLeague(results);
     
@@ -385,8 +436,8 @@ export class Backtester {
       accuracy: {
         overall1X2: accuracy,
         byStrength,
-        overUnder25: 0, // TODO: Implement
-        btts: 0,        // TODO: Implement
+        overUnder25: (results.filter(r => r.correctOver25).length / results.length) * 100,
+        btts: (results.filter(r => r.correctBtts).length / results.length) * 100,
       },
       brierScore: {
         overall: avgBrier,
@@ -394,11 +445,113 @@ export class Backtester {
       },
       calibration,
       roi,
+      marketComparison,
       results,
       byLeague,
     };
   }
   
+  /**
+   * De-vig proporzionale: 1/quota include il margine del banco, le tre
+   * probabilita' implicite sommano a ~1.05. Si normalizza per la somma.
+   *
+   * E' il metodo piu' semplice e assume che il margine sia distribuito in
+   * proporzione alla probabilita'. Sul favorito tende a sovrastimare un po'
+   * (favourite-longshot bias), ma per un confronto di log-loss e' adeguato.
+   */
+  private devig(odds: ClosingOdds1X2): { '1': number; 'X': number; '2': number } {
+    const raw1 = 1 / odds.home;
+    const rawX = 1 / odds.draw;
+    const raw2 = 1 / odds.away;
+    const sum = raw1 + rawX + raw2;
+    return { '1': raw1 / sum, 'X': rawX / sum, '2': raw2 / sum };
+  }
+
+  /**
+   * Log-loss di una singola predizione: -ln(p assegnata all'esito avvenuto).
+   *
+   * Perche' non basta il Brier: il log-loss punisce molto piu' duramente la
+   * sicurezza sbagliata, ed e' la metrica su cui si confrontano i modelli
+   * probabilistici. Clip a 1e-15 per non produrre Infinity su p = 0.
+   */
+  private logLoss(probs: { '1': number; 'X': number; '2': number }, actual: '1' | 'X' | '2'): number {
+    return -Math.log(Math.max(probs[actual], 1e-15));
+  }
+
+  /**
+   * Modello contro closing line de-viggata, sulle stesse partite.
+   */
+  private compareWithMarket(results: BacktestResult[]): BacktestReport['marketComparison'] {
+    const withOdds = results.filter(r => r.closingOdds !== null);
+
+    const empty = {
+      matchesWithOdds: 0,
+      avgMargin: 0,
+      model: { brier: 0, logLoss: 0, accuracy: 0 },
+      market: { brier: 0, logLoss: 0, accuracy: 0 },
+      delta: { brier: 0, logLoss: 0 },
+      beatsMarket: false,
+    };
+    if (withOdds.length === 0) return empty;
+
+    let modelBrier = 0, modelLL = 0, modelHits = 0;
+    let marketBrier = 0, marketLL = 0, marketHits = 0;
+    let margin = 0;
+
+    for (const r of withOdds) {
+      const actual = r.actualResult.outcome as '1' | 'X' | '2';
+      const modelProbs = { '1': r.prediction.prob1, 'X': r.prediction.probX, '2': r.prediction.prob2 };
+      const marketProbs = this.devig(r.closingOdds!);
+
+      modelBrier += this.brierFromProbs(modelProbs, actual);
+      modelLL += this.logLoss(modelProbs, actual);
+      if (r.prediction.predictedOutcome === actual) modelHits++;
+
+      marketBrier += this.brierFromProbs(marketProbs, actual);
+      marketLL += this.logLoss(marketProbs, actual);
+      const marketPick = (['1', 'X', '2'] as const).reduce((a, b) => (marketProbs[a] >= marketProbs[b] ? a : b));
+      if (marketPick === actual) marketHits++;
+
+      margin += r.closingOdds!.overround - 1;
+    }
+
+    const n = withOdds.length;
+    const model = {
+      brier: modelBrier / n,
+      logLoss: modelLL / n,
+      accuracy: (modelHits / n) * 100,
+    };
+    const market = {
+      brier: marketBrier / n,
+      logLoss: marketLL / n,
+      accuracy: (marketHits / n) * 100,
+    };
+
+    return {
+      matchesWithOdds: n,
+      avgMargin: margin / n,
+      model,
+      market,
+      delta: {
+        brier: model.brier - market.brier,
+        logLoss: model.logLoss - market.logLoss,
+      },
+      beatsMarket: model.logLoss < market.logLoss,
+    };
+  }
+
+  /**
+   * Alias di calculateBrierScore: modello e mercato devono usare la stessa
+   * definizione, inclusa la normalizzazione per 3 esiti, o il confronto non
+   * significa niente.
+   */
+  private brierFromProbs(
+    probs: { '1': number; 'X': number; '2': number },
+    actual: '1' | 'X' | '2'
+  ): number {
+    return this.calculateBrierScore(probs, actual);
+  }
+
   /**
    * Calcola accuracy per strength level
    */

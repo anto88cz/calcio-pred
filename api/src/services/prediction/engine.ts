@@ -40,6 +40,16 @@ export interface PredictionInput {
   awayTeamName?: string; // Optional for market odds fetch
   leagueName?: string; // 🆕 League name for filtering and league-specific parameters
   fixtureDate?: Date; // 🆕 Optional: fixture date for backtesting (prevents look-ahead bias)
+  /**
+   * Disattiva la calibrazione sulle quote di mercato.
+   *
+   * Nel backtest e' obbligatorio: il ROI viene misurato contro la closing line,
+   * e con la calibrazione attiva il 30% della probabilita' finale viene da quella
+   * stessa quota — il modello verrebbe valutato su un numero che contiene la
+   * risposta. In piu' fetchOddsByFixtureId media tutte le righe del mercato,
+   * comprese quelle aggiornate a partita iniziata: look-ahead diretto.
+   */
+  skipMarketCalibration?: boolean;
 }
 
 export class PredictionEngine {
@@ -357,21 +367,25 @@ export class PredictionEngine {
       let realOdds = null; // 🆕 Quote reali da mostrare nel frontend
       
       // PRIORITÀ 1: Prova a recuperare quote reali da Sportsmonks usando i nomi delle squadre
-      logger.info({ 
-        fixtureId: input.fixtureId,
-        homeTeam: input.homeTeamName, 
-        awayTeam: input.awayTeamName 
-      }, '🎲 Fetching real odds from Sportsmonks');
+      if (input.skipMarketCalibration) {
+        logger.debug({ fixtureId: input.fixtureId }, 'Market calibration disabled - skipping odds fetch');
+      } else {
+        logger.info({
+          fixtureId: input.fixtureId,
+          homeTeam: input.homeTeamName,
+          awayTeam: input.awayTeamName
+        }, '🎲 Fetching real odds from Sportsmonks');
+      }
       
       try {
         // Try with fixture ID first if available (most reliable)
-        if (input.fixtureId && input.fixtureId > 0) {
+        if (!input.skipMarketCalibration && input.fixtureId && input.fixtureId > 0) {
           logger.info('🔍 Attempting to fetch odds by Sportsmonks fixture ID...');
           realOdds = await sportsmonksOdds.fetchOddsByFixtureId(input.fixtureId);
         }
         
         // Fallback: try with team names if fixture ID didn't work
-        if (!realOdds && input.homeTeamName && input.awayTeamName) {
+        if (!input.skipMarketCalibration && !realOdds && input.homeTeamName && input.awayTeamName) {
           logger.info('🔍 Attempting to fetch odds by team names...');
           realOdds = await sportsmonksOdds.fetchOddsByTeamNames(
             input.homeTeamName,

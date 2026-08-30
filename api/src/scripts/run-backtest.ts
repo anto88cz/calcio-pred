@@ -10,6 +10,7 @@
  * --leagues   Comma-separated league IDs (e.g., 39,135,140)
  * --limit     Max fixtures to test (optional)
  * --output    Output file path (optional, default: backtest-report.json)
+ * --calibration  Attiva la calibrazione sulle quote di mercato (default: off)
  */
 
 import { backtester } from '../services/backtesting/backtester';
@@ -22,6 +23,7 @@ interface CLIArgs {
   leagues: number[];
   limit?: number;
   output?: string;
+  marketCalibration: boolean;
 }
 
 function parseArgs(): CLIArgs {
@@ -33,6 +35,9 @@ function parseArgs(): CLIArgs {
     leagues: [39], // Premier League default
     limit: undefined,
     output: 'backtest-report.json',
+    // Spenta per default: con la calibrazione attiva il 30% della probabilita'
+    // finale viene dalla stessa closing line contro cui si misura il ROI.
+    marketCalibration: false,
   };
   
   for (let i = 0; i < args.length; i++) {
@@ -50,6 +55,8 @@ function parseArgs(): CLIArgs {
     } else if (arg === '--limit' && args[i + 1]) {
       parsed.limit = parseInt(args[i + 1], 10);
       i++;
+    } else if (arg === '--calibration') {
+      parsed.marketCalibration = true;
     } else if (arg === '--output' && args[i + 1]) {
       parsed.output = args[i + 1];
       i++;
@@ -71,6 +78,7 @@ async function main() {
   console.log(`   End Date:   ${args.end}`);
   console.log(`   Leagues:    ${args.leagues.join(', ')}`);
   console.log(`   Limit:      ${args.limit || 'No limit'}`);
+  console.log(`   Market calibration: ${args.marketCalibration ? 'ON (ROI non interpretabile come misura del modello)' : 'OFF'}`);
   console.log(`   Output:     ${args.output}\n`);
   
   console.log('⏳ Running backtest (this may take a while)...\n');
@@ -83,6 +91,7 @@ async function main() {
       endDate: args.end,
       leagues: args.leagues,
       limit: args.limit,
+      marketCalibration: args.marketCalibration,
     });
     
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -134,6 +143,25 @@ async function main() {
     });
     console.log('');
     
+    const mc = report.marketComparison;
+    console.log('🏦 MODELLO vs MERCATO (closing line de-viggata, stesse partite):');
+    if (mc.matchesWithOdds === 0) {
+      console.log('   Nessuna quota di chiusura disponibile - confronto non calcolabile\n');
+    } else {
+      console.log(`   Partite con quote:  ${mc.matchesWithOdds}`);
+      console.log(`   Margine medio book: ${(mc.avgMargin * 100).toFixed(2)}%`);
+      console.log('                     modello   mercato    delta');
+      console.log(`   Log-loss:         ${mc.model.logLoss.toFixed(4)}    ${mc.market.logLoss.toFixed(4)}    ${mc.delta.logLoss >= 0 ? '+' : ''}${mc.delta.logLoss.toFixed(4)}`);
+      console.log(`   Brier:            ${mc.model.brier.toFixed(4)}    ${mc.market.brier.toFixed(4)}    ${mc.delta.brier >= 0 ? '+' : ''}${mc.delta.brier.toFixed(4)}`);
+      console.log(`   Accuracy 1X2:     ${mc.model.accuracy.toFixed(2)}%    ${mc.market.accuracy.toFixed(2)}%`);
+      console.log(
+        mc.beatsMarket
+          ? '   ✅ Il modello batte il mercato sul log-loss'
+          : '   ❌ Il mercato e\' meglio sul log-loss: nessun edge dimostrato'
+      );
+      console.log('');
+    }
+
     console.log('💰 ROI SIMULATION:');
     console.log(`   Flat Betting (all):     ${report.roi.flatBetting.toFixed(2)}%`);
     console.log(`   Kelly Betting (all):    ${report.roi.kellyBetting.toFixed(2)}%`);
