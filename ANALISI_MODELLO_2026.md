@@ -736,3 +736,100 @@ Le tre verifiche sull'xG usano dati costruiti apposta: risultato sempre 1-1 ma x
 0.6. Stimando sui gol le due squadre risultano identiche; stimando sull'xG la prima risulta
 nettamente più forte, e il totale dei λ resta ancorato ai 2 gol osservati. È esattamente il
 segnale che l'xG deve estrarre e i gol no.
+
+
+---
+
+## 10. Quote di apertura, e cosa abbiamo trovato al loro posto
+
+### 10.1 L'apertura non esiste, in questi dati
+
+Sportmonks conserva **una sola riga per (bookmaker, esito)**: verificato, `max = 1` su tutte le
+combinazioni. La riga porta `created_at` (quando il mercato è stato aperto) e
+`latest_bookmaker_update` (ultimo movimento), ma `value` è **solo il valore più recente**. Il
+prezzo di apertura non è recuperabile.
+
+Endpoint provati: `/odds/pre-match/fixtures/{id}` restituisce gli stessi dati del fixture
+include; `/odds/inplay/fixtures/{id}` esiste ma è post-fischio, inutile qui. Nessun endpoint di
+storico quote.
+
+**La strada 1 del §9.4 è chiusa.**
+
+### 10.2 Una correzione a quanto scritto prima
+
+`latest_bookmaker_update` mediano: **7.2 ore prima del calcio d'inizio**. Quella che in §7 e §8
+ho chiamato «closing line» non è la linea di chiusura: è una fotografia pre-partita di diverse
+ore prima, presa quando i bookmaker in questo feed smettono di aggiornare. È un avversario un
+po' più morbido di quanto avevo dichiarato. Le conclusioni non cambiano di segno, ma il termine
+era impreciso.
+
+### 10.3 Quello che c'era invece: la dispersione fra bookmaker
+
+Nel payload ci sono ~20 bookmaker per partita. Finora ogni ROI era calcolato sulla **media** dei
+loro prezzi — cioè su un numero che **nessuno può incassare**.
+
+| | margine del banco |
+|---|---|
+| media dei ~20 bookmaker | **5.76%** |
+| miglior prezzo per esito | **−0.18%** |
+
+745 partite su 1751 (42.5%) hanno margine **negativo** sul miglior prezzo.
+
+`scripts/refresh-odds.ts` arricchisce i report con il miglior prezzo, via
+`/fixtures/multi/{ids}` con `filters=markets:1`: 70 chiamate invece di 1751.
+
+### 10.4 L'esperimento di controllo
+
+Flat 1 € su ogni partita, nessun filtro, 1751 scommesse.
+
+| strategia | prezzo | ROI | errore std | t |
+|---|---|---|---|---|
+| modello (DC blend) | media | **−5.17%** | ±2.37% | −2.18 |
+| modello (DC blend) | migliore | −0.47% | ±2.50% | −0.19 |
+| favorito del mercato | media | −1.16% | ±2.32% | −0.50 |
+| favorito del mercato | migliore | +3.77% | ±2.44% | 1.54 |
+| sempre la casa | migliore | −0.53% | — | — |
+
+Due letture, e vanno tenute separate.
+
+**Il line shopping vale ~4.7 punti di ROI** (−5.17% → −0.47%): è la leva più grande trovata
+finora, più grande di qualunque miglioramento al modello. Passare dalla media al miglior prezzo
+recupera più di quanto abbiano recuperato Dixon-Coles e xG messi insieme.
+
+**Ma nessuno di questi numeri è significativo, tranne uno.** L'unica affermazione solida è che
+il modello perde alle quote medie (t = −2.18). Tutto il resto — compreso il +3.77% del favorito
+del mercato al miglior prezzo — sta dentro il rumore.
+
+### 10.5 Perché il ROI non è la metrica giusta, in numeri
+
+Per distinguere un ROI del +3.8% dallo zero, con quota media 2.4, servono circa **3.575
+scommesse**. Ne abbiamo 1.751 — e sono l'intera stagione di cinque campionati.
+
+È il motivo per cui ogni ciclo di ottimizzazione basato sul ROI è destinato a inseguire rumore,
+e perché log-loss e Brier restano il metro corretto: convergono con un ordine di grandezza in
+meno di partite. Il ROI è il risultato finale, non lo strumento di misura.
+
+### 10.6 Cautele sul miglior prezzo
+
+Il −0.18% di margine è un **limite superiore**, non un prezzo garantito:
+
+- i prezzi dei 20 bookmaker hanno timestamp diversi (mediana 7.2 ore prima, ma con dispersione),
+  quindi il massimo per ciascun esito **non è necessariamente disponibile nello stesso momento**:
+  parte del margine negativo è artefatto, non arbitraggio reale;
+- richiede conti attivi su una ventina di bookmaker;
+- i book che offrono sistematicamente il prezzo migliore sono quelli che limitano i vincenti.
+
+Resta però il fatto strutturale: fare line shopping su ~10 book riduce davvero il margine
+effettivo dal ~6% all'1-2%, ed è un guadagno che non richiede nessun miglioramento del modello.
+
+### 10.7 Dove siamo
+
+Il modello, al miglior prezzo, gioca alla pari con il caso (−0.47% ± 2.50%). Non perde più
+soldi in modo dimostrabile, ma non ne guadagna. Il favorito del mercato, allo stesso prezzo, fa
+meglio del modello.
+
+Quello che serve adesso non è un modello migliore: è **più partite**, per poter distinguere il
+segnale dal rumore. Le 21 leghe del piano, tre stagioni, sono ~15.000 partite — abbastanza per
+misurare un ROI del 2-3% con un errore standard sotto l'1%. Ed è anche l'unico modo per
+verificare l'ipotesi rimasta in piedi: che l'edge, se esiste, stia nei campionati minori dove i
+bookmaker prezzano con meno attenzione.

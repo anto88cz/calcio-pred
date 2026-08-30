@@ -31,6 +31,12 @@
  *   --min-odds <q>     quota minima accettata (default 1.0)
  *   --max-odds <q>     quota massima accettata (default 100)
  *   --strength <s>     ALL | STRONG (GIOCALA+STRONG)   (default ALL)
+ *   --odds <o>         avg | best  (default avg)
+ *                      avg = media dei bookmaker, il consenso: nessuno incassa
+ *                      quel prezzo. best = quota migliore disponibile, che e'
+ *                      cio' che si ottiene facendo line shopping. Il margine
+ *                      del banco passa dal 5.76% al -0.18% sul nostro campione,
+ *                      quindi la differenza sul ROI e' enorme.
  *   --split <data>     divide in periodo A (<) e periodo B (>=) e riporta i due
  *                      separatamente: serve per non farsi ingannare da una
  *                      strategia tarata sullo stesso campione che la valuta
@@ -52,7 +58,13 @@ interface ReportResult {
     predictedOutcome: '1' | 'X' | '2';
     confidence: number; strength: string;
   };
-  closingOdds: { home: number; draw: number; away: number; bookmakers: number; overround: number } | null;
+  closingOdds: {
+    home: number; draw: number; away: number;
+    bookmakers: number; overround: number;
+    /** miglior prezzo per esito, presente se il report e' passato da refresh-odds.ts */
+    best?: { home: number; draw: number; away: number };
+    overroundBest?: number;
+  } | null;
   correct1X2: boolean;
 }
 
@@ -71,6 +83,12 @@ interface Args {
   minOdds: number;
   maxOdds: number;
   strength: 'ALL' | 'STRONG';
+  /**
+   * Quale prezzo si incassa: 'avg' e' la media dei bookmaker, che e' il
+   * consenso del mercato ma non un prezzo ottenibile; 'best' e' la quota
+   * migliore disponibile, che e' quella a cui si scommette davvero.
+   */
+  odds: 'avg' | 'best';
   split?: string;
   csv?: string;
 }
@@ -92,6 +110,7 @@ function parseArgs(): Args {
     minOdds: 1.0,
     maxOdds: 100,
     strength: 'ALL',
+    odds: 'avg',
   };
   const num = (i: number) => parseFloat(argv[i + 1]);
   for (let i = 0; i < argv.length; i++) {
@@ -109,6 +128,7 @@ function parseArgs(): Args {
       case '--min-odds': a.minOdds = num(i); i++; break;
       case '--max-odds': a.maxOdds = num(i); i++; break;
       case '--strength': a.strength = argv[i + 1] === 'STRONG' ? 'STRONG' : 'ALL'; i++; break;
+      case '--odds': a.odds = argv[i + 1] === 'best' ? 'best' : 'avg'; i++; break;
       case '--split': a.split = argv[i + 1]; i++; break;
       case '--csv': a.csv = argv[i + 1]; i++; break;
     }
@@ -159,7 +179,8 @@ function toLeg(r: ReportResult, a: Args): (Leg & { edge: number }) | null {
   if (a.strength === 'STRONG' && r.prediction.strength !== 'GIOCALA' && r.prediction.strength !== 'STRONG') return null;
 
   const pick = r.prediction.predictedOutcome;
-  const odds = pick === '1' ? r.closingOdds.home : pick === 'X' ? r.closingOdds.draw : r.closingOdds.away;
+  const priced = a.odds === 'best' && r.closingOdds.best ? r.closingOdds.best : r.closingOdds;
+  const odds = pick === '1' ? priced.home : pick === 'X' ? priced.draw : priced.away;
   if (!odds || odds <= 1) return null;
 
   const modelProb = pick === '1' ? r.prediction.prob1 : pick === 'X' ? r.prediction.probX : r.prediction.prob2;
@@ -396,7 +417,19 @@ function main() {
   console.log(`Modalita':   ${a.mode}${a.mode === 'multipla' ? `, 1-${a.maxEvents} eventi, quota obiettivo ${a.targetOdds}` : ''}`);
   console.log(`Staking:     ${a.stake === 'flat' ? `flat ${a.flatPct}% del capitale ${a.stakeBase === 'current' ? 'CORRENTE (composto)' : 'iniziale'}` : `Kelly x${a.kellyFraction}`} (tetto ${a.maxStakePct}%)`);
   console.log(`Filtri:      EV >= ${(a.minEdge * 100).toFixed(1)}%, quota ${a.minOdds}-${a.maxOdds}, strength ${a.strength}`);
-  console.log(`Quote:       chiusura reale, margine medio del banco ${((report.marketComparison?.avgMargin ?? 0) * 100).toFixed(2)}%`);
+  const sampleOdds = results.find(r => r.closingOdds)?.closingOdds;
+  const hasBest = !!sampleOdds?.best;
+  if (a.odds === 'best' && !hasBest) {
+    console.log('\nATTENZIONE: il report non contiene le quote migliori.');
+    console.log('Lanciare prima: npx tsx src/scripts/refresh-odds.ts <report>\n');
+  }
+  const marginRows = results.filter(r => r.closingOdds);
+  const marginOf = (r: ReportResult) =>
+    (a.odds === 'best' ? r.closingOdds!.overroundBest ?? r.closingOdds!.overround : r.closingOdds!.overround) - 1;
+  const avgMargin = marginRows.length
+    ? marginRows.reduce((s2, r) => s2 + marginOf(r), 0) / marginRows.length
+    : 0;
+  console.log(`Prezzo:      ${a.odds === 'best' ? 'quota MIGLIORE disponibile' : 'media dei bookmaker'}, margine medio ${(avgMargin * 100).toFixed(2)}%`);
 
   const full = simulate(results, a);
   printBlock('STAGIONE COMPLETA', full, a);
@@ -444,9 +477,9 @@ function main() {
     console.log(`\nCurva del capitale scritta in: ${a.csv}`);
   }
 
-  console.log('\nNota: le quote sono quelle di CHIUSURA. Sono le migliori del mercato');
-  console.log('nel momento in cui e\' meglio informato: un ROI positivo qui significa');
-  console.log('battere la closing line, che e\' la prova piu\' dura che esista.\n');
+  console.log('\nNota: le quote sono le ultime pubblicate prima del fischio d\'inizio.');
+  console.log('Sul nostro campione l\'ultimo aggiornamento mediano e\' 7.2 ore prima, quindi');
+  console.log('non e\' una vera linea di chiusura ma una fotografia pre-partita.\n');
 }
 
 main();
