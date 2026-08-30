@@ -615,3 +615,124 @@ l'infrastruttura per accorgersene subito.
 
 Tutti e tre leggono e scrivono lo stesso formato di report, quindi una nuova idea di modello
 si misura riscrivendo solo il primo.
+
+
+---
+
+## 9. xG pre-partita
+
+L'audit indicava l'xG come «il singolo miglioramento più consistente in letteratura». Lo era
+anche qui, ed era il difetto più semplice da descrivere: **l'xG pagato nell'abbonamento non
+entrava mai nel modello.**
+
+### 9.1 Perché non entrava
+
+`calculateAvgXG` (`engine.ts:1597`) legge `xg_home`/`xg_away` dalle partite dello storico e
+richiede almeno 10 partite con il dato, altrimenti ripiega sulla media dei gol. Quei campi
+esistono nello schema Prisma, ma **nessuno li scriveva mai**: `getTeamHistoryByVenue` li
+dichiara nel tipo e non li valorizza. Risultato: `matchesWithXG: 0` su tutte le 1751 partite
+del backtest, e il proxy dei gol al 100% dei casi.
+
+Esisteva una `populateXGCache` che avrebbe dovuto riempirli, 10 partite per predizione in
+background. Non ha mai fatto nulla, per un secondo difetto che annullava il primo: filtrava
+con `match.xg_home === null`, mentre il campo non valorizzato è `undefined`. Il confronto
+stretto era sempre falso, la lista da scaricare sempre vuota. Due bug che si cancellavano a
+vicenda — l'unico effetto utile è stato non sprecare 17.510 chiamate API per riempire colonne
+che nessuno leggeva.
+
+### 9.2 L'import
+
+`scripts/import-xg.ts`. L'add-on non espone l'xG dentro `statistics`: è un include separato,
+`xGFixture`, con una riga per squadra e per metrica (`type_id` 5304 = xG, 5305 = xGoT).
+
+Usa `/fixtures/multi/{ids}` con 25 partite per chiamata: **141 chiamate invece di 3501**, cioè
+quattro minuti invece di un'ora e mezza con il pacing di 1.6s del piano Growth. Idempotente e
+riprendibile.
+
+Copertura ottenuta: **3501/3501, il 100%**, zero partite senza dato.
+
+Controllo di sanità sul livello: xG medio per partita **2.814** contro **2.797** gol realmente
+segnati. I due si sovrappongono, quindi il fornitore non ha bias di scala.
+
+### 9.3 Stimare su una quantità continua
+
+Tre problemi, e come sono risolti in `dixon-coles.ts`.
+
+**La verosimiglianza.** Il termine `x·log λ − λ` resta ben definito per `x` continuo e non
+negativo, e il fattoriale mancante non dipende dai parametri: né l'ottimo né il gradiente
+cambiano. È una quasi-verosimiglianza di Poisson, e permette di passare l'xG allo stesso
+fitter senza modifiche. Se l'xG manca su una partita si ricade sui gol, così il campione non
+si assottiglia.
+
+**τ non è definibile sull'xG.** Corregge quattro *punteggi interi*: su una quantità continua
+non significa niente. Con `target: 'xg'` le forze si stimano senza τ, e **ρ viene stimato
+dopo, sui gol veri**, tenendo ferme attacco e difesa — una sola incognita, ricerca su griglia.
+
+**Il livello va riportato sui gol.** Un modello stimato sull'xG produce λ che sono *xG attesi*.
+Se il fornitore fosse sistematicamente sopra o sotto, tutti i mercati Over/Under ne
+risentirebbero. `levelCorrectionOnGoals` sposta μ di `log(gol totali / λ totali)` sul campione
+di stima. Nel nostro caso la correzione è minima, ma è una garanzia strutturale.
+
+### 9.4 Risultati
+
+Stessa stagione, stesso walk-forward, stesse quote.
+
+| stima su | log-loss | Brier | accuracy 1X2 | O/U 2.5 | BTTS |
+|---|---|---|---|---|---|
+| motore A (vecchio) | 1.0436 | 0.2079 | 47.0% | 53.7% | 51.6% |
+| DC sui gol | 1.0290 | 0.2014 | 50.8% | 54.2% | 53.5% |
+| DC sull'xG | 1.0031 | 0.1996 | 50.9% | 55.7% | 55.4% |
+| **DC blend 35% gol / 65% xG** | **1.0009** | **0.1990** | **51.1%** | 55.2% | 54.9% |
+| mercato | 0.9774 | 0.1940 | 53.6% | — | — |
+
+Il peso dei gol nel blend, cercato sulla stessa misura: 0.15 → 1.0013, **0.35 → 1.0009**,
+0.50 → 1.0021. L'ottimo è piatto, il che è rassicurante: il risultato non dipende da una
+taratura fine. È il default dello script.
+
+**Il divario col mercato si dimezza**: da 0.052 di log-loss sui gol a 0.024 col blend. E il
+guadagno è tutto informazione, non calibrazione — il temperature scaling sul modello xG trova
+T = 0.95, cioè le probabilità erano già oneste.
+
+Il tetto della ricalibrazione sale a **0.9875**, contro 0.9774 del mercato: ora è vicinissimo,
+ma resta sopra.
+
+### 9.5 Il peso resta zero
+
+| w | log-loss fuori campione |
+|---|---|
+| **0.00** | **0.98686** |
+| 0.05 | 0.98709 |
+| 0.10 | 0.98741 |
+| 0.20 | 0.98826 |
+| 0.50 | 0.99256 |
+
+La curva è monotona crescente da zero: non è un ottimo poco profondo, è un minimo di bordo
+vero. Aggiungere il 10% del modello costa 0.0005 di log-loss — praticamente neutro, ma mai
+migliorativo.
+
+**Conclusione onesta: nemmeno il modello xG aggiunge informazione misurabile alla closing line
+dei cinque campionati principali.** Il modello è passato da molto peggio del mercato a poco
+peggio, e la differenza è ormai piccola, ma il segno non è mai cambiato.
+
+Restano le due direzioni che non abbiamo ancora provato, ed entrambe cambiano la domanda
+invece della risposta:
+
+1. **Quote di apertura invece che di chiusura.** Tutto quanto sopra misura contro il prezzo del
+   mercato nel momento in cui è meglio informato. Un modello a 0.024 di log-loss dalla closing
+   line può benissimo essere davanti alla linea di apertura, che è dove si scommette davvero.
+   Da verificare cosa espone il piano Growth.
+2. **Campionati minori.** Bundesliga e La Liga sono i due dove il modello va meglio (accuracy
+   54.6% e 52.6%, Brier 0.192 e 0.195). Se un edge esiste, è dove i book investono meno nel
+   prezzare: Eerste Divisie, 1. Lig, League Two.
+
+### 9.6 Verifiche
+
+`scripts/verify-dixon-coles.ts` copre la Fase 0.1 dell'audit senza aggiungere dipendenze:
+τ positiva su tutto lo spazio dei λ (incluso il caso λ 4×4 con ρ = 0.18 che produceva
+probabilità negative nel vecchio motore), somma 1X2 = 1, Over monotono nella soglia,
+under + over = 1, ρ negativo che aumenta il pareggio, media degli attacchi azzerata.
+
+Le tre verifiche sull'xG usano dati costruiti apposta: risultato sempre 1-1 ma xG 2.4 contro
+0.6. Stimando sui gol le due squadre risultano identiche; stimando sull'xG la prima risulta
+nettamente più forte, e il totale dei λ resta ancorato ai 2 gol osservati. È esattamente il
+segnale che l'xG deve estrarre e i gol no.

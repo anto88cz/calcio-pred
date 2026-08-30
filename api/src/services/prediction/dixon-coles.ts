@@ -39,7 +39,24 @@ export interface DCMatch {
   homeGoals: number;
   awayGoals: number;
   date: Date;
+  /** xG reali della partita, se disponibili */
+  homeXg?: number | null;
+  awayXg?: number | null;
 }
+
+/**
+ * Su cosa stimare attacco e difesa.
+ *
+ * I gol sono l'esito che conta, ma sono pochi e molto rumorosi: su dieci
+ * partite la varianza del risultato domina il segnale sulla forza della
+ * squadra. L'xG misura la qualita' delle occasioni create, e' molto piu'
+ * stabile nel tempo e in letteratura predice i gol futuri meglio dei gol
+ * passati.
+ *
+ * 'blend' usa w*gol + (1-w)*xG come osservazione: resta una quantita' non
+ * negativa, quindi la quasi-verosimiglianza di Poisson vale ancora.
+ */
+export type FitTarget = 'goals' | 'xg' | 'blend';
 
 export interface DixonColesParams {
   /** intercetta: livello medio dei gol del campionato */
@@ -58,6 +75,10 @@ export interface DixonColesParams {
   teams: number;
   /** data piu' recente nel campione: da qui si contano i giorni per il decadimento */
   referenceDate: string;
+  /** su cosa sono state stimate le forze */
+  target: FitTarget;
+  /** partite del campione che avevano xG, quando serviva */
+  matchesWithXg?: number;
 }
 
 export interface FitOptions {
@@ -67,6 +88,10 @@ export interface FitOptions {
   learningRate?: number;
   /** data rispetto a cui calcolare l'eta' delle partite (default: la piu' recente) */
   referenceDate?: Date;
+  /** su cosa stimare le forze (default: 'goals') */
+  target?: FitTarget;
+  /** peso dei gol con target 'blend' (default 0.5) */
+  blendWeight?: number;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -121,8 +146,36 @@ export function fitDixonColes(matches: DCMatch[], options: FitOptions = {}): Dix
   const xi = options.xi ?? 0.0;
   const iterations = options.iterations ?? 3000;
   const lr = options.learningRate ?? 0.05;
+  const target = options.target ?? 'goals';
+  const blendWeight = options.blendWeight ?? 0.5;
 
   if (matches.length === 0) throw new Error('Nessuna partita per la stima');
+
+  /**
+   * Osservazione su cui si massimizza la verosimiglianza.
+   *
+   * Con target xG si usa una quasi-verosimiglianza di Poisson: il termine
+   * x*log(lambda) - lambda resta ben definito per x continuo e non negativo, e
+   * il fattoriale che manca non dipende dai parametri, quindi non cambia ne'
+   * l'ottimo ne' il gradiente. Se l'xG manca su una partita si ricade sui gol,
+   * cosi' il campione non si assottiglia.
+   */
+  const observed = (m: DCMatch): [number, number] => {
+    if (target === 'goals') return [m.homeGoals, m.awayGoals];
+    const hx = m.homeXg ?? null, ax = m.awayXg ?? null;
+    if (hx === null || ax === null) return [m.homeGoals, m.awayGoals];
+    if (target === 'xg') return [hx, ax];
+    return [
+      blendWeight * m.homeGoals + (1 - blendWeight) * hx,
+      blendWeight * m.awayGoals + (1 - blendWeight) * ax,
+    ];
+  };
+
+  // tau corregge quattro punteggi interi: non ha senso su una quantita'
+  // continua come l'xG. Con target diverso da 'goals' rho viene stimato dopo,
+  // sui gol veri, tenendo ferme le forze.
+  const fitRhoJointly = target === 'goals';
+  const matchesWithXg = matches.filter(m => m.homeXg != null && m.awayXg != null).length;
 
   const referenceDate = options.referenceDate
     ?? new Date(Math.max(...matches.map(m => m.date.getTime())));
@@ -137,6 +190,8 @@ export function fitDixonColes(matches: DCMatch[], options: FitOptions = {}): Dix
     const ageDays = (referenceDate.getTime() - m.date.getTime()) / DAY_MS;
     return xi > 0 ? Math.exp(-xi * Math.max(0, ageDays)) : 1;
   });
+
+  const obs = matches.map(observed);
 
   const attack = new Float64Array(T);
   const defence = new Float64Array(T);
@@ -169,21 +224,23 @@ export function fitDixonColes(matches: DCMatch[], options: FitOptions = {}): Dix
 
       const lh = Math.exp(mu + attack[h] + defence[a] + gamma);
       const la = Math.exp(mu + attack[a] + defence[h]);
-      const x = m.homeGoals, y = m.awayGoals;
+      const [x, y] = obs[k];
 
-      const t = tau(x, y, lh, la, rho);
+      const t = fitRhoJointly ? tau(x, y, lh, la, rho) : 1;
       logLikelihood += w * (Math.log(Math.max(t, 1e-12)) + x * Math.log(lh) - lh + y * Math.log(la) - la);
 
-      const { dLh, dLa, dRho } = tauGradients(x, y, lh, la, rho);
+      const g = fitRhoJointly
+        ? tauGradients(x, y, lh, la, rho)
+        : { dLh: 0, dLa: 0, dRho: 0 };
 
       // d/d(log lambda) = (x - lambda) + dlogtau/dlambda * lambda
-      const sh = w * ((x - lh) + dLh * lh);
-      const sa = w * ((y - la) + dLa * la);
+      const sh = w * ((x - lh) + g.dLh * lh);
+      const sa = w * ((y - la) + g.dLa * la);
 
       gAtt[h] += sh; gDef[a] += sh; gGam += sh;
       gAtt[a] += sa; gDef[h] += sa;
       gMu += sh + sa;
-      gRho += w * dRho;
+      gRho += w * g.dRho;
     }
 
     // Adam: si massimizza, quindi si sale lungo il gradiente.
@@ -203,7 +260,9 @@ export function fitDixonColes(matches: DCMatch[], options: FitOptions = {}): Dix
     }
     const [dMu, m1, v1] = step(gMu, mMu, vMu); mu += dMu; mMu = m1; vMu = v1;
     const [dGa, m2, v2] = step(gGam, mGam, vGam); gamma += dGa; mGam = m2; vGam = v2;
-    const [dRh, m3, v3] = step(gRho, mRho, vRho); rho += dRh; mRho = m3; vRho = v3;
+    if (fitRhoJointly) {
+      const [dRh, m3, v3] = step(gRho, mRho, vRho); rho += dRh; mRho = m3; vRho = v3;
+    }
 
     // rho globale entro limiti prudenti; il vincolo esatto e' per partita, in tau
     rho = Math.min(0.25, Math.max(-0.25, rho));
@@ -214,6 +273,13 @@ export function fitDixonColes(matches: DCMatch[], options: FitOptions = {}): Dix
     const meanA = sumA / T, meanD = sumD / T;
     for (let i = 0; i < T; i++) { attack[i] -= meanA; defence[i] -= meanD; }
     mu += meanA + meanD;
+  }
+
+  if (!fitRhoJointly) {
+    // Le forze vengono dall'xG; il livello e la correzione sui punteggi bassi
+    // vanno riportati sui gol veri, che sono cio' che si deve predire.
+    mu += levelCorrectionOnGoals(matches, weights, attack, defence, index, mu, gamma);
+    rho = fitRhoOnGoals(matches, weights, attack, defence, index, mu, gamma);
   }
 
   const attackOut: Record<number, number> = {};
@@ -228,7 +294,58 @@ export function fitDixonColes(matches: DCMatch[], options: FitOptions = {}): Dix
     matches: matches.length,
     teams: T,
     referenceDate: referenceDate.toISOString(),
+    target,
+    matchesWithXg,
   };
+}
+
+/**
+ * Scarto di livello fra xG e gol.
+ *
+ * Un modello stimato sull'xG produce lambda che sono xG attesi. Se il fornitore
+ * dell'xG e' sistematicamente sopra o sotto i gol realmente segnati, tutti i
+ * mercati Over/Under ne risentono. Si sposta mu della quantita' che pareggia i
+ * due totali sul campione di stima: log(gol totali / lambda totali).
+ */
+function levelCorrectionOnGoals(
+  matches: DCMatch[], weights: number[],
+  attack: Float64Array, defence: Float64Array, index: Map<number, number>,
+  mu: number, gamma: number
+): number {
+  let sumLambda = 0, sumGoals = 0;
+  for (let k = 0; k < matches.length; k++) {
+    const m = matches[k], w = weights[k];
+    const h = index.get(m.homeTeamId)!, a = index.get(m.awayTeamId)!;
+    sumLambda += w * (Math.exp(mu + attack[h] + defence[a] + gamma) + Math.exp(mu + attack[a] + defence[h]));
+    sumGoals += w * (m.homeGoals + m.awayGoals);
+  }
+  if (sumLambda <= 0 || sumGoals <= 0) return 0;
+  return Math.log(sumGoals / sumLambda);
+}
+
+/**
+ * Stima rho sui gol veri tenendo ferme le forze: una sola incognita, quindi
+ * basta una ricerca su griglia. Serve perche' tau corregge quattro punteggi
+ * interi e non e' definibile sull'xG.
+ */
+function fitRhoOnGoals(
+  matches: DCMatch[], weights: number[],
+  attack: Float64Array, defence: Float64Array, index: Map<number, number>,
+  mu: number, gamma: number
+): number {
+  let best = 0, bestLL = -Infinity;
+  for (let r = -0.20; r <= 0.10001; r += 0.005) {
+    let ll = 0;
+    for (let k = 0; k < matches.length; k++) {
+      const m = matches[k], w = weights[k];
+      const h = index.get(m.homeTeamId)!, a = index.get(m.awayTeamId)!;
+      const lh = Math.exp(mu + attack[h] + defence[a] + gamma);
+      const la = Math.exp(mu + attack[a] + defence[h]);
+      ll += w * Math.log(Math.max(tau(m.homeGoals, m.awayGoals, lh, la, r), 1e-12));
+    }
+    if (ll > bestLL) { bestLL = ll; best = r; }
+  }
+  return parseFloat(best.toFixed(4));
 }
 
 export interface DCPrediction {

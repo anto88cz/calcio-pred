@@ -26,7 +26,7 @@ dotenv.config();
 import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaClient, FixtureStatus } from '@prisma/client';
-import { fitDixonColes, predict, DCMatch, DixonColesParams } from '../services/prediction/dixon-coles';
+import { fitDixonColes, predict, DCMatch, DixonColesParams, FitTarget } from '../services/prediction/dixon-coles';
 
 const prisma = new PrismaClient();
 
@@ -41,6 +41,8 @@ interface Args {
   xi: number;
   tune: boolean;
   iterations: number;
+  target: FitTarget;
+  blendWeight: number;
 }
 
 function parseArgs(): Args {
@@ -59,6 +61,11 @@ function parseArgs(): Args {
     xi: parseFloat(get('--xi', '0.002')),
     tune: a.includes('--tune'),
     iterations: parseInt(get('--iterations', '2500'), 10),
+    // Default misurati sulla stagione 2025-26, log-loss walk-forward:
+    // gol 1.0290, xG 1.0031, blend 0.15 -> 1.0013, blend 0.35 -> 1.0009,
+    // blend 0.50 -> 1.0021. L'ottimo e' piatto attorno a 0.35.
+    target: (get('--target', 'blend') as FitTarget),
+    blendWeight: parseFloat(get('--blend-weight', '0.35')),
   };
 }
 
@@ -102,6 +109,8 @@ async function main() {
     awayTeamId: f.awayTeamId,
     homeGoals: f.homeGoals!,
     awayGoals: f.awayGoals!,
+    homeXg: f.xg_home,
+    awayXg: f.xg_away,
     date: f.date,
     row: f,
   }));
@@ -115,6 +124,8 @@ async function main() {
   console.log('========================================');
   console.log(`Partite in archivio:  ${all.length}`);
   console.log(`Storico pre-stagione: ${history.length}  (${history[0]?.date.toISOString().slice(0, 10)} -> ${history[history.length - 1]?.date.toISOString().slice(0, 10)})`);
+  const xgCoverage = all.filter(m => m.homeXg != null && m.awayXg != null).length;
+  console.log(`Stima su:             ${args.target}${args.target === 'blend' ? ` (gol ${args.blendWeight})` : ''}   xG disponibile su ${xgCoverage}/${all.length} partite`);
   console.log(`Da predire:           ${target.length}  (${target[0]?.date.toISOString().slice(0, 10)} -> ${target[target.length - 1]?.date.toISOString().slice(0, 10)})`);
 
   // quote di chiusura da un report esistente
@@ -149,7 +160,13 @@ async function main() {
       const trainingSet = all.filter(m => m.date < cutoff);
       if (trainingSet.length < 200) continue;
 
-      params = fitDixonColes(trainingSet, { xi, iterations: args.iterations, referenceDate: cutoff });
+      params = fitDixonColes(trainingSet, {
+        xi,
+        iterations: args.iterations,
+        referenceDate: cutoff,
+        target: args.target,
+        blendWeight: args.blendWeight,
+      });
       fitted++;
       if (verbose && fitted % 10 === 0) {
         console.log(`  settimana ${String(w).padStart(2)}  stima su ${String(trainingSet.length).padStart(4)} partite  gamma=${params.gamma.toFixed(3)} rho=${params.rho.toFixed(3)}`);
@@ -247,6 +264,7 @@ async function main() {
 
   if (params) {
     console.log('\n--- PARAMETRI DELL ULTIMA STIMA ---');
+    console.log(`  stima su ${params.target}${params.matchesWithXg !== undefined ? `, ${params.matchesWithXg} partite con xG` : ''}`);
     console.log(`  mu    ${params.mu.toFixed(4)}   (gol medi ${Math.exp(params.mu).toFixed(2)} per squadra)`);
     console.log(`  gamma ${params.gamma.toFixed(4)}   (vantaggio casa x${Math.exp(params.gamma).toFixed(3)})`);
     console.log(`  rho   ${params.rho.toFixed(4)}`);
@@ -270,7 +288,7 @@ async function main() {
   }
 
   const report = {
-    config: { model: 'dixon-coles-mle', xi, iterations: args.iterations, refits: fits },
+    config: { model: 'dixon-coles-mle', target: args.target, blendWeight: args.blendWeight, xi, iterations: args.iterations, refits: fits },
     summary: {
       totalMatches: results.length,
       dateRange: `${results[0]?.date} to ${results[results.length - 1]?.date}`,
