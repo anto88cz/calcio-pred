@@ -6,6 +6,12 @@
 > **Aggiornamento 2026-08-29 — Fase 1 applicata.** I 7 fix immediati sono in working tree
 > (non committati). Dettaglio e verifiche in [§6](#6-stato-dei-fix-fase-1-applicata).
 > Restano aperti: C5 (ROI del backtest), C6 (look-ahead), G9, G11, M12.
+>
+> **Aggiornamento 2026-08-30 — misurato.** C5, C6, G11 chiusi. Due difetti nuovi trovati
+> e corretti (§7). Il modello è stato misurato onestamente contro la closing line per la
+> prima volta, e il Dixon-Coles MLE della Fase 2 è implementato. Verdetto in [§7](#7-la-prima-misura-onesta)
+> e [§8](#8-fase-2--dixon-coles-a-massima-verosimiglianza): **nessuno dei due modelli batte
+> il mercato**, e il peso ottimale del modello in un blend con le quote è zero.
 
 ---
 
@@ -382,3 +388,230 @@ scommessa** a **4.18%**, `kellyRecommendation` da `HIGH` a `LOW`.
 
 
 ---
+
+## 7. La prima misura onesta
+
+**2026-08-30.** Backtest walk-forward su 1751 partite, stagione 2025-26, cinque campionati
+(Premier League, La Liga, Serie A, Bundesliga, Ligue 1). ROI valutato sulle quote di
+chiusura reali, calibrazione di mercato disattivata, nessun dato successivo alla partita
+nella stima.
+
+### 7.1 Due difetti nuovi, entrambi silenziosi
+
+#### N13. Look-ahead da fuso orario — `statistics.ts`
+
+Sportmonks v3 restituisce `"2026-01-10 13:00:00"`: UTC, separatore spazio, nessun suffisso di
+fuso. `new Date(...)` su una stringa così applica il **fuso locale**, quindi in Italia ogni
+data tornava indietro di 1-2 ore. Lo storico squadra viene filtrato con
+`data < calcio d'inizio`, e due ore bastavano a far rientrare la partita nel proprio storico.
+
+Verificato su Real Oviedo–Real Betis, inizio 13:00Z, finita 1-1:
+
+```
+storico Oviedo con cutoff 13:00Z → 45 partite, fra cui
+  { id: 19439436, date: "2026-01-10T12:00:00Z", goals: [1,1] }   ← la partita stessa
+```
+
+Il modello calcolava i λ su uno storico che conteneva il risultato da predire.
+
+Come si è visto, prima ancora di sapere la causa: **pareggi predetti indovinati al 54.3%**,
+contro una frequenza reale del 25.4%. E ogni fascia del diagramma di affidabilità
+sistematicamente sotto: dichiarato 48.5% → reale 61.4%.
+
+Effetto sui numeri, stesse 1751 partite:
+
+| | con il leak | senza |
+|---|---|---|
+| Log-loss | 0.871 | **1.044** |
+| Brier | 0.171 | **0.208** |
+| Accuracy 1X2 | 62.9% | **47.0%** |
+| ROI flat @ closing | +41.2% | **−2.95%** |
+
+`closing-odds.ts` e `import-season.ts` gestivano già il formato correttamente. Solo i due
+percorsi che alimentano i modelli no. Il parsing è ora centralizzato in
+`utils/sportmonks-date.ts`.
+
+#### N14. `league-strength.ts` indicizzato con ID di un altro provider
+
+`LEAGUE_STRENGTH_DATA` era indicizzata per ID **API-Football** (39 Premier League, 140 La
+Liga, 135 Serie A), residuo della migrazione. Il sistema passa ID Sportmonks (8, 564, 384):
+nessuna chiave corrispondeva mai, ogni partita cadeva su `DEFAULT_STRENGTH` e si prendeva
+`coefficient: 0.85`, cioè **−15% su entrambi i λ**. Nei log: `league: "Unknown League"`.
+
+Stessa classe dei dieci league ID sbagliati di `0de1ecd`. Un ID del provider sbagliato non
+dà errore: risolve a qualcos'altro di plausibile.
+
+Corretto con due scelte dichiarate: `coefficient: 1.00` per tutti i campionati nazionali —
+il λ è già stimato sullo storico di quelle squadre *dentro* quel campionato, e scalarlo per
+un indice di forza della lega conta due volte la stessa informazione — e default neutro con
+warning, perché una lega non mappata non è una lega più debole.
+
+### 7.2 Il baseline
+
+| | modello (motore A) | mercato (closing de-viggata) |
+|---|---|---|
+| Log-loss | 1.0436 | **0.9774** |
+| Brier | 0.2079 | **0.1940** |
+| Accuracy 1X2 | 47.0% | **53.6%** |
+
+Margine medio del banco: 5.76%. `beatsMarket: false`.
+
+### 7.3 Simulazione di un conto da €100
+
+`simulate-bankroll.ts` fa girare una strategia sulle predizioni del report, in ordine
+cronologico, a quote di chiusura reali.
+
+| strategia | giocate | ROI sul giocato | capitale finale |
+|---|---|---|---|
+| flat 2% | 984 | −3.80% | €31.67 |
+| flat 2%, solo STRONG | 351 | −5.28% | €62.91 |
+| flat 2%, solo EV ≥ +5% | 880 | −5.34% | €22.43 |
+| quarto di Kelly | 673 | −6.41% | €5.78 |
+| multipla giornaliera, 30% composto | 162 | −7.87% | **€0.20** |
+
+L'ultima riga è la strategia di `backtest-multiple.js`. Due osservazioni.
+
+Il 30% composto è rovinoso **anche con un edge reale**: a quota 1.4 una vincita moltiplica il
+capitale per 1.12 e una perdita per 0.70, quindi il capitale cresce solo se la percentuale di
+vincenti supera il **75.9%**, mentre il break-even in valore atteso è al 71.4%. Fra i due c'è
+una fascia in cui la strategia ha EV positivo e il conto si svuota lo stesso.
+
+E la ricerca della quota obiettivo produceva **1.0 eventi per schedina**: con target 1.4 e
+minimo 1.4 la combinazione più vicina è sempre un singolo evento. Si giocavano singole
+credendo di giocare multiple.
+
+### 7.4 Il segnale diagnostico
+
+In tutte le simulazioni:
+
+```
+EV medio dichiarato: +38.92%      (margine reale del banco: 5.76%)
+```
+
+E soprattutto: **alzare la soglia di EV peggiora il risultato**, da −3.80% a −5.34%. Se il
+modello avesse un edge anche piccolo, selezionare le occasioni migliori dovrebbe migliorare
+il ROI. Va nella direzione opposta.
+
+### 7.5 Calibrazione: non è quello il problema
+
+`analyze-calibration.ts` stima sulla prima metà della stagione e valuta sulla seconda.
+
+Il log-loss si scompone in due parti: quanto le probabilità sono **oneste** e quanta
+**informazione** contengono. Ricalibrare può sistemare la prima, non può creare la seconda.
+
+- Errore medio di calibrazione fuori campione: **3.68 punti**. Il modello non è granché
+  scalibrato.
+- Temperature scaling trova T = 1.28 (lievemente troppo sicuro) e guadagna **0.007** di
+  log-loss: 1.0446 → 1.0375.
+- Isotonica stimata **e** valutata sugli stessi dati — che bara, ed è quindi il tetto massimo
+  di qualunque ricalibrazione: **1.0134**. Il mercato sta a 0.9774. **Il soffitto della
+  calibrazione perfetta non arriva al mercato.**
+- Peso ottimale in `p = w·modello + (1−w)·mercato`, fuori campione: **w = 0.00**.
+
+Conseguenza operativa verificata: con probabilità calibrate il simulatore **non piazza
+nessuna scommessa**, perché nessuna selezione supera EV ≥ 0 contro un margine del 5.76%. Un
+modello calibrato senza edge si rifiuta di giocare. Il +38.9% di EV medio era la
+scalibratura.
+
+---
+
+## 8. Fase 2 — Dixon-Coles a massima verosimiglianza
+
+`services/prediction/dixon-coles.ts`, ~340 righe, sostituisce la catena di moltiplicatori.
+
+```
+λ_casa      = exp(μ + attacco_casa + difesa_trasf + γ)
+λ_trasferta = exp(μ + attacco_trasf + difesa_casa)
+τ(0,0) = 1 − λ_c·λ_t·ρ     τ(0,1) = 1 + λ_c·ρ
+τ(1,0) = 1 + λ_t·ρ         τ(1,1) = 1 − ρ
+L(θ) = Σ_k φ(t_k)·[ log τ + x·log λ_c − λ_c + y·log λ_t − λ_t ]
+```
+
+Stima con Adam su gradienti analitici — Nelder-Mead, che la letteratura suggerisce spesso,
+non regge con oltre duecento parametri. Vincolo di identificabilità: media di attacco e
+difesa azzerata a ogni passo. `clampRho` garantisce τ > 0 per ogni coppia di λ, quindi la
+matrice resta una distribuzione di probabilità su tutto l'intervallo.
+
+Backtest **walk-forward**: ristima ogni settimana sulle sole partite precedenti, 37 ristime,
+storico di partenza la stagione 2024-25 (1750 partite, importate con `import-season.ts`;
+il piano Growth non espone nulla prima di agosto 2024).
+
+### 8.1 Parametri stimati
+
+```
+μ     0.1637   → 1.18 gol attesi per squadra
+γ     0.1888   → vantaggio casa ×1.208
+ρ    −0.0409   → segno corretto, dentro l'intervallo della letteratura (−0.03…−0.13)
+attacchi:  Bayern 0.79, Barcelona 0.67, Inter 0.65, PSG 0.58, Man City 0.45
+difese:    Arsenal −0.63, PSG −0.47, Roma −0.44, Como −0.44, Juventus −0.44
+```
+
+Le graduatorie sono plausibili, il che è il primo controllo di sanità che il vecchio motore
+non superava.
+
+### 8.2 Il decadimento temporale, scelto e non deciso
+
+`--tune` confronta il log-loss walk-forward su una griglia di ξ:
+
+| ξ | emivita | log-loss | accuracy |
+|---|---|---|---|
+| 0.0000 | nessuna | 1.0304 | 50.7% |
+| 0.0010 | 693 gg | 1.0294 | 51.1% |
+| **0.0020** | **347 gg** | **1.0290** | 50.8% |
+| 0.0030 | 231 gg | 1.0293 | 51.2% |
+| 0.0050 | 139 gg | 1.0317 | 51.0% |
+| 0.0080 | 87 gg | 1.0386 | 50.5% |
+| 0.0120 | 58 gg | 1.0512 | 50.1% |
+
+La curva è piatta fra 0 e 0.003 e peggiora nettamente sopra. Il messaggio è che **pesare molto
+le partite recenti fa danno**: l'emivita ottimale è quasi un anno. Il vecchio motore applicava
+fattori di forma sulle ultime 5-10 partite con pesi cablati a mano; questa misura dice che
+quella direzione era sbagliata, non solo non validata.
+
+### 8.3 Risultati
+
+| | motore A (vecchio) | Dixon-Coles MLE | mercato |
+|---|---|---|---|
+| Log-loss | 1.0436 | **1.0290** | 0.9774 |
+| Brier | 0.2079 | **0.2014** | 0.1940 |
+| Accuracy 1X2 | 47.0% | **50.8%** | 53.6% |
+
+Migliora su ogni metrica, con un decimo del codice. **Ma non basta:** resta 0.052 di log-loss
+dietro il mercato, e il peso ottimale in un blend con le quote è **ancora w = 0.00**. Il tetto
+della ricalibrazione sale da 1.0134 a 0.9950 — più vicino a 0.9774, sempre sopra.
+
+### 8.4 Cosa dice questo risultato
+
+Il Dixon-Coles su soli gol è il modello di riferimento della letteratura, implementato
+correttamente e validato walk-forward. Che non batta la closing line dei cinque campionati
+principali non è una sorpresa: è il mercato più efficiente e liquido che esista, prezzato da
+operatori con dati che noi non abbiamo (formazioni, infortuni, meteo, flussi di scommesse).
+
+Le direzioni che restano, in ordine di rapporto valore/costo:
+
+1. **xG al posto dei gol.** Oggi l'xG non entra mai: `matchesWithXG: 0` su tutte le 1751
+   partite, perché i campi `xg_home`/`xg_away` dello storico non vengono popolati da nessuno.
+   L'xG è molto più stabile del risultato ed è il singolo miglioramento più consistente in
+   letteratura. Serve la media mobile pre-partita, non l'xG della partita da predire.
+2. **Cambiare avversario.** Tutto quanto sopra misura contro la *closing line*, deliberatamente
+   la prova più dura. Un modello può essere inutile contro la chiusura e redditizio contro le
+   quote di **apertura** o contro bookmaker lenti. Servono dati di apertura, da verificare nel
+   piano Growth.
+3. **Cambiare campionati.** Se un edge esiste, è più probabile nelle leghe minori del piano
+   (Eerste Divisie, 1. Lig, League Two) dove i book investono meno nel prezzare.
+
+Quello che **non** serve fare: ritoccare soglie, pesi del blend o parametri di staking sul
+campione 2025-26. È il ciclo che ha prodotto i 41 report `.md` nella root, e ora c'è
+l'infrastruttura per accorgersene subito.
+
+### 8.5 Strumenti aggiunti
+
+| Script | Cosa fa |
+|---|---|
+| `scripts/backtest-dixon-coles.ts` | walk-forward del DC, ristima settimanale, `--tune` per il decadimento ξ |
+| `scripts/simulate-bankroll.ts` | conto reale su un report, modalità `singole` e `multipla`, `--split` per train/test |
+| `scripts/analyze-calibration.ts` | diagramma di affidabilità, temperatura, isotonica, peso ottimale verso il mercato |
+| `utils/sportmonks-date.ts` | parsing UTC dei timestamp dell'API |
+
+Tutti e tre leggono e scrivono lo stesso formato di report, quindi una nuova idea di modello
+si misura riscrivendo solo il primo.
