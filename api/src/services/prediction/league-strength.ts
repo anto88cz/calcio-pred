@@ -1,16 +1,33 @@
 /**
  * League Strength Adjustment
- * 
- * Aggiusta lambda e confidence in base alla forza del campionato.
- * Coefficienti basati su UEFA Country Coefficients 2024/25 e analisi storica.
- * 
- * Impatto: +8% accuracy
- * 
+ *
+ * Aggiusta lambda e confidence in base al campionato.
+ *
+ * ATTENZIONE agli ID: la tabella e' indicizzata per **ID Sportmonks**, gli
+ * stessi di config/supported-leagues.ts. Fino al 2026-08-30 usava gli ID di
+ * API-Football (39 = Premier League, 140 = La Liga, ...), rimasti dalla
+ * migrazione: nessuno degli ID passati dal sistema corrispondeva, ogni partita
+ * cadeva sul default e si prendeva un -15% sul lambda. Silenzioso, perche' il
+ * default esisteva apposta per non far fallire nulla.
+ *
+ * Sul coefficiente lambda: per una partita di campionato vale 1.00. Il lambda
+ * e' gia' stimato sullo storico di quelle due squadre dentro quel campionato,
+ * quindi moltiplicarlo per un indice di "forza della lega" e' contare due volte
+ * la stessa informazione — significava predire il 2% di gol in meno di quanti
+ * la Serie A ne segni davvero. Il coefficiente resta diverso da 1 solo per le
+ * competizioni europee, dove si incontrano squadre di leghe diverse.
+ *
+ * Il confidenceFactor invece resta differenziato: quanto sia prevedibile un
+ * campionato e quanto siano completi i suoi dati e' un'altra cosa dal livello
+ * di gol atteso.
+ *
  * USAGE:
  * const strength = getLeagueStrength(leagueId);
  * lambdaAdjusted = lambdaOriginal * strength.coefficient;
  * confidenceAdjusted = confidenceOriginal * strength.confidenceFactor;
  */
+
+import logger from '../../utils/logger';
 
 export interface LeagueStrengthData {
   leagueId: number;
@@ -22,240 +39,227 @@ export interface LeagueStrengthData {
   uefaRank?: number;          // UEFA coefficient rank (optional)
 }
 
-/**
- * League Strength Coefficients Database
- * 
- * LOGIC:
- * - Elite (Champions): 1.05 coefficient
- * - Top 5 leagues: 0.95-1.00
- * - Europa League: 0.92
- * - Second tier: 0.80-0.90
- * - Lower tier: 0.70-0.80
- */
 const LEAGUE_STRENGTH_DATA: Record<number, LeagueStrengthData> = {
-  // === EUROPEAN COMPETITIONS ===
+  // === COMPETIZIONI EUROPEE ===
+  // Qui il coefficiente ha senso: si affrontano squadre di campionati diversi,
+  // e il lambda di ciascuna viene da una lega con un livello differente.
   2: {
     leagueId: 2,
     name: 'UEFA Champions League',
     country: 'Europe',
     tier: 'ELITE',
-    coefficient: 1.05,      // +5% - Massima qualità
-    confidenceFactor: 1.00, // Alta affidabilità
+    coefficient: 1.05,
+    confidenceFactor: 1.00,
     uefaRank: 1,
   },
-  3: {
-    leagueId: 3,
+  5: {
+    leagueId: 5,
     name: 'UEFA Europa League',
     country: 'Europe',
     tier: 'GOOD',
-    coefficient: 0.92,      // -8% - Buon livello ma meno elite
+    coefficient: 0.92,
     confidenceFactor: 0.95,
     uefaRank: 2,
   },
-  848: {
-    leagueId: 848,
-    name: 'UEFA Conference League',
-    country: 'Europe',
-    tier: 'MEDIUM',
-    coefficient: 0.85,      // -15% - Livello medio
-    confidenceFactor: 0.90,
-    uefaRank: 3,
-  },
 
-  // === TOP 5 LEAGUES ===
-  39: {
-    leagueId: 39,
+  // === INGHILTERRA ===
+  8: {
+    leagueId: 8,
     name: 'Premier League',
     country: 'England',
     tier: 'ELITE',
-    coefficient: 1.00,      // Baseline - Il più competitivo
+    coefficient: 1.00,
     confidenceFactor: 1.00,
     uefaRank: 1,
   },
-  140: {
-    leagueId: 140,
-    name: 'La Liga',
-    country: 'Spain',
-    tier: 'ELITE',
-    coefficient: 1.00,      // Top tier
-    confidenceFactor: 1.00,
-    uefaRank: 1,
-  },
-  135: {
-    leagueId: 135,
-    name: 'Serie A',
-    country: 'Italy',
-    tier: 'TOP',
-    coefficient: 0.98,      // -2% - Leggermente sotto Premier/Liga
-    confidenceFactor: 0.98,
-    uefaRank: 3,
-  },
-  78: {
-    leagueId: 78,
-    name: 'Bundesliga',
-    country: 'Germany',
-    tier: 'TOP',
-    coefficient: 0.97,      // -3%
-    confidenceFactor: 0.97,
-    uefaRank: 4,
-  },
-  61: {
-    leagueId: 61,
-    name: 'Ligue 1',
-    country: 'France',
-    tier: 'TOP',
-    coefficient: 0.95,      // -5%
-    confidenceFactor: 0.96,
-    uefaRank: 5,
-  },
-
-  // === SECOND TIER EUROPEAN LEAGUES ===
-  94: {
-    leagueId: 94,
-    name: 'Primeira Liga',
-    country: 'Portugal',
-    tier: 'GOOD',
-    coefficient: 0.90,      // -10%
-    confidenceFactor: 0.93,
-    uefaRank: 6,
-  },
-  88: {
-    leagueId: 88,
-    name: 'Eredivisie',
-    country: 'Netherlands',
-    tier: 'GOOD',
-    coefficient: 0.88,      // -12%
-    confidenceFactor: 0.92,
-    uefaRank: 7,
-  },
-  144: {
-    leagueId: 144,
-    name: 'Jupiler Pro League',
-    country: 'Belgium',
-    tier: 'GOOD',
-    coefficient: 0.85,      // -15%
-    confidenceFactor: 0.90,
-    uefaRank: 8,
-  },
-  179: {
-    leagueId: 179,
-    name: 'Scottish Premiership',
-    country: 'Scotland',
-    tier: 'MEDIUM',
-    coefficient: 0.82,      // -18%
-    confidenceFactor: 0.88,
-    uefaRank: 9,
-  },
-  
-  // === MEDIUM TIER ===
-  203: {
-    leagueId: 203,
-    name: 'Süper Lig',
-    country: 'Turkey',
-    tier: 'MEDIUM',
-    coefficient: 0.83,      // -17%
-    confidenceFactor: 0.88,
-    uefaRank: 10,
-  },
-  235: {
-    leagueId: 235,
-    name: 'Russian Premier League',
-    country: 'Russia',
-    tier: 'MEDIUM',
-    coefficient: 0.80,      // -20%
-    confidenceFactor: 0.87,
-    uefaRank: 11,
-  },
-  103: {
-    leagueId: 103,
-    name: 'Eliteserien',
-    country: 'Norway',
-    tier: 'LOWER',
-    coefficient: 0.75,      // -25%
-    confidenceFactor: 0.85,
-    uefaRank: 20,
-  },
-  119: {
-    leagueId: 119,
-    name: 'Superliga',
-    country: 'Denmark',
-    tier: 'LOWER',
-    coefficient: 0.76,      // -24%
-    confidenceFactor: 0.85,
-    uefaRank: 18,
-  },
-  113: {
-    leagueId: 113,
-    name: 'Allsvenskan',
-    country: 'Sweden',
-    tier: 'LOWER',
-    coefficient: 0.74,      // -26%
-    confidenceFactor: 0.84,
-    uefaRank: 21,
-  },
-
-  // === ENGLISH LOWER DIVISIONS ===
   9: {
     leagueId: 9,
     name: 'Championship',
     country: 'England',
     tier: 'GOOD',
-    coefficient: 0.88,      // -12% - Molto competitivo per seconda divisione
+    coefficient: 1.00,
     confidenceFactor: 0.92,
   },
-  40: {
-    leagueId: 40,
-    name: 'Championship',
-    country: 'England',
-    tier: 'GOOD',
-    coefficient: 0.88,      // -12% - Molto competitivo per seconda divisione
-    confidenceFactor: 0.92,
-  },
-  41: {
-    leagueId: 41,
+  12: {
+    leagueId: 12,
     name: 'League One',
     country: 'England',
     tier: 'MEDIUM',
-    coefficient: 0.78,      // -22%
+    coefficient: 1.00,
     confidenceFactor: 0.86,
   },
+  14: {
+    leagueId: 14,
+    name: 'League Two',
+    country: 'England',
+    tier: 'LOWER',
+    coefficient: 1.00,
+    confidenceFactor: 0.84,
+  },
 
-  // === ITALIAN LOWER DIVISIONS ===
-  136: {
-    leagueId: 136,
-    name: 'Serie B',
+  // === ITALIA ===
+  384: {
+    leagueId: 384,
+    name: 'Serie A',
     country: 'Italy',
-    tier: 'MEDIUM',
-    coefficient: 0.82,      // -18%
-    confidenceFactor: 0.88,
+    tier: 'TOP',
+    coefficient: 1.00,
+    confidenceFactor: 0.98,
+    uefaRank: 3,
   },
   387: {
     leagueId: 387,
     name: 'Serie B',
     country: 'Italy',
     tier: 'MEDIUM',
-    coefficient: 0.82,      // -18%
+    coefficient: 1.00,
     confidenceFactor: 0.88,
   },
 
-  // === SPANISH LOWER DIVISIONS ===
-  141: {
-    leagueId: 141,
+  // === SPAGNA ===
+  564: {
+    leagueId: 564,
+    name: 'La Liga',
+    country: 'Spain',
+    tier: 'ELITE',
+    coefficient: 1.00,
+    confidenceFactor: 1.00,
+    uefaRank: 1,
+  },
+  567: {
+    leagueId: 567,
     name: 'La Liga 2',
     country: 'Spain',
     tier: 'MEDIUM',
-    coefficient: 0.83,      // -17%
+    coefficient: 1.00,
     confidenceFactor: 0.88,
   },
+  570: {
+    leagueId: 570,
+    name: 'Copa Del Rey',
+    country: 'Spain',
+    tier: 'MEDIUM',
+    // Coppa: divisioni diverse nello stesso match, ma il lambda per squadra
+    // viene dallo storico della squadra, non della competizione.
+    coefficient: 1.00,
+    confidenceFactor: 0.85,
+  },
 
-  // === GERMAN LOWER DIVISIONS ===
-  79: {
-    leagueId: 79,
+  // === GERMANIA ===
+  82: {
+    leagueId: 82,
+    name: 'Bundesliga',
+    country: 'Germany',
+    tier: 'TOP',
+    coefficient: 1.00,
+    confidenceFactor: 0.97,
+    uefaRank: 4,
+  },
+  85: {
+    leagueId: 85,
     name: '2. Bundesliga',
     country: 'Germany',
     tier: 'MEDIUM',
-    coefficient: 0.84,      // -16%
+    coefficient: 1.00,
     confidenceFactor: 0.89,
+  },
+
+  // === FRANCIA ===
+  301: {
+    leagueId: 301,
+    name: 'Ligue 1',
+    country: 'France',
+    tier: 'TOP',
+    coefficient: 1.00,
+    confidenceFactor: 0.96,
+    uefaRank: 5,
+  },
+  304: {
+    leagueId: 304,
+    name: 'Ligue 2',
+    country: 'France',
+    tier: 'MEDIUM',
+    coefficient: 1.00,
+    confidenceFactor: 0.87,
+  },
+
+  // === PAESI BASSI ===
+  72: {
+    leagueId: 72,
+    name: 'Eredivisie',
+    country: 'Netherlands',
+    tier: 'GOOD',
+    coefficient: 1.00,
+    confidenceFactor: 0.92,
+    uefaRank: 7,
+  },
+  74: {
+    leagueId: 74,
+    name: 'Eerste Divisie',
+    country: 'Netherlands',
+    tier: 'LOWER',
+    coefficient: 1.00,
+    confidenceFactor: 0.85,
+  },
+
+  // === PORTOGALLO ===
+  462: {
+    leagueId: 462,
+    name: 'Liga Portugal',
+    country: 'Portugal',
+    tier: 'GOOD',
+    coefficient: 1.00,
+    confidenceFactor: 0.93,
+    uefaRank: 6,
+  },
+  465: {
+    leagueId: 465,
+    name: 'Liga Portugal 2',
+    country: 'Portugal',
+    tier: 'LOWER',
+    coefficient: 1.00,
+    confidenceFactor: 0.85,
+  },
+
+  // === TURCHIA ===
+  600: {
+    leagueId: 600,
+    name: 'Super Lig',
+    country: 'Turkey',
+    tier: 'MEDIUM',
+    coefficient: 1.00,
+    confidenceFactor: 0.88,
+    uefaRank: 10,
+  },
+  603: {
+    leagueId: 603,
+    name: '1. Lig',
+    country: 'Turkey',
+    tier: 'LOWER',
+    coefficient: 1.00,
+    confidenceFactor: 0.85,
+  },
+
+  // === BELGIO ===
+  208: {
+    leagueId: 208,
+    name: 'Pro League',
+    country: 'Belgium',
+    tier: 'GOOD',
+    coefficient: 1.00,
+    confidenceFactor: 0.90,
+    uefaRank: 8,
+  },
+
+  // === DANIMARCA ===
+  271: {
+    leagueId: 271,
+    name: 'Superliga',
+    country: 'Denmark',
+    tier: 'LOWER',
+    coefficient: 1.00,
+    confidenceFactor: 0.85,
+    uefaRank: 18,
   },
 };
 
@@ -267,18 +271,26 @@ const DEFAULT_STRENGTH: LeagueStrengthData = {
   name: 'Unknown League',
   country: 'Unknown',
   tier: 'MEDIUM',
-  coefficient: 0.85,      // -15% - Conservativo
+  // Neutro sul lambda: una lega non mappata non e' una lega piu' debole, e'
+  // una lega di cui non sappiamo niente. Il vecchio 0.85 trasformava un buco
+  // di configurazione in un bias sistematico verso Under e pareggio.
+  coefficient: 1.00,
   confidenceFactor: 0.90,
 };
 
 /**
  * Ottiene i dati di forza di un campionato
  * 
- * @param leagueId - ID del campionato (API-FOOTBALL)
+ * @param leagueId - ID del campionato (Sportmonks)
  * @returns LeagueStrengthData con coefficient e confidence factor
  */
 export function getLeagueStrength(leagueId: number): LeagueStrengthData {
-  return LEAGUE_STRENGTH_DATA[leagueId] || DEFAULT_STRENGTH;
+  const mapped = LEAGUE_STRENGTH_DATA[leagueId];
+  if (!mapped) {
+    logger.warn({ leagueId }, 'League not mapped in LEAGUE_STRENGTH_DATA - using neutral default');
+    return { ...DEFAULT_STRENGTH, leagueId };
+  }
+  return mapped;
 }
 
 /**
