@@ -1,5 +1,6 @@
 import { getSportsmonksClient } from './client';
 import { redis } from '../../lib/redis';
+import { parseSportmonksDate } from '../../utils/sportmonks-date';
 
 /**
  * Sportsmonks Leagues Service
@@ -44,7 +45,7 @@ function transformLeague(smLeague: any): League {
 function transformSeason(smSeason: any): Season {
   return {
     id: smSeason.id,
-    year: parseInt(smSeason.name) || new Date(smSeason.starting_at).getFullYear(),
+    year: parseInt(smSeason.name) || parseSportmonksDate(smSeason.starting_at).getUTCFullYear(),
     startDate: smSeason.starting_at,
     endDate: smSeason.ending_at,
     isCurrent: smSeason.is_current || false,

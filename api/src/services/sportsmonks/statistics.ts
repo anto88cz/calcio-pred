@@ -1,6 +1,7 @@
 import { getSportsmonksClient } from './client';
 import { redis } from '../../lib/redis';
 import { ALLOWED_LEAGUES } from '../../config/supported-leagues';
+import { parseSportmonksDate } from '../../utils/sportmonks-date';
 
 /**
  * Sportsmonks Statistics Service
@@ -447,14 +448,14 @@ export async function getTeamHistory(
     startDate.setMonth(startDate.getMonth() - 12);
 
     const withinCutoff = finishedFixtures.filter((f: any) => {
-      const d = new Date(f.starting_at);
+      const d = parseSportmonksDate(f.starting_at);
       return d < endDate && d >= startDate;
     });
 
     console.log(`🏁 ${withinCutoff.length} partite nella finestra ${startDate.toISOString().split('T')[0]} -> ${endDate.toISOString().split('T')[0]} per team ${sportsmonksTeamId}`);
     
     const matchHistory = withinCutoff
-      .sort((a: any, b: any) => new Date(b.starting_at).getTime() - new Date(a.starting_at).getTime()) // Most recent first
+      .sort((a: any, b: any) => parseSportmonksDate(b.starting_at).getTime() - parseSportmonksDate(a.starting_at).getTime()) // Most recent first
       .slice(0, limit > 0 ? limit : undefined)
       .map((f: any): MatchHistoryData => {
         // Extract team IDs from participants array
@@ -478,7 +479,7 @@ export async function getTeamHistory(
         
         return {
           fixtureId: f.id,
-          date: new Date(f.starting_at),
+          date: parseSportmonksDate(f.starting_at),
           homeTeamId,
           awayTeamId,
           homeTeamName: homeTeam?.name || '',
@@ -583,7 +584,7 @@ export async function getHeadToHead(
         
         return {
           fixtureId: f.id,
-          date: new Date(f.starting_at),
+          date: parseSportmonksDate(f.starting_at),
           homeTeamId: homeTeam?.id || 0,
           awayTeamId: awayTeam?.id || 0,
           homeTeamName: homeTeam?.name || '',

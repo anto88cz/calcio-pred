@@ -1,5 +1,6 @@
 import { getSportsmonksClient } from './client';
 import { redis } from '../../lib/redis';
+import { parseSportmonksDate } from '../../utils/sportmonks-date';
 
 /**
  * Sportsmonks Fixtures Service
@@ -87,7 +88,7 @@ function transformFixture(smFixture: any): Fixture {
   return {
     id: smFixture.id,
     date: smFixture.starting_at,
-    timestamp: new Date(smFixture.starting_at).getTime() / 1000,
+    timestamp: parseSportmonksDate(smFixture.starting_at).getTime() / 1000,
     homeTeam: {
       id: homeTeam?.id || 0,
       name: homeTeam?.name || 'Unknown',

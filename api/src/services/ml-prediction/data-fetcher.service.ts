@@ -1,6 +1,7 @@
 import { getSportsmonksClient } from '../sportsmonks/client';
 import { getTeamHistory, type MatchHistoryData } from '../sportsmonks/statistics';
 import { redis } from '../../lib/redis';
+import { parseSportmonksDate } from '../../utils/sportmonks-date';
 
 export interface HeadToHeadMatch {
   id: number;
@@ -142,7 +143,7 @@ export class MLDataFetcherService {
           
           // 🆕 BACKTEST FIX: Filtra per maxDate
           if (maxDate) {
-            const fixtureDate = new Date(fixture.starting_at);
+            const fixtureDate = parseSportmonksDate(fixture.starting_at);
             if (fixtureDate >= maxDate) return false;
           }
           
