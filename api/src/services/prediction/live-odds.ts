@@ -294,11 +294,17 @@ export interface CandidateRow {
 /** Tutte le giocate quotate di una partita, con il consenso di mercato. */
 export function buildCandidates(
   quotes: Record<string, Quote>,
-  probs: Parameters<typeof candidatesFrom>[0],
+  probs: Parameters<typeof candidatesFrom>[0] | null,
   minBooks = 5,
 ): CandidateRow[] {
+  // probs null: nessun modello. Il criterio 'sicure' sceglie sulla
+  // probabilita' di mercato e i filtri lavorano sui prezzi, quindi la
+  // selezione non ha bisogno del modello — e un backtest che non deve
+  // ristimarlo ogni giorno puo' coprire due stagioni invece di un mese.
+  const zero = { prob1: 0, probX: 0, prob2: 0, dc1X: 0, dc12: 0, dcX2: 0,
+    bttsYes: 0, bttsNo: 0, over: {} as Record<string, number>, under: {} as Record<string, number> };
   const out: CandidateRow[] = [];
-  for (const c of candidatesFrom(probs)) {
+  for (const c of candidatesFrom(probs ?? zero)) {
     const q = quotes[c.key];
     if (!q || q.books < minBooks) continue;
     // Il consenso esclude il bookmaker che offre il prezzo migliore: e'
@@ -306,7 +312,7 @@ export function buildCandidates(
     const k = consensusOf(quotes, c.key, q.book);
     if (!k) continue;
     out.push({
-      key: c.key, label: c.label, family: c.family, modelProb: c.modelProb,
+      key: c.key, label: c.label, family: c.family, modelProb: c.modelProb || 0,
       best: q.best, book: q.book, avg: q.avg, books: q.books,
       consensusProb: k.prob, consensusBooks: k.books,
       overround: k.overround, deviation: k.deviation,
