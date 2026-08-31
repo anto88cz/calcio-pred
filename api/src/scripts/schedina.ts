@@ -36,6 +36,7 @@
  *   npx tsx src/scripts/schedina.ts --criterio ev --capitale 250
  *   npx tsx src/scripts/schedina.ts --scarto-max 0.10 --quota-max 5
  *   npx tsx src/scripts/schedina.ts --quota-min 1.6
+ *   npx tsx src/scripts/schedina.ts --criterio sicure --prob-min 0.65 --elenco
  */
 
 import dotenv from 'dotenv';
@@ -206,6 +207,32 @@ async function main() {
   // Ordina per il criterio scelto e componi la combinazione.
   events.sort((x, y) => score(y.pick, criterio) - score(x.pick, criterio));
 
+  // Elenco di tutte le giocate che passano i filtri, ordinate secondo il
+  // criterio. Serve per decidere: la scheda mostra una riga sola, ma quello che
+  // conta per scegliere e' vedere quali prezzi stanno sopra la quota equa e
+  // quali sotto.
+  if (process.argv.includes('--elenco')) {
+    console.log('-'.repeat(78));
+    console.log('  TUTTE LE GIOCATE CHE PASSANO I FILTRI');
+    console.log('-'.repeat(78));
+    console.log('  ora    partita                                   giocata          quota   equa   scarto  book');
+    for (const e of events) {
+      const fair = 1 / e.pick.consensusProb;
+      const dev = e.pick.deviation;
+      const nome = `${e.home} - ${e.away}`;
+      console.log('  ' + romeTime(e.kickoff) + '  ' +
+        (nome.length > 40 ? nome.slice(0, 39) + '~' : nome).padEnd(41) +
+        e.pick.label.padEnd(16) +
+        e.pick.best.toFixed(2).padStart(6) +
+        fair.toFixed(2).padStart(7) +
+        ((dev >= 0 ? '+' : '') + (dev * 100).toFixed(1) + '%').padStart(9) +
+        String(e.pick.books).padStart(5) +
+        (dev > 0 ? '   <--' : ''));
+    }
+    console.log('-'.repeat(78));
+    console.log(`  ${events.filter(e => e.pick.deviation > 0).length} su ${events.length} hanno un prezzo sopra la quota equa.\n`);
+  }
+
   // Quanti eventi si possono davvero mettere in schedina.
   const wanted = Math.max(1, Math.min(maxEvents, events.length));
   let slip: Event[];
@@ -259,10 +286,19 @@ async function main() {
   const evModel = modelProb * totalOdds - 1;
   const evPrice = consensusProb * totalOdds - 1;
 
-  // Kelly sulla probabilita' piu' bassa fra modello e consenso. Dove i due non
-  // vanno d'accordo il consenso ha ragione piu' spesso — log-loss 0.977 contro
-  // 0.998 — e una combinazione va comunque dimensionata sul caso peggiore.
-  const pStake = Math.min(modelProb, consensusProb);
+  // Kelly sulla probabilita' di MERCATO, che e' la stima migliore che abbiamo:
+  // il mercato batte il modello in log-loss ogni volta che lo misuriamo, e la
+  // calibrazione lo conferma proprio nella fascia alta che serve qui — dove il
+  // modello dice 74% esce il 62%, dove lo dice il mercato esce l'82.8%.
+  //
+  // Dimensionare sul minimo fra i due, come si faceva prima, lascia allo
+  // stimatore peggiore il veto su quello migliore: bastava un modello in
+  // disaccordo per azzerare la puntata su una giocata a prezzo buono.
+  // --prob modello|min per tornare agli altri due comportamenti.
+  const probSource = arg('--prob', 'mercato');
+  const pStake = probSource === 'modello' ? modelProb
+    : probSource === 'min' ? Math.min(modelProb, consensusProb)
+    : consensusProb;
   const b = totalOdds - 1;
   const kelly = b > 0 ? (b * pStake - (1 - pStake)) / b : 0;
   const stakePct = Math.max(0, Math.min(0.05, kelly * 0.25));
