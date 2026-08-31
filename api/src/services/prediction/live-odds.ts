@@ -226,3 +226,97 @@ export function consensusOf(
 
   return { prob, books: others.length, overround, deviation: quotes[key].best * prob - 1 };
 }
+
+/**
+ * Come si sceglie la giocata di una partita.
+ *
+ *   prezzo   lo scarto fra il miglior prezzo e la quota equa secondo gli altri
+ *            bookmaker. Cerca il book rimasto indietro. Non usa il modello, e
+ *            finisce quasi sempre sugli outsider, dove i book sono piu' in
+ *            disaccordo.
+ *   sicure   la probabilita' piu' alta secondo il MERCATO. Serve a giocare
+ *            poche partite ad alta probabilita'. Alta probabilita' non vuol
+ *            dire redditizia: a quota 1.40 servono il 71.4% di vincenti solo
+ *            per pareggiare.
+ *   ev       il valore atteso secondo il modello. Massimizzarlo significa
+ *            cercare la partita dove il modello diverge di piu' dal mercato,
+ *            cioe' dove piu' probabilmente sbaglia, visto che il mercato lo
+ *            batte in log-loss.
+ *   prob     la probabilita' piu' alta secondo il MODELLO. Come sopra, con in
+ *            piu' il difetto di preferire sistematicamente le quote basse.
+ */
+export type Criterio = 'prezzo' | 'sicure' | 'ev' | 'prob';
+
+export interface PickFilters {
+  /** quanti bookmaker devono quotare l'esito */
+  minBooks?: number;
+  /** quota minima: sotto, la giocata non vale il rischio di stake */
+  minOdds?: number;
+  /** quota massima: sopra l'8 il favourite-longshot bias rende -17.86% +/-7.53 */
+  maxOdds?: number;
+  /** scarto minimo dal prezzo equo */
+  minDeviation?: number;
+  /** oltre questo scarto la quota e' un errore del feed, non un'occasione */
+  maxDeviation?: number;
+  /** probabilita' minima secondo il consenso di mercato */
+  minProb?: number;
+}
+
+export interface Pick {
+  candidate: Candidate;
+  quote: Quote;
+  consensus: Consensus;
+}
+
+/** Perche' una partita non e' finita in schedina. */
+export type Reject = 'quote' | 'consenso' | 'filtri';
+
+/**
+ * La giocata di una partita, o il motivo per cui non ce n'e' una.
+ *
+ * Sta qui, e non nei singoli script, perche' schedina, predict-today e
+ * verifica-giornata devono scegliere nello stesso identico modo. Il peccato
+ * originale di questo repository e' stato misurare un predittore e mandarne in
+ * produzione un altro: due copie di questa funzione lo ripeterebbero sulla
+ * selezione invece che sul modello.
+ */
+export function selectPick(
+  quotes: Record<string, Quote>,
+  probs: Parameters<typeof candidatesFrom>[0],
+  criterio: Criterio,
+  f: PickFilters = {},
+): { pick: Pick } | { reject: Reject } {
+  const minBooks = f.minBooks ?? 5;
+  const minOdds = f.minOdds ?? 1.4;
+  const maxOdds = f.maxOdds ?? 8;
+  const minDeviation = f.minDeviation ?? -Infinity;
+  const maxDeviation = f.maxDeviation ?? 0.15;
+  const minProb = f.minProb ?? 0;
+
+  const quoted = candidatesFrom(probs)
+    .map(c => ({ c, q: quotes[c.key] }))
+    .filter((x): x is { c: Candidate; q: Quote } => !!x.q && x.q.books >= minBooks);
+  if (!quoted.length) return { reject: 'quote' };
+
+  // Il consenso esclude il bookmaker che offre il prezzo migliore: e' proprio
+  // quello che stiamo giudicando, non puo' fare parte della giuria.
+  const withConsensus = quoted
+    .map(x => ({ ...x, k: consensusOf(quotes, x.c.key, x.q.book) }))
+    .filter((x): x is { c: Candidate; q: Quote; k: Consensus } => x.k !== null);
+  if (!withConsensus.length) return { reject: 'consenso' };
+
+  const playable = withConsensus.filter(x =>
+    x.q.best >= minOdds && x.q.best <= maxOdds &&
+    x.k.deviation >= minDeviation && x.k.deviation <= maxDeviation &&
+    x.k.prob >= minProb);
+  if (!playable.length) return { reject: 'filtri' };
+
+  const score = (x: { c: Candidate; q: Quote; k: Consensus }): number => {
+    if (criterio === 'sicure') return x.k.prob;
+    if (criterio === 'prob') return x.c.modelProb;
+    if (criterio === 'ev') return x.c.modelProb * x.q.best - 1;
+    return x.k.deviation;
+  };
+  const best = playable.reduce((x, y) => (score(y) > score(x) ? y : x));
+  return { pick: { candidate: best.c, quote: best.q, consensus: best.k } };
+}

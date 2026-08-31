@@ -44,7 +44,7 @@ dotenv.config();
 import { PrismaClient, FixtureStatus } from '@prisma/client';
 import { getSportsmonksClient } from '../services/sportsmonks/client';
 import { fitDixonColes, predict, DCMatch, DixonColesParams } from '../services/prediction/dixon-coles';
-import { extractOdds, candidatesFrom, consensusOf, Quote, Candidate, Consensus } from '../services/prediction/live-odds';
+import { extractOdds, selectPick, Quote, Candidate, Consensus, Criterio } from '../services/prediction/live-odds';
 import { ALLOWED_LEAGUES } from '../config/supported-leagues';
 
 const prisma = new PrismaClient();
@@ -54,8 +54,6 @@ function arg(flag: string, def: string): string {
   const i = process.argv.indexOf(flag);
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : def;
 }
-
-type Criterio = 'prezzo' | 'ev' | 'prob';
 
 interface Event {
   kickoff: Date;
@@ -76,13 +74,6 @@ interface Event {
   lambdaAway: number;
 }
 
-/** Il valore su cui si ordina, secondo il criterio scelto. */
-function score(e: { pick: Candidate; quote: Quote; consensus: Consensus }, c: Criterio): number {
-  if (c === 'prob') return e.pick.modelProb;
-  if (c === 'ev') return e.pick.modelProb * e.quote.best - 1;
-  return e.consensus.deviation;
-}
-
 /** Orario italiano, che e' quello che serve per sapere se si fa in tempo. */
 function romeTime(d: Date): string {
   return d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Rome' });
@@ -98,7 +89,8 @@ async function main() {
   const targetOdds = parseFloat(arg('--quota', '0')) || null;
   const criterioArg = arg('--criterio', 'prezzo');
   const criterio: Criterio =
-    criterioArg === 'ev' ? 'ev' : criterioArg === 'prob' ? 'prob' : 'prezzo';
+    criterioArg === 'ev' ? 'ev' : criterioArg === 'prob' ? 'prob'
+      : criterioArg === 'sicure' ? 'sicure' : 'prezzo';
   const capitale = parseFloat(arg('--capitale', '100'));
   const minBooks = parseInt(arg('--min-book', '5'), 10);
   // Sopra questo scarto dal consenso il prezzo non e' un'occasione: e' un
@@ -114,6 +106,14 @@ async function main() {
   // tutto il prezzo. E' il motivo per cui il criterio a massima probabilita'
   // proponeva sempre una doppia chance ingiocabile.
   const minOdds = parseFloat(arg('--quota-min', '1.4'));
+  // Pavimento sullo scarto: sotto, il prezzo e' quello equo e non c'e' motivo
+  // di preferirlo. Default 0, cioe' nessun filtro: alzarlo restringe la
+  // selezione, non aggiunge un vantaggio. Sulle 14.313 giocate storiche
+  // nessuna soglia di scarto ha ROI positivo e significativo.
+  const minDeviation = parseFloat(arg('--scarto-min', '0')) || -Infinity;
+  // Probabilita' minima secondo il mercato. E' il filtro del criterio
+  // 'sicure': poche partite, quelle che il mercato ritiene piu' probabili.
+  const minProb = parseFloat(arg('--prob-min', '0'));
 
   console.log('═'.repeat(64));
   console.log(`  SCHEDINA — ${date}`);
@@ -136,7 +136,9 @@ async function main() {
     teamRidge: 0.05, referenceDate: now,
   });
   console.log(`  modello su ${matches.length} partite, ${params.teams} squadre`);
-  console.log(`  criterio: ${criterio}   ·   quote da ${minOdds.toFixed(2)} a ${maxOdds.toFixed(2)}, scarto dal consenso entro ${(maxDeviation * 100).toFixed(0)}%\n`);
+  console.log(`  criterio: ${criterio}   ·   quote da ${minOdds.toFixed(2)} a ${maxOdds.toFixed(2)}, scarto entro ${(maxDeviation * 100).toFixed(0)}%` +
+    (minDeviation > -Infinity ? `, almeno ${(minDeviation * 100).toFixed(1)}%` : '') +
+    (minProb > 0 ? `, probabilita' di mercato almeno ${(minProb * 100).toFixed(0)}%` : '') + '\n');
 
   const client = getSportsmonksClient();
   const response: any = await client.get(`/fixtures/between/${date}/${date}`, {
@@ -174,32 +176,23 @@ async function main() {
       quotes = extractOdds(oddsResp?.data?.odds || []);
     } catch { /* senza quote la partita non e' giocabile */ }
 
-    const quoted = candidatesFrom(p)
-      .map(c => ({ c, q: quotes[c.key] }))
-      .filter(x => x.q && x.q.books >= minBooks);
-    if (!quoted.length) { noOdds++; continue; }
-
-    // Il consenso esclude il bookmaker che offre il prezzo migliore: e'
-    // proprio quello che stiamo giudicando, non puo' fare parte della giuria.
-    const withConsensus = quoted
-      .map(x => ({ ...x, k: consensusOf(quotes, x.c.key, x.q!.book) }))
-      .filter((x): x is typeof x & { k: Consensus } => x.k !== null);
-    if (!withConsensus.length) { noConsensus++; continue; }
-
-    const playable = withConsensus.filter(x =>
-      x.k.deviation <= maxDeviation && x.q!.best >= minOdds && x.q!.best <= maxOdds);
-    if (!playable.length) { outlier++; continue; }
-
-    const best = playable.reduce((x, y) =>
-      score({ pick: y.c, quote: y.q!, consensus: y.k }, criterio) >
-      score({ pick: x.c, quote: x.q!, consensus: x.k }, criterio) ? y : x);
+    const chosen = selectPick(quotes, p, criterio, {
+      minBooks, minOdds, maxOdds, minDeviation, maxDeviation, minProb,
+    });
+    if ('reject' in chosen) {
+      if (chosen.reject === 'quote') noOdds++;
+      else if (chosen.reject === 'consenso') noConsensus++;
+      else outlier++;
+      continue;
+    }
+    const best = chosen.pick;
 
     events.push({
       kickoff, league: fx.league?.name || String(fx.league_id),
       home: home.name, away: away.name,
-      pick: best.c, quote: best.q!,
-      consensus: best.k,
-      ev: best.c.modelProb * best.q!.best - 1,
+      pick: best.candidate, quote: best.quote,
+      consensus: best.consensus,
+      ev: best.candidate.modelProb * best.quote.best - 1,
       lambdaHome: p.lambdaHome, lambdaAway: p.lambdaAway,
     });
   }
@@ -218,7 +211,12 @@ async function main() {
   }
 
   // Ordina per il criterio scelto e componi la combinazione.
-  events.sort((x, y) => score(y, criterio) - score(x, criterio));
+  const ordina = (e: Event): number =>
+    criterio === 'sicure' ? e.consensus.prob
+      : criterio === 'prob' ? e.pick.modelProb
+      : criterio === 'ev' ? e.ev
+      : e.consensus.deviation;
+  events.sort((x, y) => ordina(y) - ordina(x));
 
   // Quanti eventi si possono davvero mettere in schedina.
   const wanted = Math.max(1, Math.min(maxEvents, events.length));

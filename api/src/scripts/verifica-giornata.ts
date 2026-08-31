@@ -1,27 +1,26 @@
 /**
- * Che cosa avrebbe giocato la schedina in una giornata gia' andata, e come e'
- * finita davvero.
+ * Che cosa avrebbe giocato la schedina in giornate gia' andate, e come sono
+ * finite davvero.
  *
- * E' l'unica verifica che conti su una giornata singola, e vale solo se e'
- * onesta su due punti, che qui sono vincoli di codice e non buone intenzioni:
+ * Vale solo se e' onesta su due punti, che qui sono vincoli di codice e non
+ * buone intenzioni:
  *
- * 1. Il modello e' stimato SOLO sulle partite precedenti alla data. Non e' una
- *    cautela formale: con l'archivio intero il modello avrebbe visto i
- *    risultati che deve indovinare, ed e' esattamente il difetto che rendeva
- *    inutili i vecchi report di questo repository.
+ * 1. Il modello e' ristimato ogni giorno SOLO sulle partite precedenti. Non e'
+ *    una cautela formale: con l'archivio intero avrebbe visto i risultati che
+ *    deve indovinare, ed e' esattamente il difetto che rendeva inutili i
+ *    vecchi report di questo repository.
  * 2. Le quote sono quelle aggiornate PRIMA del fischio d'inizio. Le quote di
- *    una partita finita, prese senza filtro, contengono anche il live: a fine
- *    partita il risultato uscito e' quotato 1.01, e qualunque strategia
- *    sembrerebbe infallibile.
+ *    una partita finita, prese senza filtro, contengono il live: a fine partita
+ *    il risultato uscito e' quotato 1.01 e qualunque strategia sembra
+ *    infallibile.
  *
- * Le giocate escono dagli stessi filtri di schedina.ts, quindi quello che si
- * legge qui e' la giocata che sarebbe stata proposta, non una scelta fatta col
- * senno di poi.
+ * Le giocate escono da selectPick, la stessa funzione che usa schedina.ts:
+ * quello che si legge qui e' la giocata che sarebbe stata proposta.
  *
  * Uso:
  *   npx tsx src/scripts/verifica-giornata.ts
- *   npx tsx src/scripts/verifica-giornata.ts 2026-08-30
- *   npx tsx src/scripts/verifica-giornata.ts 2026-08-30 --criterio ev --quota-min 1.5
+ *   npx tsx src/scripts/verifica-giornata.ts 2026-08-30 --giorni 30
+ *   npx tsx src/scripts/verifica-giornata.ts --criterio sicure --prob-min 0.70
  */
 
 import dotenv from 'dotenv';
@@ -30,11 +29,12 @@ dotenv.config();
 import { PrismaClient, FixtureStatus } from '@prisma/client';
 import { getSportsmonksClient } from '../services/sportsmonks/client';
 import { fitDixonColes, predict, DCMatch } from '../services/prediction/dixon-coles';
-import { extractOdds, candidatesFrom, consensusOf, Quote, Candidate, Consensus } from '../services/prediction/live-odds';
+import { extractOdds, selectPick, consensusOf, Quote, Candidate, Consensus, Criterio } from '../services/prediction/live-odds';
 import { ALLOWED_LEAGUES } from '../config/supported-leagues';
 
 const prisma = new PrismaClient();
 const MARKETS = [1, 2, 14, 80];
+const DAY_MS = 86_400_000;
 
 function arg(flag: string, def: string): string {
   const i = process.argv.indexOf(flag);
@@ -54,41 +54,72 @@ function won(key: string, hg: number, ag: number): boolean {
   return false;
 }
 
-interface Played {
-  league: string; home: string; away: string; kickoff: Date;
-  hg: number; ag: number;
-  pick: Candidate; quote: Quote; consensus: Consensus;
-  /** probabilita' del modello sui tre esiti, per il confronto col mercato */
-  p1: number; pX: number; p2: number;
-  c1: number | null; cX: number | null; c2: number | null;
+/** La famiglia di mercato, per il riepilogo. */
+function marketOf(label: string): string {
+  if (label.startsWith('Over') || label.startsWith('Under')) return label.split(' ').slice(0, 2).join(' ');
+  if (label.startsWith('Doppia')) return 'Doppia chance';
+  if (label === 'Goal' || label === 'No goal') return 'Goal/NoGoal';
+  return `Segno ${label}`;
 }
 
-/** Errore standard del ROI: senza, su poche decine di giocate non si legge niente. */
-function roiStats(returns: number[]) {
+interface Bet {
+  date: string;
+  league: string; home: string; away: string;
+  hg: number; ag: number;
+  candidate: Candidate; quote: Quote; consensus: Consensus;
+  won: boolean;
+  ret: number;
+}
+
+/** Una partita con il risultato, per il confronto 1X2 modello contro mercato. */
+interface Match1X2 { model: [number, number, number]; market: [number, number, number]; outcome: 0 | 1 | 2 }
+
+/**
+ * ROI, e se sia distinguibile dallo zero.
+ *
+ * L'incertezza NON si prende dalla varianza campionaria dei ritorni. Con zero
+ * sconfitte quella varianza e' quasi nulla, l'errore standard collassa e
+ * qualunque serie di sole vittorie risulta "significativa": otto giocate vinte
+ * su otto davano ±1.39 e un t sopra 30, che non vuol dire niente.
+ *
+ * E nemmeno da un intervallo binomiale sulla percentuale di vincenti
+ * confrontata con 1 / quota media: il pareggio a quota media e' il pareggio
+ * giusto solo se le quote sono tutte uguali. Con quote da 1.4 a 8 le vincenti
+ * si concentrano sulle basse, e quel test dichiarava significativo un ROI
+ * dell'1.38%.
+ *
+ * La varianza si ricava invece dall'ipotesi nulla, dove e' esatta. Se la quota
+ * e' equa la scommessa vale (o - 1) con probabilita' 1/o e -1 altrimenti,
+ * quindi ha media zero e varianza:
+ *
+ *   E[r^2] = (o-1)^2 / o + (1 - 1/o) = (o-1) * o / o = o - 1
+ *
+ * Il profitto totale ha percio' errore standard sqrt(somma di (o_i - 1)), che
+ * regge con quote diverse fra loro e non degenera quando non si perde mai.
+ */
+function roiStats(returns: number[], odds: number[]) {
   const n = returns.length;
   if (!n) return null;
-  const mean = returns.reduce((a, b) => a + b, 0) / n;
-  const varr = returns.reduce((a, b) => a + (b - mean) ** 2, 0) / Math.max(1, n - 1);
-  return { n, roi: mean * 100, se: Math.sqrt(varr / n) * 100 };
+  const profit = returns.reduce((a, b) => a + b, 0);
+  const nullVar = odds.reduce((a, o) => a + (o - 1), 0);
+  const nullSe = Math.sqrt(nullVar);
+  const z = nullSe > 0 ? profit / nullSe : 0;
+  return {
+    n,
+    profit,
+    roi: (profit / n) * 100,
+    /** errore standard del ROI sotto l'ipotesi di quote eque */
+    se: (nullSe / n) * 100,
+    z,
+    significant: Math.abs(z) > 1.96,
+  };
 }
 
-async function main() {
-  const dateArg = process.argv.slice(2).find(a => /^\d{4}-\d{2}-\d{2}$/.test(a));
-  const date = dateArg || new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-  const criterioArg = arg('--criterio', 'prezzo');
-  const criterio = criterioArg === 'ev' ? 'ev' : criterioArg === 'prob' ? 'prob' : 'prezzo';
-  const minOdds = parseFloat(arg('--quota-min', '1.4'));
-  const maxOdds = parseFloat(arg('--quota-max', '8'));
-  const maxDeviation = parseFloat(arg('--scarto-max', '0.15'));
-  const minBooks = parseInt(arg('--min-book', '5'), 10);
-
+async function giornata(
+  date: string, criterio: Criterio, filters: any, iterations: number,
+): Promise<{ bets: Bet[]; matches: Match1X2[]; seen: number }> {
   const dayStart = new Date(`${date}T00:00:00Z`);
 
-  console.log('='.repeat(70));
-  console.log(`  VERIFICA GIORNATA — ${date}`);
-  console.log('='.repeat(70));
-
-  // 1. Modello sulle sole partite PRECEDENTI alla data.
   const history = await prisma.fixture.findMany({
     where: {
       status: FixtureStatus.FINISHED,
@@ -104,13 +135,10 @@ async function main() {
     homeXg: f.xg_home, awayXg: f.xg_away, date: f.date,
   }));
   const params = fitDixonColes(matches, {
-    xi: 0.002, iterations: 2500, target: 'blend', blendWeight: 0.35,
+    xi: 0.002, iterations, target: 'blend', blendWeight: 0.35,
     teamRidge: 0.05, referenceDate: dayStart,
   });
-  console.log(`  modello su ${matches.length} partite fino al ${new Date(dayStart.getTime() - 1).toISOString().slice(0, 10)}, ${params.teams} squadre`);
-  console.log(`  criterio: ${criterio}   ·   quote da ${minOdds.toFixed(2)} a ${maxOdds.toFixed(2)}, scarto entro ${(maxDeviation * 100).toFixed(0)}%\n`);
 
-  // 2. Le partite di quel giorno, con il risultato.
   const client = getSportsmonksClient();
   const fixtures: any[] = [];
   for (let page = 1; page <= 10; page++) {
@@ -128,28 +156,22 @@ async function main() {
 
   interface Pending { fx: any; kickoff: Date; h: number; a: number; hg: number; ag: number }
   const pending: Pending[] = [];
-  let notFinished = 0, noTeams = 0;
 
   for (const fx of fixtures) {
     if (!ALLOWED_LEAGUES.includes(fx.league_id)) continue;
-    const short = fx.state?.short_name;
-    if (!['FT', 'AET', 'FT_PEN'].includes(short)) { notFinished++; continue; }
-
+    if (!['FT', 'AET', 'FT_PEN'].includes(fx.state?.short_name)) continue;
     const cur = (fx.scores || []).filter((s: any) => s.description === 'CURRENT');
     const hg = cur.find((s: any) => s.score?.participant === 'home')?.score?.goals;
     const ag = cur.find((s: any) => s.score?.participant === 'away')?.score?.goals;
-    if (hg == null || ag == null) { notFinished++; continue; }
-
+    if (hg == null || ag == null) continue;
     const home = (fx.participants || []).find((p: any) => p.meta?.location === 'home');
     const away = (fx.participants || []).find((p: any) => p.meta?.location === 'away');
     const h = home && byApi.get(home.id);
     const a = away && byApi.get(away.id);
-    if (!h || !a) { noTeams++; continue; }
-
+    if (!h || !a) continue;
     pending.push({ fx, kickoff: new Date(String(fx.starting_at).replace(' ', 'T') + 'Z'), h, a, hg, ag });
   }
 
-  // 3. Quote in blocco, 25 partite per chiamata.
   const oddsByApiId = new Map<number, any[]>();
   for (let i = 0; i < pending.length; i += 25) {
     const chunk = pending.slice(i, i + 25);
@@ -159,107 +181,161 @@ async function main() {
       });
       for (const d of (r?.data || [])) oddsByApiId.set(d.id, d.odds || []);
     } catch (e: any) {
-      console.error(`  blocco quote ${i}: ${e.message}`);
+      console.error(`  ${date} blocco quote ${i}: ${e.message}`);
     }
   }
 
-  // 4. La giocata che sarebbe stata proposta.
-  const played: Played[] = [];
-  let noOdds = 0, filtered = 0;
+  const bets: Bet[] = [];
+  const comparisons: Match1X2[] = [];
 
   for (const item of pending) {
     const rows = oddsByApiId.get(item.fx.id);
-    if (!rows?.length) { noOdds++; continue; }
-    // il filtro sul fischio d'inizio esclude il live
-    const quotes = extractOdds(rows, item.kickoff);
+    if (!rows?.length) continue;
+    const quotes = extractOdds(rows, item.kickoff);   // esclude il live
 
     const restOf = (id: number) => {
       const prev = lastPlayed.get(id);
-      return prev ? (item.kickoff.getTime() - prev.getTime()) / 86_400_000 : null;
+      return prev ? (item.kickoff.getTime() - prev.getTime()) / DAY_MS : null;
     };
     const p = predict(params, item.h, item.a, 12, { home: restOf(item.h), away: restOf(item.a) });
 
-    const withConsensus = candidatesFrom(p)
-      .map(c => ({ c, q: quotes[c.key] }))
-      .filter(x => x.q && x.q.books >= minBooks)
-      .map(x => ({ ...x, k: consensusOf(quotes, x.c.key, x.q!.book) }))
-      .filter((x): x is typeof x & { k: Consensus } => x.k !== null);
-    if (!withConsensus.length) { noOdds++; continue; }
+    const c1 = consensusOf(quotes, '1X2:1')?.prob;
+    const cX = consensusOf(quotes, '1X2:X')?.prob;
+    const c2 = consensusOf(quotes, '1X2:2')?.prob;
+    if (c1 && cX && c2) {
+      const s = c1 + cX + c2;
+      comparisons.push({
+        model: [p.prob1, p.probX, p.prob2],
+        market: [c1 / s, cX / s, c2 / s],
+        outcome: item.hg > item.ag ? 0 : item.hg === item.ag ? 1 : 2,
+      });
+    }
 
-    const playable = withConsensus.filter(x =>
-      x.k.deviation <= maxDeviation && x.q!.best >= minOdds && x.q!.best <= maxOdds);
-    if (!playable.length) { filtered++; continue; }
+    const chosen = selectPick(quotes, p, criterio, filters);
+    if ('reject' in chosen) continue;
 
-    const value = (x: { c: Candidate; q: Quote | undefined; k: Consensus }) =>
-      criterio === 'prob' ? x.c.modelProb
-        : criterio === 'ev' ? x.c.modelProb * x.q!.best - 1
-        : x.k.deviation;
-    const best = playable.reduce((x, y) => (value(y) > value(x) ? y : x));
-
-    const cons = (key: string) => consensusOf(quotes, key)?.prob ?? null;
-    played.push({
+    const { candidate, quote, consensus } = chosen.pick;
+    const ok = won(candidate.key, item.hg, item.ag);
+    bets.push({
+      date,
       league: item.fx.league?.name || String(item.fx.league_id),
       home: (item.fx.participants || []).find((x: any) => x.meta?.location === 'home')?.name || '?',
       away: (item.fx.participants || []).find((x: any) => x.meta?.location === 'away')?.name || '?',
-      kickoff: item.kickoff, hg: item.hg, ag: item.ag,
-      pick: best.c, quote: best.q!, consensus: best.k,
-      p1: p.prob1, pX: p.probX, p2: p.prob2,
-      c1: cons('1X2:1'), cX: cons('1X2:X'), c2: cons('1X2:2'),
+      hg: item.hg, ag: item.ag,
+      candidate, quote, consensus,
+      won: ok, ret: ok ? quote.best - 1 : -1,
     });
   }
 
-  console.log(`  partite: ${pending.length} concluse` +
-    (notFinished ? `, ${notFinished} senza risultato utile` : '') +
-    (noTeams ? `, ${noTeams} senza storico` : '') +
-    (noOdds ? `, ${noOdds} senza quote pre-partita` : '') +
-    (filtered ? `, ${filtered} fuori dai filtri` : '') +
-    `  →  ${played.length} giocate\n`);
+  return { bets, matches: comparisons, seen: pending.length };
+}
 
-  if (!played.length) { await prisma.$disconnect(); return; }
+async function main() {
+  const dateArg = process.argv.slice(2).find(a => /^\d{4}-\d{2}-\d{2}$/.test(a));
+  const lastDate = dateArg || new Date(Date.now() - DAY_MS).toISOString().slice(0, 10);
+  const days = Math.max(1, parseInt(arg('--giorni', '1'), 10));
+  const criterioArg = arg('--criterio', 'prezzo');
+  const criterio: Criterio =
+    criterioArg === 'ev' ? 'ev' : criterioArg === 'prob' ? 'prob'
+      : criterioArg === 'sicure' ? 'sicure' : 'prezzo';
+  const iterations = parseInt(arg('--iterazioni', '2500'), 10);
+  const filters = {
+    minBooks: parseInt(arg('--min-book', '5'), 10),
+    minOdds: parseFloat(arg('--quota-min', '1.4')),
+    maxOdds: parseFloat(arg('--quota-max', '8')),
+    minDeviation: parseFloat(arg('--scarto-min', '0')) || -Infinity,
+    maxDeviation: parseFloat(arg('--scarto-max', '0.15')),
+    minProb: parseFloat(arg('--prob-min', '0')),
+  };
 
-  // 5. Come e' andata, partita per partita.
-  console.log('-'.repeat(70));
-  played.sort((a, b) => a.kickoff.getTime() - b.kickoff.getTime());
-  for (const e of played) {
-    const ok = won(e.pick.key, e.hg, e.ag);
-    const ret = ok ? e.quote.best - 1 : -1;
-    console.log(`  ${ok ? 'VINTA ' : 'PERSA '}  ${e.home} — ${e.away}  ${e.hg}-${e.ag}   (${e.league})`);
-    console.log(`           ${e.pick.label} @ ${e.quote.best.toFixed(2)}   modello ${(e.pick.modelProb * 100).toFixed(1)}%  consenso ${(e.consensus.prob * 100).toFixed(1)}%   ${ret >= 0 ? '+' : ''}${ret.toFixed(2)} EUR`);
+  const dates: string[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    dates.push(new Date(Date.parse(`${lastDate}T00:00:00Z`) - i * DAY_MS).toISOString().slice(0, 10));
   }
 
-  // 6. Il riepilogo.
-  const returns = played.map(e => (won(e.pick.key, e.hg, e.ag) ? e.quote.best - 1 : -1));
-  const s = roiStats(returns)!;
-  const hits = returns.filter(r => r > 0).length;
-  const avgOdds = played.reduce((a, e) => a + e.quote.best, 0) / played.length;
+  console.log('='.repeat(72));
+  console.log(`  VERIFICA — ${dates[0]}${days > 1 ? ` → ${dates[dates.length - 1]}` : ''}`);
+  console.log('='.repeat(72));
+  console.log(`  criterio: ${criterio}   quote ${filters.minOdds.toFixed(2)}-${filters.maxOdds.toFixed(2)}` +
+    (filters.minProb > 0 ? `   probabilita' di mercato >= ${(filters.minProb * 100).toFixed(0)}%` : '') +
+    (filters.minDeviation > -Infinity ? `   scarto >= ${(filters.minDeviation * 100).toFixed(1)}%` : '') + '\n');
 
-  console.log('\n' + '-'.repeat(70));
-  console.log(`  Giocate: ${s.n}   vincenti: ${hits} (${((hits / s.n) * 100).toFixed(1)}%)   quota media: ${avgOdds.toFixed(2)}`);
-  console.log(`  Flat 1 EUR:  ${(s.roi >= 0 ? '+' : '') + (s.roi * s.n / 100).toFixed(2)} EUR su ${s.n} EUR   ROI ${(s.roi >= 0 ? '+' : '') + s.roi.toFixed(2)}% ±${s.se.toFixed(2)}`);
-  console.log(`  Atteso dal modello:  ${(played.reduce((a, e) => a + e.pick.modelProb, 0)).toFixed(1)} vincenti`);
-  console.log(`  Atteso dal consenso: ${(played.reduce((a, e) => a + e.consensus.prob, 0)).toFixed(1)} vincenti`);
+  const all: Bet[] = [];
+  const comparisons: Match1X2[] = [];
+  let seen = 0;
 
-  // 7. Modello contro mercato sull'1X2, che e' il confronto che non dipende
-  //    dalle giocate scelte: tutte le partite, non solo quelle proposte.
-  const withMarket = played.filter(e => e.c1 != null && e.cX != null && e.c2 != null);
-  if (withMarket.length) {
-    const logloss = (probs: number[][], idx: number[]) =>
-      probs.reduce((a, p, i) => a - Math.log(Math.max(1e-12, p[idx[i]])), 0) / probs.length;
-    const idx = withMarket.map(e => (e.hg > e.ag ? 0 : e.hg === e.ag ? 1 : 2));
-    const modelP = withMarket.map(e => [e.p1, e.pX, e.p2]);
-    const marketP = withMarket.map(e => {
-      const s = e.c1! + e.cX! + e.c2!;
-      return [e.c1! / s, e.cX! / s, e.c2! / s];
-    });
-    console.log('\n  1X2 su ' + withMarket.length + ' partite (tutte, non solo le giocate):');
-    console.log(`    log-loss modello ${logloss(modelP, idx).toFixed(4)}   mercato ${logloss(marketP, idx).toFixed(4)}`);
-    const acc = (ps: number[][]) => ps.filter((p, i) => p.indexOf(Math.max(...p)) === idx[i]).length / ps.length * 100;
-    console.log(`    azzeccate  modello ${acc(modelP).toFixed(1)}%   mercato ${acc(marketP).toFixed(1)}%`);
+  for (const d of dates) {
+    const r = await giornata(d, criterio, filters, iterations);
+    all.push(...r.bets);
+    comparisons.push(...r.matches);
+    seen += r.seen;
+    const s = roiStats(r.bets.map(b => b.ret), r.bets.map(b => b.quote.best));
+    const w = r.bets.filter(b => b.won).length;
+    console.log(`  ${d}   ${String(r.seen).padStart(3)} partite   ${String(r.bets.length).padStart(3)} giocate   ` +
+      `${String(w).padStart(3)} vinte   ${s ? ((s.roi * s.n / 100) >= 0 ? '+' : '') + (s.roi * s.n / 100).toFixed(2) : '0.00'} EUR`);
   }
 
-  console.log('\n  Una giornata sola non decide niente: con qualche decina di giocate');
-  console.log('  l\'errore standard del ROI e\' di decine di punti. Serve a vedere che le');
-  console.log('  giocate proposte siano sensate, non a stabilire se il sistema guadagna.\n');
+  if (!all.length) { console.log('\n  Nessuna giocata con questi filtri.\n'); await prisma.$disconnect(); return; }
+
+  if (days === 1) {
+    console.log('\n' + '-'.repeat(72));
+    for (const b of all.sort((x, y) => y.consensus.prob - x.consensus.prob)) {
+      console.log(`  ${b.won ? 'VINTA ' : 'PERSA '}  ${b.home} — ${b.away}  ${b.hg}-${b.ag}   (${b.league})`);
+      console.log(`           ${b.candidate.label} @ ${b.quote.best.toFixed(2)}   mercato ${(b.consensus.prob * 100).toFixed(1)}%  modello ${(b.candidate.modelProb * 100).toFixed(1)}%   ${b.ret >= 0 ? '+' : ''}${b.ret.toFixed(2)} EUR`);
+    }
+  }
+
+  const s = roiStats(all.map(b => b.ret), all.map(b => b.quote.best))!;
+  const wins = all.filter(b => b.won).length;
+  const expModel = all.reduce((a, b) => a + b.candidate.modelProb, 0);
+  const expMarket = all.reduce((a, b) => a + b.consensus.prob, 0);
+  const avgOdds = all.reduce((a, b) => a + b.quote.best, 0) / all.length;
+
+  console.log('\n' + '-'.repeat(72));
+  console.log(`  Partite viste: ${seen}   giocate: ${s.n} (${((s.n / seen) * 100).toFixed(1)}%)   quota media: ${avgOdds.toFixed(2)}`);
+  console.log(`  Vincenti: ${wins} (${((wins / s.n) * 100).toFixed(1)}%)   attese dal mercato ${expMarket.toFixed(1)}   dal modello ${expModel.toFixed(1)}`);
+  console.log(`  Flat 1 EUR: ${(s.roi * s.n / 100 >= 0 ? '+' : '') + (s.roi * s.n / 100).toFixed(2)} EUR su ${s.n}   ROI ${(s.roi >= 0 ? '+' : '') + s.roi.toFixed(2)}% ±${s.se.toFixed(2)}` +
+    `   z = ${s.z.toFixed(2)}` + (s.significant ? '  *' : ''));
+
+  // Per fascia di quota: e' li' che vive il favourite-longshot bias.
+  console.log('\n  per fascia di quota');
+  console.log('  ' + '-'.repeat(70));
+  for (const [lo, hi, label] of [[1, 1.8, '1.00-1.80'], [1.8, 2.5, '1.80-2.50'], [2.5, 4, '2.50-4.00'], [4, 8, '4.00-8.00'], [8, 1e9, 'oltre 8']] as const) {
+    const sel = all.filter(b => b.quote.best >= lo && b.quote.best < hi);
+    const st = roiStats(sel.map(b => b.ret), sel.map(b => b.quote.best));
+    if (!st) continue;
+    console.log(`    ${label.padEnd(12)}${String(st.n).padStart(5)} giocate  ${String(sel.filter(b => b.won).length).padStart(4)} vinte  ` +
+      `${((sel.filter(b => b.won).length / st.n) * 100).toFixed(1).padStart(5)}%   ROI ${((st.roi >= 0 ? '+' : '') + st.roi.toFixed(2)).padStart(7)}% ±${st.se.toFixed(2)}${st.significant ? ' *' : ''}`);
+  }
+
+  console.log('\n  per mercato');
+  console.log('  ' + '-'.repeat(70));
+  const byMarket = new Map<string, Bet[]>();
+  for (const b of all) {
+    const k = marketOf(b.candidate.label);
+    byMarket.set(k, [...(byMarket.get(k) || []), b]);
+  }
+  for (const [k, v] of [...byMarket.entries()].sort((a, b) => b[1].length - a[1].length)) {
+    const st = roiStats(v.map(b => b.ret), v.map(b => b.quote.best))!;
+    console.log(`    ${k.padEnd(16)}${String(st.n).padStart(5)} giocate  ${String(v.filter(b => b.won).length).padStart(4)} vinte  ` +
+      `attese ${v.reduce((a, b) => a + b.consensus.prob, 0).toFixed(1).padStart(5)}   ROI ${((st.roi >= 0 ? '+' : '') + st.roi.toFixed(2)).padStart(7)}% ±${st.se.toFixed(2)}${st.significant ? ' *' : ''}`);
+  }
+
+  // Il confronto che non dipende da quali giocate sono state scelte.
+  if (comparisons.length) {
+    const ll = (get: (m: Match1X2) => [number, number, number]) =>
+      comparisons.reduce((a, m) => a - Math.log(Math.max(1e-12, get(m)[m.outcome])), 0) / comparisons.length;
+    const acc = (get: (m: Match1X2) => [number, number, number]) =>
+      comparisons.filter(m => { const p = get(m); return p.indexOf(Math.max(...p)) === m.outcome; }).length / comparisons.length * 100;
+    console.log(`\n  1X2 su ${comparisons.length} partite (tutte, non solo le giocate)`);
+    console.log('  ' + '-'.repeat(70));
+    console.log(`    log-loss   modello ${ll(m => m.model).toFixed(4)}   mercato ${ll(m => m.market).toFixed(4)}`);
+    console.log(`    azzeccate  modello ${acc(m => m.model).toFixed(1)}%      mercato ${acc(m => m.market).toFixed(1)}%`);
+  }
+
+  console.log(`\n  * = la percentuale di vincenti e' distinguibile dal pareggio (Wilson 95%).`);
+  console.log(`  Senza asterisco il numero e' rumore: per distinguere un ROI del 3% dallo zero`);
+  console.log(`  a quota ${avgOdds.toFixed(1)} servono migliaia di giocate.\n`);
 
   await prisma.$disconnect();
 }
