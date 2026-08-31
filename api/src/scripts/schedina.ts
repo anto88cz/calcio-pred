@@ -38,6 +38,7 @@
  *   npx tsx src/scripts/schedina.ts --quota-min 1.6
  *   npx tsx src/scripts/schedina.ts --criterio sicure --prob-min 0.65 --elenco
  *   npx tsx src/scripts/schedina.ts --multiple --multiple-max 4
+ *   npx tsx src/scripts/schedina.ts --spiega "Aston Villa"
  */
 
 import dotenv from 'dotenv';
@@ -178,6 +179,36 @@ async function main() {
 
     const rows = buildCandidates(quotes, p, minBooks);
     if (!rows.length) { noConsensus++; continue; }
+
+    // Perche' proprio quella giocata: tutte le alternative di una partita, con
+    // il prezzo migliore contro la quota equa del consenso. Serve per capire
+    // che la scelta e' di prezzo, non di pronostico: con il criterio 'prezzo'
+    // la probabilita' del modello viene mostrata e basta.
+    const spiega = arg('--spiega', '');
+    if (spiega && `${home.name} ${away.name}`.toLowerCase().includes(spiega.toLowerCase())) {
+      const scelta = selectPick(rows, criterio, { minOdds, maxOdds, minDeviation, maxDeviation, minProb });
+      console.log('\n' + '='.repeat(78));
+      console.log(`  ${home.name} - ${away.name}   (${fx.league?.name || fx.league_id})   gol attesi ${p.lambdaHome.toFixed(2)} - ${p.lambdaAway.toFixed(2)}`);
+      console.log('='.repeat(78));
+      console.log('  giocata          modello   mercato   equa   miglior prezzo (book)  scarto  book  esito');
+      for (const r of [...rows].sort((a, b) => b.deviation - a.deviation)) {
+        const fuori: string[] = [];
+        if (r.best < minOdds) fuori.push(`quota < ${minOdds}`);
+        if (r.best > maxOdds) fuori.push(`quota > ${maxOdds}`);
+        if (r.deviation < minDeviation) fuori.push('scarto troppo basso');
+        if (r.deviation > maxDeviation) fuori.push('scarto sospetto');
+        if (r.consensusProb < minProb) fuori.push('probabilita troppo bassa');
+        console.log('  ' + r.label.padEnd(16) +
+          (r.modelProb * 100).toFixed(1).padStart(6) + '%' +
+          (r.consensusProb * 100).toFixed(1).padStart(9) + '%' +
+          (1 / r.consensusProb).toFixed(2).padStart(8) +
+          (r.best.toFixed(2) + ' (' + r.book + ')').padStart(15) +
+          ((r.deviation >= 0 ? '+' : '') + (r.deviation * 100).toFixed(1) + '%').padStart(9) +
+          String(r.books).padStart(5) + '  ' +
+          (scelta && scelta.key === r.key ? 'SCELTA' : fuori.length ? 'escluso: ' + fuori[0] : ''));
+      }
+      console.log('');
+    }
     const best = selectPick(rows, criterio, {
       minOdds, maxOdds, minDeviation, maxDeviation, minProb,
     });
