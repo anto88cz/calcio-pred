@@ -18,6 +18,14 @@
  *   npx tsx src/scripts/backtest-dixon-coles.ts
  *   npx tsx src/scripts/backtest-dixon-coles.ts --xi 0.005 --out backtest-dc.json
  *   npx tsx src/scripts/backtest-dixon-coles.ts --tune          (cerca xi)
+ *   npx tsx src/scripts/backtest-dixon-coles.ts --leagues 384,8,564,82,301
+ *   npx tsx src/scripts/backtest-dixon-coles.ts --venue-split --rest --h2h
+ *   npx tsx src/scripts/backtest-dixon-coles.ts --form --form-window 5
+ *
+ * La stima usa SEMPRE tutte le partite in archivio precedenti al cutoff, anche
+ * di leghe non richieste: piu' partite significano forze stimate meglio, e una
+ * lega in piu' nel campione non e' look-ahead. --leagues filtra solo COSA si
+ * predice.
  */
 
 import dotenv from 'dotenv';
@@ -26,7 +34,7 @@ dotenv.config();
 import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaClient, FixtureStatus } from '@prisma/client';
-import { fitDixonColes, predict, DCMatch, DixonColesParams, FitTarget } from '../services/prediction/dixon-coles';
+import { fitDixonColes, predict, expectedGoals, DCMatch, DixonColesParams, FitTarget } from '../services/prediction/dixon-coles';
 
 const prisma = new PrismaClient();
 
@@ -43,6 +51,16 @@ interface Args {
   iterations: number;
   target: FitTarget;
   blendWeight: number;
+  /** id Sportmonks delle leghe da predire; vuoto = tutte quelle in archivio */
+  leagues: number[];
+  venueSplit: boolean;
+  venueRidge: number;
+  restEffect: boolean;
+  h2hEffect: boolean;
+  formEffect: boolean;
+  formWindow: number;
+  lineupEffect: boolean;
+  teamRidge: number;
 }
 
 function parseArgs(): Args {
@@ -66,6 +84,18 @@ function parseArgs(): Args {
     // blend 0.50 -> 1.0021. L'ottimo e' piatto attorno a 0.35.
     target: (get('--target', 'blend') as FitTarget),
     blendWeight: parseFloat(get('--blend-weight', '0.35')),
+    leagues: get('--leagues', '').split(',').map(x => parseInt(x, 10)).filter(x => !isNaN(x)),
+    venueSplit: a.includes('--venue-split'),
+    venueRidge: parseFloat(get('--venue-ridge', '6')),
+    restEffect: a.includes('--rest'),
+    h2hEffect: a.includes('--h2h'),
+    formEffect: a.includes('--form'),
+    formWindow: parseInt(get('--form-window', '5'), 10),
+    lineupEffect: a.includes('--lineups'),
+    // 0.05 scelto per log-loss walk-forward: 0 -> 0.9980, 0.05 -> 0.9976,
+    // 0.2 -> 0.9981, 0.5 -> 0.9994. Senza, le squadre di coppa con una o due
+    // partite prendevano difese da exp(-6.4) e trascinavano l'intercetta.
+    teamRidge: parseFloat(get('--team-ridge', '0.05')),
   };
 }
 
@@ -104,6 +134,58 @@ async function main() {
     orderBy: { date: 'asc' },
   });
 
+  /**
+   * Quanto della formazione tipo scende in campo.
+   *
+   * "Titolare abituale" non e' un elenco fisso: si ricava dalle ultime dieci
+   * partite di quella squadra, prendendo gli undici piu' schierati. Poi si
+   * guarda quanti di quegli undici sono nella formazione di oggi. Una squadra
+   * che ne perde quattro parte da 7/11 = 0.64.
+   *
+   * Si usa solo il passato: la formazione tipo di una partita e' costruita
+   * sulle partite precedenti, mai su quella stessa.
+   */
+  const lineupsPath = path.resolve('data/lineups.json');
+  const lineupStore: Record<string, { starters: Record<string, number[]> }> =
+    args.lineupEffect && fs.existsSync(lineupsPath)
+      ? JSON.parse(fs.readFileSync(lineupsPath, 'utf-8'))
+      : {};
+  const lineupAvailability = new Map<number, [number | null, number | null]>();
+
+  if (args.lineupEffect) {
+    const recentXI = new Map<number, number[][]>();
+    let covered = 0;
+    for (const f of fixtures) {
+      const entry = lineupStore[String(f.apiId)];
+      const sides: Array<[number, number]> = [
+        [f.homeTeamId, f.homeTeam.apiId], [f.awayTeamId, f.awayTeam.apiId],
+      ];
+      const values: [number | null, number | null] = [null, null];
+
+      sides.forEach(([internalId, apiId], i) => {
+        const todayXI: number[] = entry?.starters?.[String(apiId)] ?? [];
+        const past = recentXI.get(internalId) || [];
+        if (todayXI.length >= 10 && past.length >= 4) {
+          const counts = new Map<number, number>();
+          for (const xi of past) for (const pid of xi) counts.set(pid, (counts.get(pid) || 0) + 1);
+          const usual = new Set([...counts.entries()]
+            .sort((x, y) => y[1] - x[1]).slice(0, 11).map(e => e[0]));
+          const present = todayXI.filter(pid => usual.has(pid)).length;
+          values[i] = present / 11;
+        }
+        if (todayXI.length >= 10) {
+          past.push(todayXI);
+          if (past.length > 10) past.shift();
+          recentXI.set(internalId, past);
+        }
+      });
+
+      if (values[0] !== null || values[1] !== null) covered++;
+      lineupAvailability.set(f.id, values);
+    }
+    console.log(`Formazioni: ${Object.keys(lineupStore).length} partite in archivio, ${covered} con formazione tipo ricostruibile`);
+  }
+
   const all: (DCMatch & { row: any })[] = fixtures.map(f => ({
     homeTeamId: f.homeTeamId,
     awayTeamId: f.awayTeamId,
@@ -111,12 +193,29 @@ async function main() {
     awayGoals: f.awayGoals!,
     homeXg: f.xg_home,
     awayXg: f.xg_away,
+    homeLineup: lineupAvailability.get(f.id)?.[0] ?? null,
+    awayLineup: lineupAvailability.get(f.id)?.[1] ?? null,
     date: f.date,
     row: f,
   }));
 
+  // Giorni dall'ultima partita di ciascuna squadra, dal calendario gia' in
+  // archivio: nessuna chiamata all'API, e per costruzione guarda solo indietro.
+  const lastPlayed = new Map<number, Date>();
+  for (const m of all) {
+    const days = (from: Date | undefined) =>
+      from ? (m.date.getTime() - from.getTime()) / DAY_MS : null;
+    m.homeRest = days(lastPlayed.get(m.homeTeamId));
+    m.awayRest = days(lastPlayed.get(m.awayTeamId));
+    lastPlayed.set(m.homeTeamId, m.date);
+    lastPlayed.set(m.awayTeamId, m.date);
+  }
+
   const seasonStart = new Date(args.seasonStart);
-  const target = all.filter(m => m.date >= seasonStart);
+  const target = all.filter(m =>
+    m.date >= seasonStart &&
+    (args.leagues.length === 0 || args.leagues.includes(m.row.leagueId))
+  );
   const history = all.filter(m => m.date < seasonStart);
 
   console.log('========================================');
@@ -126,6 +225,8 @@ async function main() {
   console.log(`Storico pre-stagione: ${history.length}  (${history[0]?.date.toISOString().slice(0, 10)} -> ${history[history.length - 1]?.date.toISOString().slice(0, 10)})`);
   const xgCoverage = all.filter(m => m.homeXg != null && m.awayXg != null).length;
   console.log(`Stima su:             ${args.target}${args.target === 'blend' ? ` (gol ${args.blendWeight})` : ''}   xG disponibile su ${xgCoverage}/${all.length} partite`);
+  console.log(`Leghe da predire:     ${args.leagues.length ? args.leagues.join(', ') : 'tutte'}`);
+  console.log(`Estensioni:           ${[args.venueSplit ? `casa/trasferta (ridge ${args.venueRidge})` : null, args.restEffect ? 'riposo' : null, args.h2hEffect ? 'testa a testa' : null, args.formEffect ? `forma ultime ${args.formWindow}` : null, args.lineupEffect ? 'formazioni' : null, args.teamRidge ? `pooling ${args.teamRidge}` : null].filter(Boolean).join(', ') || 'nessuna'}`);
   console.log(`Da predire:           ${target.length}  (${target[0]?.date.toISOString().slice(0, 10)} -> ${target[target.length - 1]?.date.toISOString().slice(0, 10)})`);
 
   // quote di chiusura da un report esistente
@@ -160,20 +261,67 @@ async function main() {
       const trainingSet = all.filter(m => m.date < cutoff);
       if (trainingSet.length < 200) continue;
 
-      params = fitDixonColes(trainingSet, {
+      const fitOptions = {
         xi,
         iterations: args.iterations,
         referenceDate: cutoff,
         target: args.target,
         blendWeight: args.blendWeight,
-      });
+        venueSplit: args.venueSplit,
+        venueRidge: args.venueRidge,
+        restEffect: args.restEffect,
+        h2hEffect: args.h2hEffect,
+        lineupEffect: args.lineupEffect,
+        teamRidge: args.teamRidge,
+      };
+
+      params = fitDixonColes(trainingSet, fitOptions);
+
+      if (args.formEffect) {
+        // La forma e' un residuo, e il residuo ha bisogno di un modello che lo
+        // definisca: si stima prima il modello base, si misura quanto ogni
+        // squadra ha reso sopra o sotto le attese, poi si ristima usando quella
+        // misura come covariata. La media mobile di ogni partita usa solo le
+        // partite PRECEDENTI di quella squadra.
+        const recent = new Map<number, number[]>();
+        const push = (team: number, value: number) => {
+          const arr = recent.get(team) || [];
+          arr.push(value);
+          if (arr.length > args.formWindow) arr.shift();
+          recent.set(team, arr);
+        };
+        const meanOf = (team: number): number | null => {
+          const arr = recent.get(team);
+          if (!arr || arr.length < 3) return null;
+          return arr.reduce((s2, v) => s2 + v, 0) / arr.length;
+        };
+
+        for (const m of all) {
+          if (m.date >= cutoff) continue;
+          m.homeForm = meanOf(m.homeTeamId);
+          m.awayForm = meanOf(m.awayTeamId);
+          const eg = expectedGoals(params, m.homeTeamId, m.awayTeamId,
+            { home: m.homeRest, away: m.awayRest });
+          push(m.homeTeamId, (m.homeGoals - eg.lambdaHome) / Math.max(eg.lambdaHome, 0.2));
+          push(m.awayTeamId, (m.awayGoals - eg.lambdaAway) / Math.max(eg.lambdaAway, 0.2));
+        }
+        for (const m of matchesOfWeek) {
+          m.homeForm = meanOf(m.homeTeamId);
+          m.awayForm = meanOf(m.awayTeamId);
+        }
+
+        params = fitDixonColes(trainingSet, { ...fitOptions, formEffect: true });
+      }
       fitted++;
       if (verbose && fitted % 10 === 0) {
         console.log(`  settimana ${String(w).padStart(2)}  stima su ${String(trainingSet.length).padStart(4)} partite  gamma=${params.gamma.toFixed(3)} rho=${params.rho.toFixed(3)}`);
       }
 
       for (const m of matchesOfWeek) {
-        const p = predict(params, m.homeTeamId, m.awayTeamId);
+        const p = predict(params, m.homeTeamId, m.awayTeamId, 12,
+          { home: m.homeRest, away: m.awayRest },
+          { home: m.homeForm, away: m.awayForm },
+          { home: m.homeLineup, away: m.awayLineup });
         const probs: Record<Outcome, number> = { '1': p.prob1, 'X': p.probX, '2': p.prob2 };
         const actual: Outcome = m.homeGoals > m.awayGoals ? '1' : m.homeGoals < m.awayGoals ? '2' : 'X';
         const pick = OUTCOMES.reduce((a, b) => (probs[a] >= probs[b] ? a : b));
@@ -197,6 +345,23 @@ async function main() {
             lambdaHome: p.lambdaHome,
             lambdaAway: p.lambdaAway,
             hasUnknownTeam: p.hasUnknownTeam,
+            // Tutti i mercati escono dalla stessa matrice dei punteggi: sono
+            // somme di celle diverse, quindi coerenti fra loro per costruzione.
+            dc: { '1X': p.dc1X, '12': p.dc12, 'X2': p.dcX2 },
+            over: { '1.5': p.over['1.5'], '2.5': p.over['2.5'], '3.5': p.over['3.5'] },
+          },
+          markets: {
+            dc: {
+              '1X': { prob: p.dc1X, esito: actual !== '2' },
+              '12': { prob: p.dc12, esito: actual !== 'X' },
+              'X2': { prob: p.dcX2, esito: actual !== '1' },
+            },
+            btts: { prob: p.bttsYes, esito: m.homeGoals > 0 && m.awayGoals > 0 },
+            ou: {
+              '1.5': { prob: p.over['1.5'], esito: totalGoals > 1.5 },
+              '2.5': { prob: p.over['2.5'], esito: totalGoals > 2.5 },
+              '3.5': { prob: p.over['3.5'], esito: totalGoals > 3.5 },
+            },
           },
           closingOdds: oddsByFixture.get(m.row.id) ?? null,
           correct1X2: pick === actual,
@@ -268,6 +433,20 @@ async function main() {
     console.log(`  mu    ${params.mu.toFixed(4)}   (gol medi ${Math.exp(params.mu).toFixed(2)} per squadra)`);
     console.log(`  gamma ${params.gamma.toFixed(4)}   (vantaggio casa x${Math.exp(params.gamma).toFixed(3)})`);
     console.log(`  rho   ${params.rho.toFixed(4)}`);
+    if (params.h2hCoef !== undefined) {
+      const pairs = Object.values(params.h2hResidual || {}).filter(v => v.n >= 2).length;
+      console.log(`  testa a testa ${params.h2hCoef.toFixed(3)}   (${pairs} accoppiamenti con almeno 2 precedenti)`);
+    }
+    if (params.lineupCoef !== undefined) {
+      const perMissing = Math.exp(params.lineupCoef * (1 / 11)) - 1;
+      console.log(`  formazioni ${params.lineupCoef.toFixed(4)}   (un titolare abituale in meno: ${(perMissing * 100).toFixed(2)}% di gol attesi)`);
+    }
+    if (params.formCoef !== undefined) {
+      console.log(`  forma ${params.formCoef.toFixed(4)}   (residuo +50% nelle ultime ${args.formWindow}: ${((Math.exp(params.formCoef * 0.5) - 1) * 100).toFixed(1)}% di gol attesi)`);
+    }
+    if (params.restCoef !== undefined) {
+      console.log(`  riposo ${params.restCoef.toFixed(4)}   (7 giorni di riposo in piu': ${((Math.exp(params.restCoef) - 1) * 100).toFixed(1)}% di gol attesi)`);
+    }
     const ranked = Object.entries(params.attack).sort((a, b) => b[1] - a[1]);
     const nameOf = (id: string) => fixtures.find(f => f.homeTeamId === Number(id))?.homeTeam.name
       ?? fixtures.find(f => f.awayTeamId === Number(id))?.awayTeam.name ?? id;

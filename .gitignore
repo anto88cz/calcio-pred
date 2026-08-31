@@ -91,3 +91,6 @@ backtest-set-*.txt
 
 # Report generati dai backtest (artefatti, non sorgenti)
 api/backtest-*.json
+
+# cache locali rigenerabili: quote per bookmaker e formazioni
+api/data/
