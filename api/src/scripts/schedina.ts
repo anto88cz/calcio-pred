@@ -37,6 +37,7 @@
  *   npx tsx src/scripts/schedina.ts --scarto-max 0.10 --quota-max 5
  *   npx tsx src/scripts/schedina.ts --quota-min 1.6
  *   npx tsx src/scripts/schedina.ts --criterio sicure --prob-min 0.65 --elenco
+ *   npx tsx src/scripts/schedina.ts --multiple --multiple-max 4
  */
 
 import dotenv from 'dotenv';
@@ -231,6 +232,51 @@ async function main() {
     }
     console.log('-'.repeat(78));
     console.log(`  ${events.filter(e => e.pick.deviation > 0).length} su ${events.length} hanno un prezzo sopra la quota equa.\n`);
+  }
+
+  // Menu di multiple, da 2 a N gambe.
+  //
+  // L'unica regola che conta: il valore atteso di una multipla e' il PRODOTTO
+  // dei valori attesi delle gambe. Due gambe al +2% fanno +4.04%; ma una gamba
+  // al +2% e una al -5% fanno -3.1%, e il margine del banco si moltiplica
+  // insieme a loro. Per questo le gambe si prendono in ordine di scarto dal
+  // prezzo equo e si dice sempre quante di quelle usate sono sotto zero: una
+  // multipla costruita su gambe negative e' una perdita attesa piu' grande di
+  // ciascuna delle sue parti.
+  if (process.argv.includes('--multiple')) {
+    const maxLegs = parseInt(arg('--multiple-max', '4'), 10);
+    const pool = [...events].sort((a, b) => b.pick.deviation - a.pick.deviation);
+
+    console.log('-'.repeat(78));
+    console.log('  MULTIPLE');
+    console.log('-'.repeat(78));
+
+    for (let k = 2; k <= Math.min(maxLegs, pool.length); k++) {
+      const legs = pool.slice(0, k);
+      const odds = legs.reduce((s, e) => s * e.pick.best, 1);
+      const mktP = legs.reduce((s, e) => s * e.pick.consensusProb, 1);
+      const modP = legs.reduce((s, e) => s * e.pick.modelProb, 1);
+      const margin = legs.reduce((s, e) => s * (1 + e.pick.overround), 1) - 1;
+      const evPrice = mktP * odds - 1;
+      const evModel = modP * odds - 1;
+      const negative = legs.filter(e => e.pick.deviation <= 0).length;
+
+      const b = odds - 1;
+      const kelly = b > 0 ? (b * mktP - (1 - mktP)) / b : 0;
+      const stake = capitale * Math.max(0, Math.min(0.05, kelly * 0.25));
+
+      console.log(`\n  ${k} GAMBE   quota ${odds.toFixed(2)}` +
+        (negative ? `   (${negative} ${negative === 1 ? 'gamba' : 'gambe'} sotto la quota equa)` : '   tutte sopra la quota equa'));
+      for (const e of legs) {
+        console.log(`    ${romeTime(e.kickoff)}  ${e.home} - ${e.away}`);
+        console.log(`            ${e.pick.label} @ ${e.pick.best.toFixed(2)}  (book ${e.pick.book})   mercato ${(e.pick.consensusProb * 100).toFixed(1)}%   ` +
+          `prezzo ${(e.pick.deviation >= 0 ? '+' : '') + (e.pick.deviation * 100).toFixed(1)}%`);
+      }
+      console.log(`    probabilita' ${(mktP * 100).toFixed(1)}% (serve ${(100 / odds).toFixed(1)}% per pareggiare)   margine del banco ${(margin * 100).toFixed(2)}%`);
+      console.log(`    valore atteso: prezzo ${(evPrice >= 0 ? '+' : '') + (evPrice * 100).toFixed(1)}%   modello ${(evModel >= 0 ? '+' : '') + (evModel * 100).toFixed(1)}%`);
+      console.log(`    puntata su ${capitale.toFixed(0)} EUR: ${stake > 0 ? stake.toFixed(2) + ' EUR   vincita ' + (stake * odds).toFixed(2) : '0 — valore atteso negativo, non si gioca'}`);
+    }
+    console.log('\n' + '-'.repeat(78) + '\n');
   }
 
   // Quanti eventi si possono davvero mettere in schedina.
