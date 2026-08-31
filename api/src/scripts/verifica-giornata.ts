@@ -21,15 +21,17 @@
  *   npx tsx src/scripts/verifica-giornata.ts
  *   npx tsx src/scripts/verifica-giornata.ts 2026-08-30 --giorni 30
  *   npx tsx src/scripts/verifica-giornata.ts --criterio sicure --prob-min 0.70
+ *   npx tsx src/scripts/verifica-giornata.ts 2026-08-30 --giorni 38 --export data/giornate.json
  */
 
 import dotenv from 'dotenv';
 dotenv.config();
 
+import * as fs from 'fs';
 import { PrismaClient, FixtureStatus } from '@prisma/client';
 import { getSportsmonksClient } from '../services/sportsmonks/client';
 import { fitDixonColes, predict, DCMatch } from '../services/prediction/dixon-coles';
-import { extractOdds, selectPick, consensusOf, Quote, Candidate, Consensus, Criterio } from '../services/prediction/live-odds';
+import { extractOdds, buildCandidates, selectPick, consensusOf, CandidateRow, Criterio } from '../services/prediction/live-odds';
 import { ALLOWED_LEAGUES } from '../config/supported-leagues';
 
 const prisma = new PrismaClient();
@@ -66,7 +68,7 @@ interface Bet {
   date: string;
   league: string; home: string; away: string;
   hg: number; ag: number;
-  candidate: Candidate; quote: Quote; consensus: Consensus;
+  pick: CandidateRow;
   won: boolean;
   ret: number;
 }
@@ -115,9 +117,23 @@ function roiStats(returns: number[], odds: number[]) {
   };
 }
 
+/**
+ * Una partita gia' giocata con TUTTE le sue giocate possibili.
+ *
+ * Si esporta per poter riprovare strategie diverse senza rifare il calcolo: il
+ * costo di questa verifica non sono le quote, e' ristimare il modello ogni
+ * giorno su quindicimila partite.
+ */
+export interface MatchExport {
+  date: string; kickoff: string; league: string;
+  home: string; away: string; hg: number; ag: number;
+  lambdaHome: number; lambdaAway: number;
+  candidates: CandidateRow[];
+}
+
 async function giornata(
   date: string, criterio: Criterio, filters: any, iterations: number,
-): Promise<{ bets: Bet[]; matches: Match1X2[]; seen: number }> {
+): Promise<{ bets: Bet[]; matches: Match1X2[]; seen: number; exports: MatchExport[] }> {
   const dayStart = new Date(`${date}T00:00:00Z`);
 
   const history = await prisma.fixture.findMany({
@@ -187,6 +203,7 @@ async function giornata(
 
   const bets: Bet[] = [];
   const comparisons: Match1X2[] = [];
+  const exports: MatchExport[] = [];
 
   for (const item of pending) {
     const rows = oddsByApiId.get(item.fx.id);
@@ -211,23 +228,34 @@ async function giornata(
       });
     }
 
-    const chosen = selectPick(quotes, p, criterio, filters);
-    if ('reject' in chosen) continue;
+    const candidates = buildCandidates(quotes, p, filters.minBooks);
+    const homeName = (item.fx.participants || []).find((x: any) => x.meta?.location === 'home')?.name || '?';
+    const awayName = (item.fx.participants || []).find((x: any) => x.meta?.location === 'away')?.name || '?';
+    if (candidates.length) {
+      exports.push({
+        date, kickoff: item.kickoff.toISOString(),
+        league: item.fx.league?.name || String(item.fx.league_id),
+        home: homeName, away: awayName, hg: item.hg, ag: item.ag,
+        lambdaHome: p.lambdaHome, lambdaAway: p.lambdaAway,
+        candidates,
+      });
+    }
 
-    const { candidate, quote, consensus } = chosen.pick;
-    const ok = won(candidate.key, item.hg, item.ag);
+    const chosen = selectPick(candidates, criterio, filters);
+    if (!chosen) continue;
+    const ok = won(chosen.key, item.hg, item.ag);
     bets.push({
       date,
       league: item.fx.league?.name || String(item.fx.league_id),
       home: (item.fx.participants || []).find((x: any) => x.meta?.location === 'home')?.name || '?',
       away: (item.fx.participants || []).find((x: any) => x.meta?.location === 'away')?.name || '?',
       hg: item.hg, ag: item.ag,
-      candidate, quote, consensus,
-      won: ok, ret: ok ? quote.best - 1 : -1,
+      pick: chosen,
+      won: ok, ret: ok ? chosen.best - 1 : -1,
     });
   }
 
-  return { bets, matches: comparisons, seen: pending.length };
+  return { bets, matches: comparisons, seen: pending.length, exports };
 }
 
 async function main() {
@@ -262,34 +290,42 @@ async function main() {
 
   const all: Bet[] = [];
   const comparisons: Match1X2[] = [];
+  const exports: MatchExport[] = [];
   let seen = 0;
 
   for (const d of dates) {
     const r = await giornata(d, criterio, filters, iterations);
     all.push(...r.bets);
     comparisons.push(...r.matches);
+    exports.push(...r.exports);
     seen += r.seen;
-    const s = roiStats(r.bets.map(b => b.ret), r.bets.map(b => b.quote.best));
+    const s = roiStats(r.bets.map(b => b.ret), r.bets.map(b => b.pick.best));
     const w = r.bets.filter(b => b.won).length;
     console.log(`  ${d}   ${String(r.seen).padStart(3)} partite   ${String(r.bets.length).padStart(3)} giocate   ` +
       `${String(w).padStart(3)} vinte   ${s ? ((s.roi * s.n / 100) >= 0 ? '+' : '') + (s.roi * s.n / 100).toFixed(2) : '0.00'} EUR`);
+  }
+
+  const exportPath = arg('--export', '');
+  if (exportPath) {
+    fs.writeFileSync(exportPath, JSON.stringify(exports, null, 0));
+    console.log(`\n  Esportate ${exports.length} partite con tutte le giocate possibili in ${exportPath}`);
   }
 
   if (!all.length) { console.log('\n  Nessuna giocata con questi filtri.\n'); await prisma.$disconnect(); return; }
 
   if (days === 1) {
     console.log('\n' + '-'.repeat(72));
-    for (const b of all.sort((x, y) => y.consensus.prob - x.consensus.prob)) {
+    for (const b of all.sort((x, y) => y.pick.consensusProb - x.pick.consensusProb)) {
       console.log(`  ${b.won ? 'VINTA ' : 'PERSA '}  ${b.home} — ${b.away}  ${b.hg}-${b.ag}   (${b.league})`);
-      console.log(`           ${b.candidate.label} @ ${b.quote.best.toFixed(2)}   mercato ${(b.consensus.prob * 100).toFixed(1)}%  modello ${(b.candidate.modelProb * 100).toFixed(1)}%   ${b.ret >= 0 ? '+' : ''}${b.ret.toFixed(2)} EUR`);
+      console.log(`           ${b.pick.label} @ ${b.pick.best.toFixed(2)}   mercato ${(b.pick.consensusProb * 100).toFixed(1)}%  modello ${(b.pick.modelProb * 100).toFixed(1)}%   ${b.ret >= 0 ? '+' : ''}${b.ret.toFixed(2)} EUR`);
     }
   }
 
-  const s = roiStats(all.map(b => b.ret), all.map(b => b.quote.best))!;
+  const s = roiStats(all.map(b => b.ret), all.map(b => b.pick.best))!;
   const wins = all.filter(b => b.won).length;
-  const expModel = all.reduce((a, b) => a + b.candidate.modelProb, 0);
-  const expMarket = all.reduce((a, b) => a + b.consensus.prob, 0);
-  const avgOdds = all.reduce((a, b) => a + b.quote.best, 0) / all.length;
+  const expModel = all.reduce((a, b) => a + b.pick.modelProb, 0);
+  const expMarket = all.reduce((a, b) => a + b.pick.consensusProb, 0);
+  const avgOdds = all.reduce((a, b) => a + b.pick.best, 0) / all.length;
 
   console.log('\n' + '-'.repeat(72));
   console.log(`  Partite viste: ${seen}   giocate: ${s.n} (${((s.n / seen) * 100).toFixed(1)}%)   quota media: ${avgOdds.toFixed(2)}`);
@@ -301,8 +337,8 @@ async function main() {
   console.log('\n  per fascia di quota');
   console.log('  ' + '-'.repeat(70));
   for (const [lo, hi, label] of [[1, 1.8, '1.00-1.80'], [1.8, 2.5, '1.80-2.50'], [2.5, 4, '2.50-4.00'], [4, 8, '4.00-8.00'], [8, 1e9, 'oltre 8']] as const) {
-    const sel = all.filter(b => b.quote.best >= lo && b.quote.best < hi);
-    const st = roiStats(sel.map(b => b.ret), sel.map(b => b.quote.best));
+    const sel = all.filter(b => b.pick.best >= lo && b.pick.best < hi);
+    const st = roiStats(sel.map(b => b.ret), sel.map(b => b.pick.best));
     if (!st) continue;
     console.log(`    ${label.padEnd(12)}${String(st.n).padStart(5)} giocate  ${String(sel.filter(b => b.won).length).padStart(4)} vinte  ` +
       `${((sel.filter(b => b.won).length / st.n) * 100).toFixed(1).padStart(5)}%   ROI ${((st.roi >= 0 ? '+' : '') + st.roi.toFixed(2)).padStart(7)}% ±${st.se.toFixed(2)}${st.significant ? ' *' : ''}`);
@@ -312,13 +348,13 @@ async function main() {
   console.log('  ' + '-'.repeat(70));
   const byMarket = new Map<string, Bet[]>();
   for (const b of all) {
-    const k = marketOf(b.candidate.label);
+    const k = marketOf(b.pick.label);
     byMarket.set(k, [...(byMarket.get(k) || []), b]);
   }
   for (const [k, v] of [...byMarket.entries()].sort((a, b) => b[1].length - a[1].length)) {
-    const st = roiStats(v.map(b => b.ret), v.map(b => b.quote.best))!;
+    const st = roiStats(v.map(b => b.ret), v.map(b => b.pick.best))!;
     console.log(`    ${k.padEnd(16)}${String(st.n).padStart(5)} giocate  ${String(v.filter(b => b.won).length).padStart(4)} vinte  ` +
-      `attese ${v.reduce((a, b) => a + b.consensus.prob, 0).toFixed(1).padStart(5)}   ROI ${((st.roi >= 0 ? '+' : '') + st.roi.toFixed(2)).padStart(7)}% ±${st.se.toFixed(2)}${st.significant ? ' *' : ''}`);
+      `attese ${v.reduce((a, b) => a + b.pick.consensusProb, 0).toFixed(1).padStart(5)}   ROI ${((st.roi >= 0 ? '+' : '') + st.roi.toFixed(2)).padStart(7)}% ±${st.se.toFixed(2)}${st.significant ? ' *' : ''}`);
   }
 
   // Il confronto che non dipende da quali giocate sono state scelte.

@@ -262,61 +262,97 @@ export interface PickFilters {
   minProb?: number;
 }
 
-export interface Pick {
-  candidate: Candidate;
-  quote: Quote;
-  consensus: Consensus;
+/**
+ * Una giocata possibile su una partita, con tutto quello che serve per
+ * sceglierla e per rivederla dopo.
+ *
+ * E' una struttura piatta e serializzabile apposta: le giornate gia' giocate
+ * si esportano in JSON una volta sola — il costo vero e' ristimare il modello
+ * ogni giorno — e poi si possono riprovare strategie diverse sugli stessi dati
+ * senza rifare il calcolo.
+ */
+export interface CandidateRow {
+  key: string;
+  label: string;
+  family: Candidate['family'];
+  modelProb: number;
+  /** miglior prezzo e chi lo offre */
+  best: number;
+  book: string;
+  /** media dei bookmaker: il consenso, non un prezzo ottenibile */
+  avg: number;
+  books: number;
+  /** probabilita' de-viggata degli ALTRI bookmaker */
+  consensusProb: number;
+  consensusBooks: number;
+  /** margine del banco sulla famiglia di mercato */
+  overround: number;
+  /** quanto il miglior prezzo paga sopra la quota equa */
+  deviation: number;
 }
 
-/** Perche' una partita non e' finita in schedina. */
-export type Reject = 'quote' | 'consenso' | 'filtri';
-
-/**
- * La giocata di una partita, o il motivo per cui non ce n'e' una.
- *
- * Sta qui, e non nei singoli script, perche' schedina, predict-today e
- * verifica-giornata devono scegliere nello stesso identico modo. Il peccato
- * originale di questo repository e' stato misurare un predittore e mandarne in
- * produzione un altro: due copie di questa funzione lo ripeterebbero sulla
- * selezione invece che sul modello.
- */
-export function selectPick(
+/** Tutte le giocate quotate di una partita, con il consenso di mercato. */
+export function buildCandidates(
   quotes: Record<string, Quote>,
   probs: Parameters<typeof candidatesFrom>[0],
-  criterio: Criterio,
-  f: PickFilters = {},
-): { pick: Pick } | { reject: Reject } {
-  const minBooks = f.minBooks ?? 5;
+  minBooks = 5,
+): CandidateRow[] {
+  const out: CandidateRow[] = [];
+  for (const c of candidatesFrom(probs)) {
+    const q = quotes[c.key];
+    if (!q || q.books < minBooks) continue;
+    // Il consenso esclude il bookmaker che offre il prezzo migliore: e'
+    // proprio quello che stiamo giudicando, non puo' fare parte della giuria.
+    const k = consensusOf(quotes, c.key, q.book);
+    if (!k) continue;
+    out.push({
+      key: c.key, label: c.label, family: c.family, modelProb: c.modelProb,
+      best: q.best, book: q.book, avg: q.avg, books: q.books,
+      consensusProb: k.prob, consensusBooks: k.books,
+      overround: k.overround, deviation: k.deviation,
+    });
+  }
+  return out;
+}
+
+/** Il valore su cui si ordina, secondo il criterio scelto. */
+export function score(r: CandidateRow, criterio: Criterio): number {
+  if (criterio === 'sicure') return r.consensusProb;
+  if (criterio === 'prob') return r.modelProb;
+  if (criterio === 'ev') return r.modelProb * r.best - 1;
+  return r.deviation;
+}
+
+/** Le giocate che superano i filtri. */
+export function filterCandidates(rows: CandidateRow[], f: PickFilters = {}): CandidateRow[] {
   const minOdds = f.minOdds ?? 1.4;
   const maxOdds = f.maxOdds ?? 8;
   const minDeviation = f.minDeviation ?? -Infinity;
   const maxDeviation = f.maxDeviation ?? 0.15;
   const minProb = f.minProb ?? 0;
+  const minBooks = f.minBooks ?? 0;
+  return rows.filter(r =>
+    r.books >= minBooks &&
+    r.best >= minOdds && r.best <= maxOdds &&
+    r.deviation >= minDeviation && r.deviation <= maxDeviation &&
+    r.consensusProb >= minProb);
+}
 
-  const quoted = candidatesFrom(probs)
-    .map(c => ({ c, q: quotes[c.key] }))
-    .filter((x): x is { c: Candidate; q: Quote } => !!x.q && x.q.books >= minBooks);
-  if (!quoted.length) return { reject: 'quote' };
-
-  // Il consenso esclude il bookmaker che offre il prezzo migliore: e' proprio
-  // quello che stiamo giudicando, non puo' fare parte della giuria.
-  const withConsensus = quoted
-    .map(x => ({ ...x, k: consensusOf(quotes, x.c.key, x.q.book) }))
-    .filter((x): x is { c: Candidate; q: Quote; k: Consensus } => x.k !== null);
-  if (!withConsensus.length) return { reject: 'consenso' };
-
-  const playable = withConsensus.filter(x =>
-    x.q.best >= minOdds && x.q.best <= maxOdds &&
-    x.k.deviation >= minDeviation && x.k.deviation <= maxDeviation &&
-    x.k.prob >= minProb);
-  if (!playable.length) return { reject: 'filtri' };
-
-  const score = (x: { c: Candidate; q: Quote; k: Consensus }): number => {
-    if (criterio === 'sicure') return x.k.prob;
-    if (criterio === 'prob') return x.c.modelProb;
-    if (criterio === 'ev') return x.c.modelProb * x.q.best - 1;
-    return x.k.deviation;
-  };
-  const best = playable.reduce((x, y) => (score(y) > score(x) ? y : x));
-  return { pick: { candidate: best.c, quote: best.q, consensus: best.k } };
+/**
+ * La giocata di una partita, o null se nessuna supera i filtri.
+ *
+ * Sta qui, e non nei singoli script, perche' schedina, verifica-giornata e la
+ * simulazione storica devono scegliere nello stesso identico modo. Il peccato
+ * originale di questo repository e' stato misurare un predittore e mandarne in
+ * produzione un altro: due copie di questa funzione lo ripeterebbero sulla
+ * selezione invece che sul modello.
+ */
+export function selectPick(
+  rows: CandidateRow[],
+  criterio: Criterio,
+  f: PickFilters = {},
+): CandidateRow | null {
+  const playable = filterCandidates(rows, f);
+  if (!playable.length) return null;
+  return playable.reduce((x, y) => (score(y, criterio) > score(x, criterio) ? y : x));
 }

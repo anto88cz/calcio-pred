@@ -44,7 +44,7 @@ dotenv.config();
 import { PrismaClient, FixtureStatus } from '@prisma/client';
 import { getSportsmonksClient } from '../services/sportsmonks/client';
 import { fitDixonColes, predict, DCMatch, DixonColesParams } from '../services/prediction/dixon-coles';
-import { extractOdds, selectPick, Quote, Candidate, Consensus, Criterio } from '../services/prediction/live-odds';
+import { extractOdds, buildCandidates, selectPick, score, Quote, CandidateRow, Criterio } from '../services/prediction/live-odds';
 import { ALLOWED_LEAGUES } from '../config/supported-leagues';
 
 const prisma = new PrismaClient();
@@ -60,14 +60,12 @@ interface Event {
   league: string;
   home: string;
   away: string;
-  pick: Candidate;
-  quote: Quote;
   /**
-   * Il consenso del mercato su quell'esito, de-viggato ed escluso il book su
-   * cui si punta. E' la stima di probabilita' migliore che abbiamo: sulla
-   * stagione 2025-26 il mercato fa log-loss 0.977 contro lo 0.998 del modello.
+   * La giocata scelta, col consenso di mercato de-viggato accanto alla
+   * probabilita' del modello. Il consenso e' la stima migliore che abbiamo:
+   * il mercato batte il modello in log-loss ogni volta che lo misuriamo.
    */
-  consensus: Consensus;
+  pick: CandidateRow;
   /** valore atteso secondo il MODELLO */
   ev: number;
   lambdaHome: number;
@@ -176,23 +174,18 @@ async function main() {
       quotes = extractOdds(oddsResp?.data?.odds || []);
     } catch { /* senza quote la partita non e' giocabile */ }
 
-    const chosen = selectPick(quotes, p, criterio, {
-      minBooks, minOdds, maxOdds, minDeviation, maxDeviation, minProb,
+    const rows = buildCandidates(quotes, p, minBooks);
+    if (!rows.length) { noConsensus++; continue; }
+    const best = selectPick(rows, criterio, {
+      minOdds, maxOdds, minDeviation, maxDeviation, minProb,
     });
-    if ('reject' in chosen) {
-      if (chosen.reject === 'quote') noOdds++;
-      else if (chosen.reject === 'consenso') noConsensus++;
-      else outlier++;
-      continue;
-    }
-    const best = chosen.pick;
+    if (!best) { outlier++; continue; }
 
     events.push({
       kickoff, league: fx.league?.name || String(fx.league_id),
       home: home.name, away: away.name,
-      pick: best.candidate, quote: best.quote,
-      consensus: best.consensus,
-      ev: best.candidate.modelProb * best.quote.best - 1,
+      pick: best,
+      ev: best.modelProb * best.best - 1,
       lambdaHome: p.lambdaHome, lambdaAway: p.lambdaAway,
     });
   }
@@ -211,12 +204,7 @@ async function main() {
   }
 
   // Ordina per il criterio scelto e componi la combinazione.
-  const ordina = (e: Event): number =>
-    criterio === 'sicure' ? e.consensus.prob
-      : criterio === 'prob' ? e.pick.modelProb
-      : criterio === 'ev' ? e.ev
-      : e.consensus.deviation;
-  events.sort((x, y) => ordina(y) - ordina(x));
+  events.sort((x, y) => score(y.pick, criterio) - score(x.pick, criterio));
 
   // Quanti eventi si possono davvero mettere in schedina.
   const wanted = Math.max(1, Math.min(maxEvents, events.length));
@@ -234,7 +222,7 @@ async function main() {
     let bestDist = Infinity;
     const walk = (start: number, current: Event[]) => {
       if (current.length === wanted) {
-        const odds = current.reduce((s, e) => s * e.quote.best, 1);
+        const odds = current.reduce((s, e) => s * e.pick.best, 1);
         const dist = Math.abs(odds - targetOdds);
         if (dist < bestDist) { bestDist = dist; bestCombo = [...current]; }
         return;
@@ -243,7 +231,7 @@ async function main() {
     };
     walk(0, []);
     slip = bestCombo ?? events.slice(0, wanted);
-    const reached = slip.reduce((s, e) => s * e.quote.best, 1);
+    const reached = slip.reduce((s, e) => s * e.pick.best, 1);
     // La quota minima di una combinazione a N eventi e' il prodotto delle N
     // quote piu' basse: sotto quella nessun obiettivo e' raggiungibile, e
     // tacerlo farebbe passare per scelta quello che e' un limite.
@@ -256,17 +244,17 @@ async function main() {
     console.log(`  Richiesti ${maxEvents} eventi, disponibili ${events.length}.\n`);
   }
 
-  const totalOdds = slip.reduce((s, e) => s * e.quote.best, 1);
+  const totalOdds = slip.reduce((s, e) => s * e.pick.best, 1);
   const modelProb = slip.reduce((s, e) => s * e.pick.modelProb, 1);
-  const consensusProb = slip.reduce((s, e) => s * e.consensus.prob, 1);
+  const consensusProb = slip.reduce((s, e) => s * e.pick.consensusProb, 1);
 
   // Il margine del banco si moltiplica evento per evento: due mercati al 5%
   // non fanno il 5%, fanno il 10.25%. E' calcolato sulla famiglia completa di
   // ciascun mercato (1/X/2, le tre doppie, Goal/NoGoal, Over/Under), che e'
   // l'unico modo di misurarlo: da un esito solo non si ricava.
-  const overround = slip.reduce((s, e) => s * (1 + e.consensus.overround), 1) - 1;
+  const overround = slip.reduce((s, e) => s * (1 + e.pick.overround), 1) - 1;
   // Quanto rende la sola scelta del bookmaker, a parita' di giocata.
-  const shopping = slip.reduce((s, e) => s * (e.quote.best / e.quote.avg), 1) - 1;
+  const shopping = slip.reduce((s, e) => s * (e.pick.best / e.pick.avg), 1) - 1;
 
   const evModel = modelProb * totalOdds - 1;
   const evPrice = consensusProb * totalOdds - 1;
@@ -285,14 +273,14 @@ async function main() {
   console.log('─'.repeat(64) + '\n');
 
   slip.forEach((e, i) => {
-    const dev = e.consensus.deviation;
+    const dev = e.pick.deviation;
     console.log(`  ${i + 1}. ${e.home} — ${e.away}`);
     console.log(`     ${e.league}   ore ${romeTime(e.kickoff)}`);
-    console.log(`     GIOCATA:  ${e.pick.label}  @ ${e.quote.best.toFixed(2)}  (book ${e.quote.book}, ${e.quote.books} quotano, media ${e.quote.avg.toFixed(2)})`);
-    console.log(`     consenso de-viggato ${(e.consensus.prob * 100).toFixed(1)}% su ${e.consensus.books} book   →  quota equa ${(1 / e.consensus.prob).toFixed(2)}`);
+    console.log(`     GIOCATA:  ${e.pick.label}  @ ${e.pick.best.toFixed(2)}  (book ${e.pick.book}, ${e.pick.books} quotano, media ${e.pick.avg.toFixed(2)})`);
+    console.log(`     consenso de-viggato ${(e.pick.consensusProb * 100).toFixed(1)}% su ${e.pick.consensusBooks} book   →  quota equa ${(1 / e.pick.consensusProb).toFixed(2)}`);
     console.log(`     modello ${(e.pick.modelProb * 100).toFixed(1)}%   gol attesi ${e.lambdaHome.toFixed(2)} - ${e.lambdaAway.toFixed(2)}`);
     const verso = dev >= 0 ? 'sopra' : 'sotto';
-    console.log(`     il prezzo paga il ${Math.abs(dev * 100).toFixed(1)}% ${verso} la quota equa   ·   margine del banco su questo mercato ${(e.consensus.overround * 100).toFixed(2)}%`);
+    console.log(`     il prezzo paga il ${Math.abs(dev * 100).toFixed(1)}% ${verso} la quota equa   ·   margine del banco su questo mercato ${(e.pick.overround * 100).toFixed(2)}%`);
     console.log(`     EV secondo il modello ${(e.ev >= 0 ? '+' : '') + (e.ev * 100).toFixed(1)}%   ·   secondo il prezzo ${(dev >= 0 ? '+' : '') + (dev * 100).toFixed(1)}%\n`);
   });
 
