@@ -37,7 +37,7 @@
  *   npx tsx src/scripts/schedina.ts --scarto-max 0.10 --quota-max 5
  *   npx tsx src/scripts/schedina.ts --quota-min 1.6
  *   npx tsx src/scripts/schedina.ts --criterio sicure --prob-min 0.65 --elenco
- *   npx tsx src/scripts/schedina.ts --multiple --multiple-max 4
+ *   npx tsx src/scripts/schedina.ts --proposte --quante 3
  *   npx tsx src/scripts/schedina.ts --spiega "Aston Villa"
  */
 
@@ -88,32 +88,32 @@ async function main() {
 
   const maxEvents = parseInt(arg('--eventi', '1'), 10);
   const targetOdds = parseFloat(arg('--quota', '0')) || null;
-  const criterioArg = arg('--criterio', 'prezzo');
+  // Con --proposte valgono i default del tipster, che non sono quelli generici.
+  //
+  // Sono presi da due misure indipendenti, non scelti a occhio. Su 418 giocate
+  // della stagione, scegliendo fra le sole giocate col prezzo sopra l'equo:
+  // ordinare per probabilita' rende +9.75% (z 2.07), per crescita +9.02%, per
+  // scarto +8.73%. E su 3.501 partite, il favorito del mercato al miglior
+  // prezzo rende +6.38% +/-2.80 sopra il 70% di consenso, mentre le stesse
+  // giocate alla quota media rendono +2.52%: e' il line shopping a pagare.
+  //
+  // La quota resta sotto 3.00 perche' il margine del banco e' caricato sugli
+  // outsider: oltre l'8 le giocate rendono -17.86% +/-7.53, l'unica riga
+  // storicamente significativa, ed e' negativa.
+  const modoTipster = process.argv.includes('--proposte');
+
+  const criterioArg = arg('--criterio', modoTipster ? 'sicure' : 'prezzo');
   const criterio: Criterio =
     criterioArg === 'ev' ? 'ev' : criterioArg === 'prob' ? 'prob'
       : criterioArg === 'sicure' ? 'sicure' : 'prezzo';
   const capitale = parseFloat(arg('--capitale', '100'));
   const minBooks = parseInt(arg('--min-book', '5'), 10);
-  // Sopra questo scarto dal consenso il prezzo non e' un'occasione: e' un
-  // errore del feed o una quota su un esito che il mercato prezza male in modo
-  // sistematico. Misurato: gli scarti oltre il 10% rendono -7.35% +/-9.43.
   const maxDeviation = parseFloat(arg('--scarto-max', '0.15'));
-  // Il favourite-longshot bias vive sugli outsider: le giocate a quota oltre 8
-  // con scarto >= 4% rendono -17.86% +/-7.53, l'unica fascia significativa.
-  const maxOdds = parseFloat(arg('--quota-max', '8'));
-  // Sotto questa quota la giocata non si mostra nemmeno. A 1.03 una vincita
-  // aggiunge il 3% e una perdita toglie tutto lo stake: servono 97 vincenti su
-  // 100 solo per pareggiare, e il margine del banco su quelle quote e' quasi
-  // tutto il prezzo. E' il motivo per cui il criterio a massima probabilita'
-  // proponeva sempre una doppia chance ingiocabile.
-  const minOdds = parseFloat(arg('--quota-min', '1.4'));
-  // Pavimento sullo scarto: sotto, il prezzo e' quello equo e non c'e' motivo
-  // di preferirlo. Default 0, cioe' nessun filtro: alzarlo restringe la
-  // selezione, non aggiunge un vantaggio. Sulle 14.313 giocate storiche
-  // nessuna soglia di scarto ha ROI positivo e significativo.
-  const minDeviation = parseFloat(arg('--scarto-min', '0')) || -Infinity;
-  // Probabilita' minima secondo il mercato. E' il filtro del criterio
-  // 'sicure': poche partite, quelle che il mercato ritiene piu' probabili.
+  const maxOdds = parseFloat(arg('--quota-max', modoTipster ? '3.0' : '8'));
+  const minOdds = parseFloat(arg('--quota-min', modoTipster ? '1.15' : '1.4'));
+  // Il pavimento sullo scarto e' la regola che rende il resto sensato: non si
+  // gioca mai un prezzo sotto la quota equa, qualunque cosa dica il modello.
+  const minDeviation = parseFloat(arg('--scarto-min', modoTipster ? '0.001' : '0')) || -Infinity;
   const minProb = parseFloat(arg('--prob-min', '0'));
 
   console.log('═'.repeat(64));
@@ -265,49 +265,93 @@ async function main() {
     console.log(`  ${events.filter(e => e.pick.deviation > 0).length} su ${events.length} hanno un prezzo sopra la quota equa.\n`);
   }
 
-  // Menu di multiple, da 2 a N gambe.
+  // Le proposte: tutte le singole e tutte le COPPIE, ordinate per crescita
+  // attesa della cassa.
   //
-  // L'unica regola che conta: il valore atteso di una multipla e' il PRODOTTO
-  // dei valori attesi delle gambe. Due gambe al +2% fanno +4.04%; ma una gamba
-  // al +2% e una al -5% fanno -3.1%, e il margine del banco si moltiplica
-  // insieme a loro. Per questo le gambe si prendono in ordine di scarto dal
-  // prezzo equo e si dice sempre quante di quelle usate sono sotto zero: una
-  // multipla costruita su gambe negative e' una perdita attesa piu' grande di
-  // ciascuna delle sue parti.
-  if (process.argv.includes('--multiple')) {
-    const maxLegs = parseInt(arg('--multiple-max', '4'), 10);
-    const pool = [...events].sort((a, b) => b.pick.deviation - a.pick.deviation);
+  // Non per scarto dal prezzo equo, che era l'ordinamento precedente e aveva un
+  // difetto sistematico: fra venti bookmaker il disaccordo e' massimo sugli
+  // esiti improbabili, quindi lo scarto piu' grande sta quasi sempre sulla
+  // gamba con meno probabilita' di passare, e ordinare per scarto la mette in
+  // cima. E' il favourite-longshot bias visto dal lato del selettore.
+  //
+  // La crescita attesa con puntata frazionale f su una giocata a probabilita' p
+  // e quota o vale p*ln(1 + f(o-1)) + (1-p)*ln(1-f). Pesa vantaggio e
+  // probabilita' insieme: una gamba al +3% che passa una volta su tre vale meno
+  // di una al +2% che passa tre volte su quattro.
+  //
+  // Le coppie si valutano TUTTE, non si prendono le due gambe migliori: la
+  // coppia migliore quasi mai e' fatta dalle prime due della classifica.
+  if (process.argv.includes('--proposte')) {
+    const quante = parseInt(arg('--quante', '3'), 10);
+    const maxGambe = Math.max(1, Math.min(2, parseInt(arg('--max-gambe', '2'), 10)));
 
-    console.log('-'.repeat(78));
-    console.log('  MULTIPLE');
-    console.log('-'.repeat(78));
-
-    for (let k = 2; k <= Math.min(maxLegs, pool.length); k++) {
-      const legs = pool.slice(0, k);
-      const odds = legs.reduce((s, e) => s * e.pick.best, 1);
-      const mktP = legs.reduce((s, e) => s * e.pick.consensusProb, 1);
-      const modP = legs.reduce((s, e) => s * e.pick.modelProb, 1);
-      const margin = legs.reduce((s, e) => s * (1 + e.pick.overround), 1) - 1;
-      const evPrice = mktP * odds - 1;
-      const evModel = modP * odds - 1;
-      const negative = legs.filter(e => e.pick.deviation <= 0).length;
-
-      const b = odds - 1;
-      const kelly = b > 0 ? (b * mktP - (1 - mktP)) / b : 0;
-      const stake = capitale * Math.max(0, Math.min(0.05, kelly * 0.25));
-
-      console.log(`\n  ${k} GAMBE   quota ${odds.toFixed(2)}` +
-        (negative ? `   (${negative} ${negative === 1 ? 'gamba' : 'gambe'} sotto la quota equa)` : '   tutte sopra la quota equa'));
-      for (const e of legs) {
-        console.log(`    ${romeTime(e.kickoff)}  ${e.home} - ${e.away}`);
-        console.log(`            ${e.pick.label} @ ${e.pick.best.toFixed(2)}  (book ${e.pick.book})   mercato ${(e.pick.consensusProb * 100).toFixed(1)}%   ` +
-          `prezzo ${(e.pick.deviation >= 0 ? '+' : '') + (e.pick.deviation * 100).toFixed(1)}%`);
-      }
-      console.log(`    probabilita' ${(mktP * 100).toFixed(1)}% (serve ${(100 / odds).toFixed(1)}% per pareggiare)   margine del banco ${(margin * 100).toFixed(2)}%`);
-      console.log(`    valore atteso: prezzo ${(evPrice >= 0 ? '+' : '') + (evPrice * 100).toFixed(1)}%   modello ${(evModel >= 0 ? '+' : '') + (evModel * 100).toFixed(1)}%`);
-      console.log(`    puntata su ${capitale.toFixed(0)} EUR: ${stake > 0 ? stake.toFixed(2) + ' EUR   vincita ' + (stake * odds).toFixed(2) : '0 — valore atteso negativo, non si gioca'}`);
+    interface Proposta {
+      legs: Event[]; odds: number; prob: number; modelProb: number;
+      margin: number; ev: number; frazione: number; crescita: number;
     }
-    console.log('\n' + '-'.repeat(78) + '\n');
+
+    const valuta = (legs: Event[]): Proposta => {
+      const odds = legs.reduce((s, e) => s * e.pick.best, 1);
+      const prob = legs.reduce((s, e) => s * e.pick.consensusProb, 1);
+      const modelProb = legs.reduce((s, e) => s * e.pick.modelProb, 1);
+      const margin = legs.reduce((s, e) => s * (1 + e.pick.overround), 1) - 1;
+      const b = odds - 1;
+      const kelly = b > 0 ? (b * prob - (1 - prob)) / b : 0;
+      const frazione = Math.max(0, Math.min(0.05, kelly * 0.25));
+      const crescita = frazione > 0
+        ? prob * Math.log(1 + frazione * b) + (1 - prob) * Math.log(1 - frazione)
+        : 0;
+      return { legs, odds, prob, modelProb, margin, ev: prob * odds - 1, frazione, crescita };
+    };
+
+    const proposte: Proposta[] = events.map(e => valuta([e]));
+    if (maxGambe >= 2) {
+      for (let i = 0; i < events.length; i++) {
+        for (let j = i + 1; j < events.length; j++) proposte.push(valuta([events[i], events[j]]));
+      }
+    }
+    proposte.sort((x, y) => y.crescita - x.crescita);
+
+    const buone = proposte.filter(p => p.crescita > 0);
+    console.log('='.repeat(78));
+    console.log(`  PROPOSTE — ${buone.length} giocate su ${proposte.length} fanno crescere la cassa`);
+    console.log('='.repeat(78));
+
+    if (!buone.length) {
+      console.log('\n  Nessuna. Oggi non si gioca: ogni combinazione disponibile ha valore');
+      console.log('  atteso negativo o cosi\' piccolo da non reggere il rischio.\n');
+    } else {
+      for (const [n, p] of buone.slice(0, quante).entries()) {
+        const stake = capitale * p.frazione;
+        console.log(`\n  ${n + 1}.  ${p.legs.length === 1 ? 'SINGOLA' : 'DOPPIA'}   quota ${p.odds.toFixed(2)}   ` +
+          `probabilita' ${(p.prob * 100).toFixed(1)}%   valore atteso ${(p.ev >= 0 ? '+' : '') + (p.ev * 100).toFixed(1)}%`);
+        for (const e of p.legs) {
+          console.log(`      ${romeTime(e.kickoff)}  ${e.home} - ${e.away}  (${e.league})`);
+          console.log(`              ${e.pick.label} @ ${e.pick.best.toFixed(2)}  book ${e.pick.book}   ` +
+            `mercato ${(e.pick.consensusProb * 100).toFixed(1)}%   modello ${(e.pick.modelProb * 100).toFixed(1)}%   ` +
+            `prezzo ${(e.pick.deviation >= 0 ? '+' : '') + (e.pick.deviation * 100).toFixed(1)}%`);
+        }
+        console.log(`      puntata ${stake.toFixed(2)} EUR su ${capitale.toFixed(0)}   ` +
+          `vincita ${(stake * p.odds).toFixed(2)}   margine del banco ${(p.margin * 100).toFixed(2)}%`);
+        console.log(`      crescita attesa della cassa: ${(p.crescita * 100).toFixed(4)}% per giocata`);
+      }
+
+      // Il confronto che il tipster non fa mai e che decide il conto: la stessa
+      // coppia giocata come due singole vince molto piu' spesso, e il margine
+      // del banco si paga una volta invece che due.
+      const migliore = buone[0];
+      if (migliore.legs.length === 2) {
+        const singole = migliore.legs.map(e => valuta([e]));
+        const crescitaSingole = singole.reduce((s, p) => s + p.crescita, 0);
+        console.log('\n  ' + '-'.repeat(74));
+        console.log(`  Le stesse due partite giocate come SINGOLE:`);
+        console.log(`    puntata ${singole.reduce((s, p) => s + capitale * p.frazione, 0).toFixed(2)} EUR in tutto   ` +
+          `crescita ${(crescitaSingole * 100).toFixed(4)}% contro ${(migliore.crescita * 100).toFixed(4)}% della doppia`);
+        console.log(`    ${crescitaSingole > migliore.crescita ? 'Meglio le singole.' : 'Meglio la doppia.'}`);
+      }
+      console.log('');
+    }
+    console.log('='.repeat(78) + '\n');
   }
 
   // Quanti eventi si possono davvero mettere in schedina.
